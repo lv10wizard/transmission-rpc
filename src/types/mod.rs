@@ -16,7 +16,7 @@ pub use self::request::{
 };
 
 pub use self::response::{
-    BlocklistUpdate, ErrorType, FreeSpace, Nothing, PortTest, RpcResponse, RpcResponseArgument,
-    SessionClose, SessionGet, SessionSet, SessionStats, Torrent, TorrentAddedOrDuplicate,
-    TorrentRenamePath, TorrentStatus, Torrents,
+    BlocklistUpdate, ErrorType, FreeSpace, IdleMode, Nothing, PortTest, RatioMode, RpcResponse,
+    RpcResponseArgument, SessionClose, SessionGet, SessionSet, SessionStats, Torrent,
+    TorrentAddedOrDuplicate, TorrentRenamePath, TorrentStatus, Torrents, TrackerState,
 };

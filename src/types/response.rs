@@ -1,6 +1,12 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    net::IpAddr,
+};
 
-use chrono::serde::ts_seconds::deserialize as from_ts;
+use chrono::{
+    serde::ts_seconds::deserialize as from_ts,
+    serde::ts_seconds_option::deserialize as from_ts_option,
+};
 use chrono::{DateTime, Utc};
 use serde::de::Deserializer;
 use serde::Deserialize;
@@ -103,34 +109,75 @@ pub enum ErrorType {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Torrent {
-    pub activity_date: Option<i64>,
-    pub added_date: Option<i64>,
+    #[serde(deserialize_with = "from_ts_option")]
+    pub activity_date: Option<DateTime<Utc>>,
+    #[serde(deserialize_with = "from_ts_option")]
+    pub added_date: Option<DateTime<Utc>>,
+    pub availability: Option<Vec<u16>>,
     pub bandwidth_priority: Option<Priority>,
-    pub done_date: Option<i64>,
+    pub comment: Option<String>,
+    pub corrupt_ever: Option<i64>,
+    pub creator: Option<String>,
+    #[serde(deserialize_with = "from_ts_option")]
+    pub date_created: Option<DateTime<Utc>>,
+    pub desired_available: Option<u64>,
+    #[serde(deserialize_with = "from_ts_option")]
+    pub done_date: Option<DateTime<Utc>>,
     pub download_dir: Option<String>,
-    pub edit_date: Option<i64>,
+    pub downloaded_ever: Option<i64>,
+    pub downloaded_limit: Option<i64>,
+    pub downloaded_limited: Option<bool>,
+    #[serde(deserialize_with = "from_ts_option")]
+    pub edit_date: Option<DateTime<Utc>>,
     pub error: Option<ErrorType>,
     pub error_string: Option<String>,
     pub eta: Option<i64>,
+    pub eta_idle: Option<u64>,
+    pub group: Option<String>,
+    pub hash_string: Option<String>,
+    pub have_unchecked: Option<i64>,
+    pub have_valid: Option<i64>,
+    pub honors_session_limits: Option<bool>,
     pub id: Option<i64>,
     pub is_finished: Option<bool>,
     pub is_private: Option<bool>,
     pub is_stalled: Option<bool>,
     pub labels: Option<Vec<String>>,
     pub left_until_done: Option<i64>,
+    pub magnet_link: Option<String>,
+    #[serde(deserialize_with = "from_ts_option")]
+    pub manual_announce_time: Option<DateTime<Utc>>,
+    pub max_connected_peers: Option<u16>,
     pub metadata_percent_complete: Option<f32>,
     pub name: Option<String>,
-    pub hash_string: Option<String>,
+    #[serde(rename = "peer-limit")]
+    pub peer_limit: Option<u16>,
+    pub peers: Option<Vec<Peer>>,
     pub peers_connected: Option<i64>,
+    pub peers_from: Option<PeersFrom>,
     pub peers_getting_from_us: Option<i64>,
     pub peers_sending_to_us: Option<i64>,
+    pub percent_complete: Option<f32>,
     pub percent_done: Option<f32>,
+    //pub pieces: Option<Pieces>,
+    pub piece_count: Option<u64>,
+    pub piece_size: Option<u64>,
+    #[serde(rename = "primary-mime-type")]
+    pub primary_mime_type: Option<String>,
+    pub queue_position: Option<usize>,
     pub rate_download: Option<i64>,
     pub rate_upload: Option<i64>,
     pub recheck_progress: Option<f32>,
+    pub seconds_downloading: Option<i64>,
     pub seconds_seeding: Option<i64>,
+    pub seed_idle_limit: Option<u64>,
+    pub seed_idle_mode: Option<IdleMode>,
     pub seed_ratio_limit: Option<f32>,
+    pub seed_ratio_mode: Option<RatioMode>,
+    pub sequential_download: Option<bool>,
     pub size_when_done: Option<i64>,
+    #[serde(deserialize_with = "from_ts_option")]
+    pub start_date: Option<DateTime<Utc>>,
     pub status: Option<TorrentStatus>,
     pub torrent_file: Option<String>,
     pub total_size: Option<i64>,
@@ -139,9 +186,13 @@ pub struct Torrent {
     pub tracker_stats: Option<Vec<TrackerStat>>,
     pub upload_ratio: Option<f32>,
     pub uploaded_ever: Option<i64>,
+    pub uploaded_limit: Option<u64>,
+    pub uploaded_limited: Option<bool>,
     pub files: Option<Vec<File>>,
     /// for each file in files, whether or not they will be downloaded (0 or 1)
     pub wanted: Option<Vec<i8>>,
+    pub webseeds: Option<Vec<String>>,
+    pub webseeds_sending_to_us: Option<u16>,
     pub priorities: Option<Vec<Priority>>,
     pub file_stats: Option<Vec<FileStat>>,
     #[serde(rename = "file-count")]
@@ -194,6 +245,66 @@ pub struct FileStat {
     pub bytes_completed: i64,
     pub wanted: bool,
     pub priority: Priority,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Peer {
+    pub address: IpAddr,
+    pub client_name: String,
+    pub client_is_choked: bool,
+    pub client_is_interested: bool,
+    pub flag_str: String,
+    pub is_downloading_from: bool,
+    pub is_encrypted: bool,
+    pub is_incoming: bool,
+    pub is_uploading_to: bool,
+    pub is_utp: bool,
+    pub peer_is_choked: bool,
+    pub peer_is_interested: bool,
+    pub port: u16,
+    pub progress: f32,
+    pub rate_to_client: u64, // (B/s)
+    pub rate_to_peer: u64, // (B/s)
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PeersFrom {
+    pub from_cache: u16,
+    pub from_dht: u16,
+    pub from_incoming: u16,
+    pub from_lpd: u16,
+    pub from_ltep: u16,
+    pub from_pex: u16,
+    pub from_tracker: u16,
+}
+
+// #[derive(Clone, Default)]
+// pub struct Pieces(pub Vec<u8>);
+
+// impl<'de> Deserialize for Pieces<'de> {
+//     // TODO: need to b64decode
+// }
+
+// impl Debug for Pieces {
+//     // TODO
+// }
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum IdleMode {
+    Global = 0,
+    Single = 1,
+    Unlimited = 2,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum RatioMode {
+    Global = 0,
+    Single = 1,
+    Unlimited = 2,
 }
 
 #[derive(Deserialize, Debug, Clone)]
