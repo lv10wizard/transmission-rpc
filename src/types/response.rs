@@ -109,25 +109,25 @@ pub enum ErrorType {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Torrent {
-    #[serde(deserialize_with = "from_ts_option")]
+    #[serde(deserialize_with = "from_ts_option", default)]
     pub activity_date: Option<DateTime<Utc>>,
-    #[serde(deserialize_with = "from_ts_option")]
+    #[serde(deserialize_with = "from_ts_option", default)]
     pub added_date: Option<DateTime<Utc>>,
     pub availability: Option<Vec<u16>>,
     pub bandwidth_priority: Option<Priority>,
     pub comment: Option<String>,
-    pub corrupt_ever: Option<i64>,
+    pub corrupt_ever: Option<u64>,
     pub creator: Option<String>,
-    #[serde(deserialize_with = "from_ts_option")]
+    #[serde(deserialize_with = "from_ts_option", default)]
     pub date_created: Option<DateTime<Utc>>,
     pub desired_available: Option<u64>,
-    #[serde(deserialize_with = "from_ts_option")]
+    #[serde(deserialize_with = "from_ts_option", default)]
     pub done_date: Option<DateTime<Utc>>,
     pub download_dir: Option<String>,
     pub downloaded_ever: Option<i64>,
     pub downloaded_limit: Option<i64>,
     pub downloaded_limited: Option<bool>,
-    #[serde(deserialize_with = "from_ts_option")]
+    #[serde(deserialize_with = "from_ts_option", default)]
     pub edit_date: Option<DateTime<Utc>>,
     pub error: Option<ErrorType>,
     pub error_string: Option<String>,
@@ -145,7 +145,7 @@ pub struct Torrent {
     pub labels: Option<Vec<String>>,
     pub left_until_done: Option<i64>,
     pub magnet_link: Option<String>,
-    #[serde(deserialize_with = "from_ts_option")]
+    #[serde(deserialize_with = "from_ts_option", default)]
     pub manual_announce_time: Option<DateTime<Utc>>,
     pub max_connected_peers: Option<u16>,
     pub metadata_percent_complete: Option<f32>,
@@ -176,7 +176,7 @@ pub struct Torrent {
     pub seed_ratio_mode: Option<RatioMode>,
     pub sequential_download: Option<bool>,
     pub size_when_done: Option<i64>,
-    #[serde(deserialize_with = "from_ts_option")]
+    #[serde(deserialize_with = "from_ts_option", default)]
     pub start_date: Option<DateTime<Utc>>,
     pub status: Option<TorrentStatus>,
     pub torrent_file: Option<String>,
