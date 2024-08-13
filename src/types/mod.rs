@@ -1,6 +1,9 @@
 mod request;
 mod response;
 
+#[cfg(test)]
+mod tests;
+
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[derive(Debug)]
