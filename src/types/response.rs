@@ -124,19 +124,19 @@ pub struct Torrent {
     #[serde(deserialize_with = "from_ts_option", default)]
     pub done_date: Option<DateTime<Utc>>,
     pub download_dir: Option<String>,
-    pub downloaded_ever: Option<i64>,
-    pub downloaded_limit: Option<i64>,
-    pub downloaded_limited: Option<bool>,
+    pub downloaded_ever: Option<u64>,
+    pub download_limit: Option<u64>,
+    pub download_limited: Option<bool>,
     #[serde(deserialize_with = "from_ts_option", default)]
     pub edit_date: Option<DateTime<Utc>>,
     pub error: Option<ErrorType>,
     pub error_string: Option<String>,
     pub eta: Option<i64>,
-    pub eta_idle: Option<u64>,
+    pub eta_idle: Option<i64>,
     pub group: Option<String>,
     pub hash_string: Option<String>,
-    pub have_unchecked: Option<i64>,
-    pub have_valid: Option<i64>,
+    pub have_unchecked: Option<u64>,
+    pub have_valid: Option<u64>,
     pub honors_session_limits: Option<bool>,
     pub id: Option<i64>,
     pub is_finished: Option<bool>,
@@ -145,6 +145,7 @@ pub struct Torrent {
     pub labels: Option<Vec<String>>,
     pub left_until_done: Option<i64>,
     pub magnet_link: Option<String>,
+    /// May be `DateTime::UNIX_EPOCH - Duration::from_secs(1)` if never manually announced.
     #[serde(deserialize_with = "from_ts_option", default)]
     pub manual_announce_time: Option<DateTime<Utc>>,
     pub max_connected_peers: Option<u16>,
@@ -168,9 +169,9 @@ pub struct Torrent {
     pub rate_download: Option<i64>,
     pub rate_upload: Option<i64>,
     pub recheck_progress: Option<f32>,
-    pub seconds_downloading: Option<i64>,
+    pub seconds_downloading: Option<u64>,
     pub seconds_seeding: Option<i64>,
-    pub seed_idle_limit: Option<u64>,
+    pub seed_idle_limit: Option<u64>, // Can this be negative?
     pub seed_idle_mode: Option<IdleMode>,
     pub seed_ratio_limit: Option<f32>,
     pub seed_ratio_mode: Option<RatioMode>,
@@ -186,11 +187,12 @@ pub struct Torrent {
     pub tracker_stats: Option<Vec<TrackerStat>>,
     pub upload_ratio: Option<f32>,
     pub uploaded_ever: Option<i64>,
-    pub uploaded_limit: Option<u64>,
-    pub uploaded_limited: Option<bool>,
+    pub upload_limit: Option<u64>, // Can this be negative?
+    pub upload_limited: Option<bool>,
     pub files: Option<Vec<File>>,
     /// for each file in files, whether or not they will be downloaded (0 or 1)
-    pub wanted: Option<Vec<i8>>,
+    pub wanted: Option<Vec<i8>>, // TODO: Deserialize from bool -> i8 (or u8 maybe?) to account for
+                                 // TODO: 4.0.0 and 4.0.1
     pub webseeds: Option<Vec<String>>,
     pub webseeds_sending_to_us: Option<u16>,
     pub priorities: Option<Vec<Priority>>,
@@ -229,6 +231,13 @@ impl RpcResponseArgument for Torrents<Torrent> {}
 pub struct Trackers {
     pub id: i32,
     pub announce: String,
+    pub scrape: String,
+    /// `the first label before the public suffix in the announce URL's host. eg.
+    /// "https://www.example.co.uk/announce"'s sitename is "example"`
+    /// Added in Transmission 4.0.0 (`rpc-version-semver`: 5.3.0, `rpc-version`: 17)
+    #[serde(default)]
+    pub sitename: String,
+    pub tier: usize,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -250,7 +259,8 @@ pub struct FileStat {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Peer {
-    pub address: IpAddr,
+    pub address: IpAddr, // FIXME? serde doesn't like simplified ipv6 addresses
+                         // FIXME? (does transmission emit simplified ipv6? eg. "::1")
     pub client_name: String,
     pub client_is_choked: bool,
     pub client_is_interested: bool,
@@ -259,6 +269,7 @@ pub struct Peer {
     pub is_encrypted: bool,
     pub is_incoming: bool,
     pub is_uploading_to: bool,
+    #[serde(rename = "isUTP")]
     pub is_utp: bool,
     pub peer_is_choked: bool,
     pub peer_is_interested: bool,
@@ -291,16 +302,16 @@ pub struct PeersFrom {
 //     // TODO
 // }
 
-#[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize_repr, Debug, Clone, PartialEq)]
+#[repr(i8)]
 pub enum IdleMode {
     Global = 0,
     Single = 1,
     Unlimited = 2,
 }
 
-#[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize_repr, Debug, Clone, PartialEq)]
+#[repr(i8)]
 pub enum RatioMode {
     Global = 0,
     Single = 1,
@@ -341,6 +352,10 @@ pub struct TrackerStat {
     pub scrape_state: TrackerState,
     pub scrape: String,
     pub seeder_count: i64,
+    /// `the first label before the public suffix in the announce URL's host. eg.
+    /// "https://www.example.co.uk/announce"'s sitename is "example"`
+    /// Added in Transmission 4.0.0 (`rpc-version-semver`: 5.3.0, `rpc-version`: 17)
+    #[serde(default)]
     pub sitename: String,
     pub tier: usize,
 }
