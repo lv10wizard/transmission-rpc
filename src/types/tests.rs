@@ -1,4 +1,4 @@
-use std::{net::{IpAddr, Ipv4Addr, Ipv6Addr}, time::Duration};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use chrono::DateTime;
 use serde_json;
@@ -63,18 +63,22 @@ fn test_torrent_get_activity_date_success() -> Result<()> {
         {
             "arguments": {
                 "torrents": [
-                    { "activityDate":1718947434 }
+                    { "activityDate":1718947434 },
+                    { "activityDate":-1 },
+                    { "activityDate":0 }
                 ]
             },
             "result":"success"
         }
         "#
     )?;
-    test_torrent_get(resp, 1, Box::new(|resp: &TorrentGetResp| {
+    test_torrent_get(resp, 3, Box::new(|resp: &TorrentGetResp| {
         assert_eq!(
             resp.arguments.torrents[0].activity_date,
             Some(DateTime::parse_from_rfc3339("2024-06-21T05:23:54Z")?.to_utc()),
         );
+        assert_eq!(resp.arguments.torrents[1].activity_date, Some(DateTime::UNIX_EPOCH));
+        assert_eq!(resp.arguments.torrents[2].activity_date, Some(DateTime::UNIX_EPOCH));
         Ok(())
     }))
 }
@@ -97,18 +101,22 @@ fn test_torrent_get_added_date_success() -> Result<()> {
         {
             "arguments": {
                 "torrents": [
-                    { "addedDate":1670612948 }
+                    { "addedDate":1670612948 },
+                    { "addedDate":0 },
+                    { "addedDate":-1 }
                 ]
             },
             "result":"success"
         }
         "#
     )?;
-    test_torrent_get(resp, 1, Box::new(|resp: &TorrentGetResp| {
+    test_torrent_get(resp, 3, Box::new(|resp: &TorrentGetResp| {
         assert_eq!(
             resp.arguments.torrents[0].added_date,
             Some(DateTime::parse_from_rfc3339("2022-12-09T19:09:08Z")?.to_utc()),
         );
+        assert_eq!(resp.arguments.torrents[1].added_date, Some(DateTime::UNIX_EPOCH));
+        assert_eq!(resp.arguments.torrents[2].added_date, Some(DateTime::UNIX_EPOCH));
         Ok(())
     }))
 }
@@ -300,18 +308,22 @@ fn test_torrent_get_date_created_success() -> Result<()> {
         {
             "arguments": {
                 "torrents": [
-                    { "dateCreated":1592962706 }
+                    { "dateCreated":1592962706 },
+                    { "dateCreated":0 },
+                    { "dateCreated":-1 }
                 ]
             },
             "result":"success"
         }
         "#
     )?;
-    test_torrent_get(resp, 1, Box::new(|resp: &TorrentGetResp| {
+    test_torrent_get(resp, 3, Box::new(|resp: &TorrentGetResp| {
         assert_eq!(
             resp.arguments.torrents[0].date_created,
             Some(DateTime::parse_from_rfc3339("2020-06-24T01:38:26Z")?.to_utc()),
         );
+        assert_eq!(resp.arguments.torrents[1].date_created, Some(DateTime::UNIX_EPOCH));
+        assert_eq!(resp.arguments.torrents[2].date_created, Some(DateTime::UNIX_EPOCH));
         Ok(())
     }))
 }
@@ -359,13 +371,14 @@ fn test_torrent_get_desired_available_missing() -> Result<()> {
 // ----- done_date (doneDate, DoneDate) --------------------
 
 #[test]
-fn test_torrent_get_done_date_not_done() -> Result<()> {
+fn test_torrent_get_done_date_success() -> Result<()> {
     let resp = serde_json::from_str(
         r#"
         {
             "arguments": {
                 "torrents": [
                     { "doneDate":0 },
+                    { "doneDate":-1 },
                     { "doneDate":1672060369 }
                 ]
             },
@@ -373,10 +386,11 @@ fn test_torrent_get_done_date_not_done() -> Result<()> {
         }
         "#
     )?;
-    test_torrent_get(resp, 2, Box::new(|resp: &TorrentGetResp| {
+    test_torrent_get(resp, 3, Box::new(|resp: &TorrentGetResp| {
         assert_eq!(resp.arguments.torrents[0].done_date, Some(DateTime::UNIX_EPOCH));
+        assert_eq!(resp.arguments.torrents[1].done_date, Some(DateTime::UNIX_EPOCH));
         assert_eq!(
-            resp.arguments.torrents[1].done_date,
+            resp.arguments.torrents[2].done_date,
             Some(DateTime::parse_from_rfc3339("2022-12-26T13:12:49Z")?.to_utc()),
         );
         Ok(())
@@ -532,6 +546,7 @@ fn test_torrent_get_edit_date_success() -> Result<()> {
             "arguments": {
                 "torrents": [
                     { "editDate":0 },
+                    { "editDate":-1 },
                     { "editDate":1723512675 }
                 ]
             },
@@ -539,10 +554,11 @@ fn test_torrent_get_edit_date_success() -> Result<()> {
         }
         "#
     )?;
-    test_torrent_get(resp, 2, Box::new(|resp: &TorrentGetResp| {
+    test_torrent_get(resp, 3, Box::new(|resp: &TorrentGetResp| {
         assert_eq!(resp.arguments.torrents[0].edit_date, Some(DateTime::UNIX_EPOCH));
+        assert_eq!(resp.arguments.torrents[1].edit_date, Some(DateTime::UNIX_EPOCH));
         assert_eq!(
-            resp.arguments.torrents[1].edit_date,
+            resp.arguments.torrents[2].edit_date,
             Some(DateTime::parse_from_rfc3339("2024-08-13T01:31:15Z")?.to_utc()),
         );
         Ok(())
@@ -1280,7 +1296,7 @@ fn test_torrent_get_manual_announce_time_success() -> Result<()> {
     test_torrent_get(resp, 3, Box::new(|resp: &TorrentGetResp| {
         assert_eq!(
             resp.arguments.torrents[0].manual_announce_time,
-            Some(DateTime::UNIX_EPOCH - Duration::from_secs(1)),
+            Some(DateTime::UNIX_EPOCH),
         );
         assert_eq!(
             resp.arguments.torrents[1].manual_announce_time,
@@ -2323,6 +2339,7 @@ fn test_torrent_get_start_date_success() -> Result<()> {
             "arguments": {
                 "torrents": [
                     { "startDate":0 },
+                    { "startDate":-1 },
                     { "startDate":1723479770 }
                 ]
             },
@@ -2330,10 +2347,11 @@ fn test_torrent_get_start_date_success() -> Result<()> {
         }
         "#
     )?;
-    test_torrent_get(resp, 2, Box::new(|resp: &TorrentGetResp| {
+    test_torrent_get(resp, 3, Box::new(|resp: &TorrentGetResp| {
         assert_eq!(resp.arguments.torrents[0].start_date, Some(DateTime::UNIX_EPOCH));
+        assert_eq!(resp.arguments.torrents[1].start_date, Some(DateTime::UNIX_EPOCH));
         assert_eq!(
-            resp.arguments.torrents[1].start_date,
+            resp.arguments.torrents[2].start_date,
             Some(DateTime::parse_from_rfc3339("2024-08-12T16:22:50Z")?.to_utc()),
         );
         Ok(())

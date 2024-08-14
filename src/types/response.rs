@@ -3,10 +3,7 @@ use std::{
     net::IpAddr,
 };
 
-use chrono::{
-    serde::ts_seconds::deserialize as from_ts,
-    serde::ts_seconds_option::deserialize as from_ts_option,
-};
+use chrono::serde::ts_seconds::deserialize as from_ts;
 use chrono::{DateTime, Utc};
 use serde::de::Deserializer;
 use serde::Deserialize;
@@ -145,7 +142,7 @@ pub struct Torrent {
     pub labels: Option<Vec<String>>,
     pub left_until_done: Option<i64>,
     pub magnet_link: Option<String>,
-    /// May be `DateTime::UNIX_EPOCH - Duration::from_secs(1)` if never manually announced.
+    /// `DateTime::UNIX_EPOCH` if never manually announced.
     #[serde(deserialize_with = "from_ts_option", default)]
     pub manual_announce_time: Option<DateTime<Utc>>,
     pub max_connected_peers: Option<u16>,
@@ -199,6 +196,20 @@ pub struct Torrent {
     pub file_stats: Option<Vec<FileStat>>,
     #[serde(rename = "file-count")]
     pub file_count: Option<usize>,
+}
+
+fn from_ts_option<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let ts: i64 = Deserialize::deserialize(deserializer)?;
+    // The transmission rpc server responds with 0 or -1 (in the case of manualAnnounceTime) when
+    // the date is unset or invalid.
+    // Consolidate any response <= 0 as UNIX_EPOCH to denote these cases.
+    if ts <= 0 {
+        return Ok(Some(DateTime::UNIX_EPOCH));
+    }
+    Ok(DateTime::<Utc>::from_timestamp(ts, 0))
 }
 
 impl Torrent {
