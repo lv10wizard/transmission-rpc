@@ -3,9 +3,13 @@ use std::{
     net::IpAddr,
 };
 
+use base64::{
+    Engine as _,
+    engine::general_purpose::STANDARD as base64,
+};
 use chrono::serde::ts_seconds::deserialize as from_ts;
 use chrono::{DateTime, Utc};
-use serde::de::Deserializer;
+use serde::de::{Error as _, Deserializer};
 use serde::Deserialize;
 use serde_repr::*;
 
@@ -157,7 +161,8 @@ pub struct Torrent {
     pub peers_sending_to_us: Option<i64>,
     pub percent_complete: Option<f32>,
     pub percent_done: Option<f32>,
-    //pub pieces: Option<Pieces>,
+    /// `Pieces` is a wrapper for Vec<u8>.
+    pub pieces: Option<Pieces>,
     pub piece_count: Option<u64>,
     pub piece_size: Option<u64>,
     #[serde(rename = "primary-mime-type")]
@@ -302,16 +307,35 @@ pub struct PeersFrom {
     pub from_tracker: u16,
 }
 
-// #[derive(Clone, Default)]
-// pub struct Pieces(pub Vec<u8>);
+#[derive(Clone, Default)]
+pub struct Pieces {
+    pub bitfield: Vec<u8>,
+}
 
-// impl<'de> Deserialize for Pieces<'de> {
-//     // TODO: need to b64decode
-// }
+impl<'de> Deserialize<'de> for Pieces {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let encoded: &str = Deserialize::deserialize(deserializer)?;
+        let bitfield = base64.decode(encoded).map_err(D::Error::custom)?;
+        Ok(Self { bitfield })
+    }
+}
 
-// impl Debug for Pieces {
-//     // TODO
-// }
+impl std::ops::Deref for Pieces {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.bitfield
+    }
+}
+
+impl std::fmt::Debug for Pieces {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        f.debug_list().entries(self.iter()).finish()
+    }
+}
 
 #[derive(Deserialize_repr, Debug, Clone, PartialEq)]
 #[repr(i8)]

@@ -5,7 +5,7 @@ use serde_json;
 
 use crate::types::{
     request::Priority,
-    response::{IdleMode, RatioMode, TorrentStatus, TrackerState},
+    response::{IdleMode, RatioMode, Pieces, TorrentStatus, TrackerState},
     ErrorType, Id, Result, RpcResponse, Torrents, Torrent,
 };
 
@@ -1778,21 +1778,18 @@ fn test_torrent_get_percent_done_missing() -> Result<()> {
 // ----- pieces (Pieces) --------------------
 
 #[test]
-#[allow(unreachable_code)] // TODO: Remove when implemented
-#[ignore] // TODO: Remove when implemented
 fn test_torrent_get_pieces_success() -> Result<()> {
-    todo!();
-
-    /* TODO
     let resp = serde_json::from_str(
         r#"
         {
             "arguments": {
                 "torrents": [ 
 
-                    { "pieces":"+AjYZENe6yan7IfhggIpdDHpieTIluuIBCmgj4DCCY8j5gHQAAEwDkR5wnXDLiTBIeb6kRSUFIeGAEUoyDbMMuEYwUCEgaMh7GX3IkSvhGOUEy1dFATFI1C13CEIyC+YaVRgJDCsfCJMAKQFAyJExqUC4oBU1AkruWFuGiAiUqMABtQXcAqhz5O8oIQDm4PWAAeMIEgi7WIgqtqFll5KRJC0Tpspl0Y6tcrQ32JAlcMCAAGZZcjFYclkAQNAuCnDQhkgMtlgbgMDhABARehCYpKo5KIk4aTNwCtAKDo4WxAIGGZLHH2zwDiBBKNy1k4Cgn8FKsOZ0AgmYniyEQgDB0QClAJzygJ8NRFTkLWIGCIAJSAQgQJgsWYPLmc5IKgiyJg+uoaRO7Q2hGmNWQ0u9KtNhA7F6QECYwZC9DH2dtYOgGIREQK70NoTkBsRRhoFSC5wR4ggQPYgg3oeFriZAZgbwSNCcBBxoY+R5gEFjOa3n2sfUYH0NHK0Ck6tkjw4MKgmIYEwyGcvUwsVTGJBQrEmKLMMgCouiBlcar5OaINV9SB+CY4cWJ4KqNQTCAaLgDMBAcMtRj+oiVjGy1AGRRDDH6SLCDUgzyq5d/aW/Sgi/c6ByuUwEB/lUIqXzU0B49a/z3zQAAdUGs9Z85rAPQaaCaIURhJAIBS4hizj5oj+qDg0gBRlKK6QDZH2hAAwVUU1eQGRGrDrgfwiwMfikEFtwhpjBKLIQV9rS6kLO+tC89qDgx2wYPlP424caNns6J1SWQHUTO2lo2G3ra0jhOxcP4MoDzbD+0Wtwlni/eqzAUClH1ImHL2rv+XMJSxo4RbdUF31IxgLalnqzp7YCJhHRduwJ4rsK0pzGLE2cy5Mt2wn2PMQaoIQE6+5l9BQhodwdgI512Mm3iZ8CZIE7CA+oCA/KyhblVUEmxwJwYzAxWqjiAskhQOQu74OCfijChsKKwTMikaHWHqQacEAiEsALTAD3DSSCImHt6KpKJZsRBSRxyAhCPjCgUFGlKqENEYWc6kmRIlNeoVJiImqA9ECODAVFcYiCJhAtJOEgmdCAsHxnRq3ENyMYoxYK0WVt5wFcMCCLeBYRQUEmb8gEXBc7iofEIwpRBCUxi/mmbvCVueCc28BVkr6ifsiTU6dTXyYM4EykRBxDAMi2TSRbAgCixJPJuQGCGHEhqNSFsABCW4J5jgKJiQYFCBHLSqoYg8KY8sRCjVogOCDpxIyF0AVgCMRoZxyg1+xgwIOyhygezFUpnswTa5QYiGtOggCkjp8pQZkbJQ/eA75B79py6uPauwIpWkJxwyzIDCrmgSyN/6TX4XHP5rh7Ks8+vqmkMfeiG94EExiHcxWCWvv2hoShz4wXGC6I/2mfTeJW//WUqVXqKnv8eLhHohEFWAAnC1gLAADCKyEgAgwRRzGUJhUBsoEosDGlgoegZQuClcIwsbHu6IiQk0lFCadIxCT0FA64JFun2jnicQUjc+oM3ydIIHC1yd973qZyOj8B87S7vv/xrrr3at5z/6zvI3N0nb5OCsSy/DTJuZmWSrdfd+6+68R+vJEsa0tHJO2JIivJq99Pi3m5y5xAIEglTAZ1D8PKFvWJ4FqOzoRnIxCKDDSg8qqAIA=" },
+                    { "pieces":"/Pb49/m+8tPzi+Z/e/39" },
 
-                    { "pieces":"///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////g" }
+                    { "pieces":"//////////////////////////////////////////////////////////////////////////////////////////////////////////////////w=" },
+
+                    { "pieces":"AAAAAAAAAAAA" }
 
                 ]
             },
@@ -1801,26 +1798,38 @@ fn test_torrent_get_pieces_success() -> Result<()> {
         "#
     )?;
     test_torrent_get(resp, 3, Box::new(|resp: &TorrentGetResp| {
-        assert_eq!(resp.arguments.torrents[0].pieces, Some(/*TODO*/));
-        assert_eq!(resp.arguments.torrents[1].pieces, Some(/*TODO*/));
+        let first = resp.arguments.torrents[0].pieces.as_ref().expect("pieces should exist");
+        assert_eq!(first.len(), 15); // 120 pieces
+        let bitfield: Vec<u8> = vec![
+            0xFC, 0xF6, 0xF8, 0xF7, 0xF9, 0xBE, 0xF2, 0xD3,
+            0xF3, 0x8B, 0xE6, 0x7F, 0x7B, 0xFD, 0xFD,
+        ];
+        let expected = Pieces { bitfield };
+        assert_eq!(first.iter().zip(expected.iter()).filter(|&(v, e)| v == e).count(), 15);
+
+        let second = resp.arguments.torrents[1].pieces.as_ref().expect("pieces should exist");
+        assert_eq!(second.len(), 86); // 686 pieces
+        let mut bitfield = vec![u8::MAX; 85];
+        bitfield.push(0xFC);
+        let expected = Pieces { bitfield };
+        assert_eq!(second.iter().zip(expected.iter()).filter(|&(v, e)| v == e).count(), 86);
+
+        let third = resp.arguments.torrents[2].pieces.as_ref().expect("pieces should exist");
+        assert_eq!(third.len(), 9); // 72 pieces
+        let bitfield = vec![0u8; 9];
+        let expected = Pieces { bitfield };
+        assert_eq!(third.iter().zip(expected.iter()).filter(|&(v, e)| v == e).count(), 9);
         Ok(())
     }))
-    */
 }
 
 #[test]
-#[allow(unreachable_code)] // TODO: Remove when implemented
-#[ignore] // TODO: Remove when implemented
 fn test_torrent_get_pieces_missing() -> Result<()> {
-    todo!();
-
-    /* TODO
     let resp = serde_json::from_str(torrent_get_only_id())?;
     test_torrent_get(resp, EXPECTED_MISSING_LEN, Box::new(|resp: &TorrentGetResp| {
-        assert_eq!(resp.arguments.torrents[0].pieces, None);
+        assert!(resp.arguments.torrents[0].pieces.is_none());
         Ok(())
     }))
-    */
 }
 
 // ----- piece_count (pieceCount, PieceCount) --------------------

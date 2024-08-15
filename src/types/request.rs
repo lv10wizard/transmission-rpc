@@ -519,7 +519,7 @@ pub enum TorrentGetField {
     PeersSendingToUs,
     PercentComplete,
     PercentDone,
-    //Pieces, // TODO
+    Pieces,
     PieceCount,
     PieceSize,
     Priorities,
@@ -602,7 +602,7 @@ impl TorrentGetField {
             TorrentGetField::PeersSendingToUs => "peersSendingToUs",
             TorrentGetField::PercentComplete => "percentComplete",
             TorrentGetField::PercentDone => "percentDone",
-            //TorrentGetField::Pieces => "pieces", // TODO
+            TorrentGetField::Pieces => "pieces",
             TorrentGetField::PieceCount => "pieceCount",
             TorrentGetField::PieceSize => "pieceSize",
             TorrentGetField::Priorities => "priorities",
