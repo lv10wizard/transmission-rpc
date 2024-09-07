@@ -471,7 +471,7 @@ pub struct TorrentAddArgs {
     pub labels: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Copy, Sequence)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence)]
 pub enum TorrentGetField {
     ActivityDate,
     AddedDate,
