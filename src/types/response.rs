@@ -161,7 +161,7 @@ pub struct Torrent {
     pub peers_sending_to_us: Option<i64>,
     pub percent_complete: Option<f32>,
     pub percent_done: Option<f32>,
-    /// `Pieces` is a wrapper for Vec<u8>.
+    /// `Pieces` is a wrapper for `Vec<u8>`.
     pub pieces: Option<Pieces>,
     pub piece_count: Option<u64>,
     pub piece_size: Option<u64>,
