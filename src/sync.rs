@@ -119,7 +119,7 @@ impl SharableTransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn session_set(&mut self, args: SessionSetArgs) -> Result<RpcResponse<SessionSet>> {
+    pub async fn session_set(&self, args: SessionSetArgs) -> Result<RpcResponse<SessionSet>> {
         self.call(RpcRequest::session_set(args)).await
     }
 
