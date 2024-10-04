@@ -59,12 +59,17 @@ impl RpcRequest {
         }
     }
 
-    pub fn torrent_get(fields: Option<Vec<TorrentGetField>>, ids: Option<Vec<Id>>) -> RpcRequest {
+    pub fn torrent_get<FIELDS, IDS>(fields: Option<FIELDS>, ids: Option<IDS>) -> RpcRequest
+    where
+        FIELDS: IntoIterator<Item = TorrentGetField> + FromIterator<TorrentGetField>,
+        IDS: IntoIterator<Item = Id>,
+    {
         let string_fields = fields
             .unwrap_or_else(|| all::<TorrentGetField>().collect())
-            .iter()
-            .map(TorrentGetField::to_str)
+            .into_iter()
+            .map(|f| TorrentGetField::to_str(&f))
             .collect();
+        let ids = ids.map(|ids| ids.into_iter().collect());
         RpcRequest {
             method: String::from("torrent-get"),
             arguments: Some(Args::TorrentGet(TorrentGetArgs {
@@ -74,15 +79,22 @@ impl RpcRequest {
         }
     }
 
-    pub fn torrent_set(mut args: TorrentSetArgs, ids: Option<Vec<Id>>) -> RpcRequest {
-        args.ids = ids;
+    pub fn torrent_set<I>(mut args: TorrentSetArgs, ids: Option<I>) -> RpcRequest 
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        args.ids = ids.map(|ids| ids.into_iter().collect());
         RpcRequest {
             method: String::from("torrent-set"),
             arguments: Some(Args::TorrentSet(args)),
         }
     }
 
-    pub fn torrent_remove(ids: Vec<Id>, delete_local_data: bool) -> RpcRequest {
+    pub fn torrent_remove<I>(ids: I, delete_local_data: bool) -> RpcRequest 
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        let ids = ids.into_iter().collect();
         RpcRequest {
             method: String::from("torrent-remove"),
             arguments: Some(Args::TorrentRemove(TorrentRemoveArgs {
@@ -99,18 +111,26 @@ impl RpcRequest {
         }
     }
 
-    pub fn torrent_action(action: TorrentAction, ids: Vec<Id>) -> RpcRequest {
+    pub fn torrent_action<I>(action: TorrentAction, ids: I) -> RpcRequest 
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        let ids = ids.into_iter().collect();
         RpcRequest {
             method: action.to_str(),
             arguments: Some(Args::TorrentAction(TorrentActionArgs { ids })),
         }
     }
 
-    pub fn torrent_set_location(
-        ids: Vec<Id>,
+    pub fn torrent_set_location<I>(
+        ids: I,
         location: String,
         move_from: Option<bool>,
-    ) -> RpcRequest {
+    ) -> RpcRequest
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        let ids = ids.into_iter().collect();
         RpcRequest {
             method: String::from("torrent-set-location"),
             arguments: Some(Args::TorrentSetLocation(TorrentSetLocationArgs {
@@ -121,7 +141,11 @@ impl RpcRequest {
         }
     }
 
-    pub fn torrent_rename_path(ids: Vec<Id>, path: String, name: String) -> RpcRequest {
+    pub fn torrent_rename_path<I>(ids: I, path: String, name: String) -> RpcRequest 
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        let ids = ids.into_iter().collect();
         RpcRequest {
             method: String::from("torrent-rename-path"),
             arguments: Some(Args::TorrentRenamePath(TorrentRenamePathArgs {
@@ -471,7 +495,7 @@ pub struct TorrentAddArgs {
     pub labels: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Sequence)]
 #[cfg_attr(feature = "tor-get-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "tor-get-serde", serde(rename_all = "camelCase"))]
 pub enum TorrentGetField {

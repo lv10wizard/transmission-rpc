@@ -485,11 +485,15 @@ impl TransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn torrent_get(
+    pub async fn torrent_get<FIELDS, IDS>(
         &mut self,
-        fields: Option<Vec<TorrentGetField>>,
-        ids: Option<Vec<Id>>,
-    ) -> Result<RpcResponse<Torrents<Torrent>>> {
+        fields: Option<FIELDS>,
+        ids: Option<IDS>,
+    ) -> Result<RpcResponse<Torrents<Torrent>>> 
+    where
+        FIELDS: IntoIterator<Item = TorrentGetField> + FromIterator<TorrentGetField>,
+        IDS: IntoIterator<Item = Id>,
+    {
         self.call(RpcRequest::torrent_get(fields, ids)).await
     }
 
@@ -540,11 +544,14 @@ impl TransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn torrent_set(
+    pub async fn torrent_set<I>(
         &mut self,
         args: TorrentSetArgs,
-        ids: Option<Vec<Id>>,
-    ) -> Result<RpcResponse<Nothing>> {
+        ids: Option<I>,
+    ) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
         self.call(RpcRequest::torrent_set(args, ids)).await
     }
 
@@ -589,11 +596,14 @@ impl TransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn torrent_action(
+    pub async fn torrent_action<I>(
         &mut self,
         action: TorrentAction,
-        ids: Vec<Id>,
-    ) -> Result<RpcResponse<Nothing>> {
+        ids: I,
+    ) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
         self.call(RpcRequest::torrent_action(action, ids)).await
     }
 
@@ -632,11 +642,14 @@ impl TransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn torrent_remove(
+    pub async fn torrent_remove<I>(
         &mut self,
-        ids: Vec<Id>,
+        ids: I,
         delete_local_data: bool,
-    ) -> Result<RpcResponse<Nothing>> {
+    ) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
         self.call(RpcRequest::torrent_remove(ids, delete_local_data))
             .await
     }
@@ -682,12 +695,15 @@ impl TransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn torrent_set_location(
+    pub async fn torrent_set_location<I>(
         &mut self,
-        ids: Vec<Id>,
+        ids: I,
         location: String,
         move_from: Option<bool>,
-    ) -> Result<RpcResponse<Nothing>> {
+    ) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
         self.call(RpcRequest::torrent_set_location(ids, location, move_from))
             .await
     }
@@ -733,12 +749,15 @@ impl TransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn torrent_rename_path(
+    pub async fn torrent_rename_path<I>(
         &mut self,
-        ids: Vec<Id>,
+        ids: I,
         path: String,
         name: String,
-    ) -> Result<RpcResponse<TorrentRenamePath>> {
+    ) -> Result<RpcResponse<TorrentRenamePath>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
         self.call(RpcRequest::torrent_rename_path(ids, path, name))
             .await
     }
