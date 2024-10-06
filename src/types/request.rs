@@ -1,4 +1,5 @@
 use enum_iterator::{all, Sequence};
+use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -178,7 +179,7 @@ pub struct FreeSpaceArgs {
     path: String,
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
+#[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct SessionSetArgs {
     #[serde(skip_serializing_if = "Option::is_none", rename = "alt-speed-down")]
     pub alt_speed_down: Option<i32>,
@@ -355,7 +356,7 @@ pub struct SessionSetArgs {
     pub seed_queue_size: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none", rename = "seedRatioLimit")]
-    pub seed_ratio_limit: Option<f32>,
+    pub seed_ratio_limit: Option<OrderedFloat<f32>>,
 
     #[serde(skip_serializing_if = "Option::is_none", rename = "seedRatioLimited")]
     pub seed_ratio_limited: Option<bool>,
@@ -445,7 +446,7 @@ pub enum Id {
     Hash(String),
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i8)]
 pub enum Priority {
     Low = -1,
@@ -453,7 +454,7 @@ pub enum Priority {
     High = 1,
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
+#[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct TorrentAddArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cookies: Option<String>,
@@ -667,7 +668,7 @@ impl TorrentGetField {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TorrentAction {
     Start,
     Stop,
@@ -690,7 +691,7 @@ impl TorrentAction {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct TrackerList(pub Vec<String>);
 
 impl Serialize for TrackerList {
@@ -702,7 +703,7 @@ impl Serialize for TrackerList {
     }
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
+#[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct TorrentSetArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -744,7 +745,7 @@ pub struct TorrentSetArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seed_idle_mode: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub seed_ratio_limit: Option<f32>,
+    pub seed_ratio_limit: Option<OrderedFloat<f32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seed_ratio_mode: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
