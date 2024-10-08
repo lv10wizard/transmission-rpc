@@ -12,7 +12,11 @@ categories = ["api-bindings"]
 include = ["**/*.rs", "Cargo.toml"]
 
 [features]
+# Enables use of request types as keys in HashMaps, HashSet, etc.
+hashable-request = ["dep:ordered-float"]
+# Enables a thread-safe version of TransClient.
 sync = []
+# Enables Serialization and Deserialization of `TorrentGetField`s.
 tor-get-serde = []
 
 [dependencies]
@@ -28,7 +32,7 @@ chrono = {version = "0.4.31", features = ["serde"] }
 
 log = "0.4.20"
 base64 = "0.22.1"
-ordered-float = { version = "4.3.0", features = ["serde"] }
+ordered-float = { version = "4.3.0", features = ["serde"], optional = true }
 
 [dev-dependencies]
 env_logger = "0.11.3"
