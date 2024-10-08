@@ -39,6 +39,11 @@
 //! 
 //! ##### Feature Flags
 //! 
+//! - `hashable-request`: Enables use of request types as keys in [`HashMap`], [`HashSet`], etc.
+//!
+//! > Specifically this applies [`Eq`] and [`Hash`] to [`SessionSetArgs`] and [`TorrentSetArgs`]
+//! > by converting their float field(s) to [`OrderedFloat`].
+//!
 //! - `sync`: Enables a thread-safe version of `TransClient`.
 //! - `tor-get-serde`: Enables serde of `TorrentGetField`s.
 //!
@@ -48,6 +53,10 @@
 //! 
 //! <a href="https://www.buymeacoffee.com/j0rsa" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 //!
+//! [`HashMap`]: std::collections::HashMap
+//! [`HashSet`]: std::collections::HashSet
+//! [`OrderedFloat`]: https://docs.rs/ordered-float/latest/ordered_float/struct.OrderedFloat.html
+
 #[macro_use]
 extern crate log;
 

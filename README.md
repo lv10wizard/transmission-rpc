@@ -41,6 +41,12 @@ https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md
 
 ##### Feature Flags
 
+- `hashable-request`: Enables use of request types as keys in `HashMap`, `HashSet`, etc.
+
+> Specifically this applies `Eq` and `Hash` to `SessionSetArgs` and
+> `TorrentSetArgs` by converting their float field(s) to
+> [`OrderedFloat`](https://docs.rs/ordered-float/latest/ordered_float/struct.OrderedFloat.html).
+
 - `sync`: Enables a thread-safe version of `TransClient`.
 - `tor-get-serde`: Enables serde of `TorrentGetField`s.
 
