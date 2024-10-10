@@ -442,7 +442,7 @@ pub enum TrackerState {
 pub struct Nothing {}
 impl RpcResponseArgument for Nothing {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TorrentAddedOrDuplicate {
     TorrentDuplicate(Torrent),
     TorrentAdded(Torrent),
@@ -468,7 +468,7 @@ impl<'de> Deserialize<'de> for TorrentAddedOrDuplicate {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct TorrentRenamePath {
     pub path: Option<String>,
     pub name: Option<String>,
