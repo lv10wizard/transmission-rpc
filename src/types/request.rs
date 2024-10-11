@@ -827,7 +827,7 @@ pub struct TorrentSetArgs {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg(feature = "hashable-request")]
-    pub seed_ratio_limit: Option<OrderedFloat<f32>>,
+    pub seed_ratio_limit: Option<OrderedFloat<f64>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg(not(feature = "hashable-request"))]
     pub seed_ratio_limit: Option<f64>,

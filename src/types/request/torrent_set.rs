@@ -55,7 +55,7 @@ impl TorrentSetArgs {
         Self { seed_idle_mode: Some(seed_idle_mode), ..self }
     }
     pub fn seed_ratio_limit(self, seed_ratio_limit: f64) -> Self {
-        // Convert the f32 into OrderedFloat if needed.
+        // Convert the f64 into OrderedFloat if needed.
         Self { seed_ratio_limit: Some(seed_ratio_limit.into()), ..self }
     }
     pub fn seed_ratio_mode(self, seed_ratio_mode: RatioMode) -> Self {
