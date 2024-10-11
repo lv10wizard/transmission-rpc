@@ -14,7 +14,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use serde_repr::*;
 
-use crate::types::request::Priority;
+use crate::types::request::{IdleMode, Priority, RatioMode};
 use crate::types::Id;
 
 #[derive(Deserialize, Debug)]
@@ -183,7 +183,7 @@ pub struct Torrent {
     pub seconds_seeding: Option<i64>,
     pub seed_idle_limit: Option<u64>, // Can this be negative?
     pub seed_idle_mode: Option<IdleMode>,
-    pub seed_ratio_limit: Option<f32>,
+    pub seed_ratio_limit: Option<f64>,
     pub seed_ratio_mode: Option<RatioMode>,
     pub sequential_download: Option<bool>,
     pub size_when_done: Option<i64>,
@@ -369,22 +369,6 @@ pub struct PeersFrom {
     pub from_ltep: u16,
     pub from_pex: u16,
     pub from_tracker: u16,
-}
-
-#[derive(Deserialize_repr, Debug, Copy, Clone, PartialEq)]
-#[repr(i8)]
-pub enum IdleMode {
-    Global = 0,
-    Single = 1,
-    Unlimited = 2,
-}
-
-#[derive(Deserialize_repr, Debug, Copy, Clone, PartialEq)]
-#[repr(i8)]
-pub enum RatioMode {
-    Global = 0,
-    Single = 1,
-    Unlimited = 2,
 }
 
 #[derive(Deserialize, Debug, Clone)]
