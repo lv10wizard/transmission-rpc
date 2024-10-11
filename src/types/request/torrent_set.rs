@@ -22,11 +22,6 @@ impl TorrentSetArgs {
     pub fn honors_session_limits(self, honors_session_limits: bool) -> Self {
         Self { honors_session_limits: Some(honors_session_limits), ..self }
     }
-
-    pub fn ids(self, ids: Vec<Id>) -> Self {
-        Self { ids: Some(ids), ..self }
-    }
-
     pub fn labels(self, labels: Vec<String>) -> Self {
         Self { labels: Some(labels), ..self }
     }
