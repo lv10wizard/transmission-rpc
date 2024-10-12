@@ -784,6 +784,28 @@ impl Serialize for TrackerList {
 /// * [`TorrentSetArgs::upload_limit`]: Maximum upload speed (`KBps`).
 /// * [`TorrentSetArgs::upload_limited`]: `true` to honor `upload_limit`.
 ///
+/// # Examples
+///
+/// With fluent setters:
+/// ```
+/// use transmission_rpc::types::TorrentSetArgs;
+///
+/// let args = TorrentSetArgs()::default()
+///                .seed_ratio_limit(12.34)
+///                .labels(vec!["foo", "bar"])
+///                .locations("/a/b/c/d");
+/// ```
+///
+/// Directly setting struct fields:
+/// ```
+/// use transmission_rpc::types::TorrentSetArgs;
+///
+/// let mut args = TorrentSetArgs()::default();
+/// args.seed_ratio_limit = Some(12.34);
+/// args.labels = Some(vec!["foo", "bar"]);
+/// args.locations = Some("/a/b/c/d");
+/// ```
+///
 /// [`torrent_set`]: crate::TransClient::torrent_set
 /// [`Trackers::id`]: super::Trackers::id
 #[derive(Serialize, Debug, Clone, Default, PartialEq)]
