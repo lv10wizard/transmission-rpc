@@ -19,6 +19,9 @@ impl TorrentSetArgs {
     pub fn files_unwanted(self, files_unwanted: Vec<usize>) -> Self {
         Self { files_unwanted: Some(files_unwanted), ..self }
     }
+    pub fn group(self, group: String) -> Self {
+        Self { group: Some(group), ..self }
+    }
     pub fn honors_session_limits(self, honors_session_limits: bool) -> Self {
         Self { honors_session_limits: Some(honors_session_limits), ..self }
     }
@@ -55,6 +58,9 @@ impl TorrentSetArgs {
     }
     pub fn seed_ratio_mode(self, seed_ratio_mode: RatioMode) -> Self {
         Self { seed_ratio_mode: Some(seed_ratio_mode), ..self }
+    }
+    pub fn sequential_download(self, sequential_download: bool) -> Self {
+        Self { sequential_download: Some(sequential_download), ..self }
     }
     pub fn tracker_add(self, tracker_add: Vec<String>) -> Self {
         Self { tracker_add: Some(tracker_add), ..self }
