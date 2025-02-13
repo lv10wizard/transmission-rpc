@@ -1,5 +1,6 @@
-use enum_iterator::{Sequence, all};
-use serde::{Deserialize, Serialize};
+use enum_iterator::{all, Sequence};
+use serde::{Deserialize, Serialize, Serializer};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::{Id, IdleMode, Priority, RatioMode, Tag};
 
@@ -11,7 +12,7 @@ mod torrent_set;
 /// Represents a transmission rpc method.
 #[derive(Serialize, Debug)]
 pub(crate) struct RpcRequest {
-    method: String,
+    method: Method,
     #[serde(skip_serializing_if = "Option::is_none")]
     arguments: Option<Args>,
     /// "An optional `tag` number used by clients to track responses. If provided by a request, the
@@ -38,7 +39,7 @@ impl RpcRequest {
 
     pub fn session_set(args: SessionSetArgs, tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
-            method: String::from("session-set"),
+            method: Method::SessionSet,
             arguments: Some(Args::SessionSet(args)),
             tag,
         }
@@ -46,7 +47,7 @@ impl RpcRequest {
 
     pub fn session_get(tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
-            method: String::from("session-get"),
+            method: Method::SessionGet,
             arguments: None,
             tag,
         }
@@ -54,7 +55,7 @@ impl RpcRequest {
 
     pub fn session_stats(tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
-            method: String::from("session-stats"),
+            method: Method::SessionStats,
             arguments: None,
             tag,
         }
@@ -62,7 +63,7 @@ impl RpcRequest {
 
     pub fn session_close(tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
-            method: String::from("session-close"),
+            method: Method::SessionClose,
             arguments: None,
             tag,
         }
@@ -70,7 +71,7 @@ impl RpcRequest {
 
     pub fn blocklist_update(tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
-            method: String::from("blocklist-update"),
+            method: Method::BlocklistUpdate,
             arguments: None,
             tag,
         }
@@ -78,7 +79,7 @@ impl RpcRequest {
 
     pub fn free_space(path: String, tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
-            method: String::from("free-space"),
+            method: Method::FreeSpace,
             arguments: Some(Args::FreeSpace(FreeSpaceArgs { path })),
             tag,
         }
@@ -86,7 +87,7 @@ impl RpcRequest {
 
     pub fn port_test(tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
-            method: String::from("port-test"),
+            method: Method::PortTest,
             arguments: None,
             tag,
         }
@@ -108,7 +109,7 @@ impl RpcRequest {
             .collect();
         let ids = ids.map(|ids| ids.into_iter().collect());
         RpcRequest {
-            method: String::from("torrent-get"),
+            method: Method::TorrentGet,
             arguments: Some(Args::TorrentGet(TorrentGetArgs {
                 fields: Some(string_fields),
                 ids,
@@ -123,7 +124,7 @@ impl RpcRequest {
     {
         args.ids = ids.map(|ids| ids.into_iter().collect());
         RpcRequest {
-            method: String::from("torrent-set"),
+            method: Method::TorrentSet,
             arguments: Some(Args::TorrentSet(args)),
             tag,
         }
@@ -135,7 +136,7 @@ impl RpcRequest {
     {
         let ids = ids.into_iter().collect();
         RpcRequest {
-            method: String::from("torrent-remove"),
+            method: Method::TorrentRemove,
             arguments: Some(Args::TorrentRemove(TorrentRemoveArgs {
                 ids,
                 delete_local_data,
@@ -146,7 +147,7 @@ impl RpcRequest {
 
     pub fn torrent_add(add: TorrentAddArgs, tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
-            method: String::from("torrent-add"),
+            method: Method::TorrentAdd,
             arguments: Some(Args::TorrentAdd(add)),
             tag,
         }
@@ -158,7 +159,7 @@ impl RpcRequest {
     {
         let ids = ids.into_iter().collect();
         RpcRequest {
-            method: action.to_str(),
+            method: Method::TorrentAction(action),
             arguments: Some(Args::TorrentAction(TorrentActionArgs { ids })),
             tag,
         }
@@ -175,7 +176,7 @@ impl RpcRequest {
     {
         let ids = ids.into_iter().collect();
         RpcRequest {
-            method: String::from("torrent-set-location"),
+            method: Method::TorrentSetLocation,
             arguments: Some(Args::TorrentSetLocation(TorrentSetLocationArgs {
                 ids,
                 location,
@@ -196,7 +197,7 @@ impl RpcRequest {
     {
         let ids = ids.into_iter().collect();
         RpcRequest {
-            method: String::from("torrent-rename-path"),
+            method: Method::TorrentRenamePath,
             arguments: Some(Args::TorrentRenamePath(TorrentRenamePathArgs {
                 ids,
                 path,
@@ -206,6 +207,59 @@ impl RpcRequest {
         }
     }
 }
+
+#[derive(Debug, Copy, Clone)]
+enum Method {
+    SessionSet,
+    SessionGet,
+    SessionStats,
+    SessionClose,
+    BlocklistUpdate,
+    FreeSpace,
+    PortTest,
+    TorrentGet,
+    TorrentSet,
+    TorrentRemove,
+    TorrentAdd,
+    TorrentAction(TorrentAction),
+    TorrentSetLocation,
+    TorrentRenamePath,
+}
+
+impl Method {
+    fn as_str(&self) -> &'static str {
+        use Method as M;
+
+        match self {
+            M::SessionSet => "session-set",
+            M::SessionGet => "session-get",
+            M::SessionStats => "session-stats",
+            M::SessionClose => "session-close",
+            M::BlocklistUpdate => "blocklist-update",
+            M::FreeSpace => "free-space",
+            M::PortTest => "port-test",
+            M::TorrentGet => "torrent-get",
+            M::TorrentSet => "torrent-set",
+            M::TorrentRemove => "torrent-remove",
+            M::TorrentAdd => "torrent-add",
+            M::TorrentAction(action) => action.as_str(),
+            M::TorrentSetLocation => "torrent-set-location",
+            M::TorrentRenamePath => "torrent-rename-path",
+        }
+    }
+}
+
+// Manually implement [Serialize] for [Method] because serde doesn't support flattening of
+// tuple struct variant of enums, [Method::TorrentAction(_)] in this case.
+impl Serialize for Method {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
 pub trait ArgumentFields {}
 impl ArgumentFields for TorrentGetField {}
 
@@ -719,14 +773,19 @@ pub enum TorrentAction {
 impl TorrentAction {
     #[must_use]
     pub fn to_str(&self) -> String {
+        self.as_str().to_string()
+    }
+
+    fn as_str(&self) -> &'static str {
+        use TorrentAction as A;
+
         match self {
-            TorrentAction::Start => "torrent-start",
-            TorrentAction::Stop => "torrent-stop",
-            TorrentAction::StartNow => "torrent-start-now",
-            TorrentAction::Verify => "torrent-verify",
-            TorrentAction::Reannounce => "torrent-reannounce",
+            A::Start => "torrent-start",
+            A::Stop => "torrent-stop",
+            A::StartNow => "torrent-start-now",
+            A::Verify => "torrent-verify",
+            A::Reannounce => "torrent-reannounce",
         }
-        .to_string()
     }
 }
 
@@ -736,7 +795,7 @@ pub struct TrackerList(pub Vec<String>);
 impl Serialize for TrackerList {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         self.0.join("\n").serialize(serializer)
     }
