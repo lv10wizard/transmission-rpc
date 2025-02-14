@@ -93,6 +93,34 @@ impl RpcRequest {
         }
     }
 
+    pub fn queue_move_top(ids: Vec<Id>) -> RpcRequest {
+        RpcRequest {
+            method: String::from("queue-move-top"),
+            arguments: Args::QueueMove(ids.into()).into(),
+        }
+    }
+
+    pub fn queue_move_up(ids: Vec<Id>) -> RpcRequest {
+        RpcRequest {
+            method: String::from("queue-move-up"),
+            arguments: Args::QueueMove(ids.into()).into(),
+        }
+    }
+
+    pub fn queue_move_down(ids: Vec<Id>) -> RpcRequest {
+        RpcRequest {
+            method: String::from("queue-move-down"),
+            arguments: Args::QueueMove(ids.into()).into(),
+        }
+    }
+
+    pub fn queue_move_bottom(ids: Vec<Id>) -> RpcRequest {
+        RpcRequest {
+            method: String::from("queue-move-bottom"),
+            arguments: Args::QueueMove(ids.into()).into(),
+        }
+    }
+
     pub fn torrent_get<FIELDS, IDS>(
         fields: Option<FIELDS>,
         ids: Option<IDS>,
@@ -268,6 +296,7 @@ impl ArgumentFields for TorrentGetField {}
 pub enum Args {
     FreeSpace(FreeSpaceArgs),
     SessionSet(SessionSetArgs),
+    QueueMove(QueueMoveArgs),
     TorrentGet(TorrentGetArgs),
     TorrentAction(TorrentActionArgs),
     TorrentRemove(TorrentRemoveArgs),
@@ -501,6 +530,17 @@ pub struct SessionSetArgs {
 
     #[serde(skip_serializing_if = "Option::is_none", rename = "utp-enabled")]
     pub utp_enabled: Option<bool>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct QueueMoveArgs {
+    ids: Vec<Id>,
+}
+
+impl From<Vec<Id>> for QueueMoveArgs {
+    fn from(ids: Vec<Id>) -> Self {
+        Self { ids }
+    }
 }
 
 #[derive(Serialize, Debug, Clone)]
