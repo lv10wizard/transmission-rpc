@@ -13,9 +13,9 @@ use crate::{
     BodyString, MAX_RETRIES, TransError,
     types::{
         BasicAuth, BlocklistUpdate, FreeSpace, Id, Nothing, PortTest, Result, RpcRequest,
-        RpcResponse, RpcResponseArgument, SessionClose, SessionGet, SessionSet, SessionSetArgs,
-        SessionStats, Tag, Torrent, TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate,
-        TorrentGetField, TorrentRenamePath, TorrentSetArgs, Torrents,
+        RpcResponse, RpcResponseArgument, SessionGet, SessionStats, Torrent, TorrentAction,
+        TorrentAddArgs, TorrentAddedOrDuplicate, TorrentGetField, TorrentRenamePath,
+        TorrentSetArgs, Torrents,
     },
 };
 
@@ -91,7 +91,7 @@ impl SharableTransClient {
     ///
     /// use dotenvy::dotenv;
     /// use transmission_rpc::{
-    ///     types::{BasicAuth, Result, RpcResponse, SessionSet, SessionSetArgs},
+    ///     types::{BasicAuth, Result, RpcResponse, SessionSetArgs},
     ///     SharableTransClient,
     /// };
     ///
@@ -111,7 +111,7 @@ impl SharableTransClient {
     ///         ),
     ///         ..SessionSetArgs::default()
     ///     };
-    ///     let response: Result<RpcResponse<SessionSet>> = client.session_set(args).await;
+    ///     let response = client.session_set(args).await;
     ///     match &response {
     ///         Ok(resp) => {
     ///             println!("Yay!");
@@ -123,7 +123,7 @@ impl SharableTransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn session_set(&self, args: SessionSetArgs) -> Result<RpcResponse<SessionSet>> {
+    pub async fn session_set(&self, args: SessionSetArgs) -> Result<RpcResponse<Nothing>> {
         self.call(RpcRequest::session_set(args, None)).await
     }
 
@@ -132,7 +132,7 @@ impl SharableTransClient {
         &self,
         args: SessionSetArgs,
         tag: Tag,
-    ) -> Result<RpcResponse<SessionSet>> {
+    ) -> Result<RpcResponse<Nothing>> {
         self.call(RpcRequest::session_set(args, Some(tag))).await
     }
 
@@ -251,7 +251,7 @@ impl SharableTransClient {
     ///
     /// use dotenvy::dotenv;
     /// use transmission_rpc::{
-    ///     types::{BasicAuth, Result, RpcResponse, SessionClose},
+    ///     types::{BasicAuth, Nothing, Result, RpcResponse},
     ///     SharableTransClient,
     /// };
     ///
@@ -265,7 +265,7 @@ impl SharableTransClient {
     ///         password: env::var("TPWD")?,
     ///     };
     ///     let client = SharableTransClient::with_auth(url.parse()?, basic_auth);
-    ///     let response: Result<RpcResponse<SessionSet>> = client.session_close().await;
+    ///     let response = client.session_close().await;
     ///     match &response {
     ///         Ok(resp) => {
     ///             println!("Yay!");
@@ -277,12 +277,12 @@ impl SharableTransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn session_close(&self) -> Result<RpcResponse<SessionClose>> {
+    pub async fn session_close(&self) -> Result<RpcResponse<Nothing>> {
         self.call(RpcRequest::session_close(None)).await
     }
 
     /// Performs a session-close request that can be tracked by `tag`.
-    pub async fn session_close_tagged(&self, tag: Tag) -> Result<RpcResponse<SessionClose>> {
+    pub async fn session_close_tagged(&self, tag: Tag) -> Result<RpcResponse<Nothing>> {
         self.call(RpcRequest::session_close(Some(tag))).await
     }
 
