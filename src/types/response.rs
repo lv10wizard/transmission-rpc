@@ -413,7 +413,7 @@ pub struct TrackerStat {
     pub tier: usize,
 }
 
-#[derive(Deserialize_repr, Debug, Clone)]
+#[derive(Deserialize_repr, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i8)]
 pub enum TrackerState {
     Inactive = 0,
