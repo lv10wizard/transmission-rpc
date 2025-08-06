@@ -45,7 +45,8 @@
 //! 
 //! ##### Feature Flags
 //! 
-//! - `hashable-request`: Enables use of request types as keys in [`HashMap`], [`HashSet`], etc.
+//! - `hashable-request`: Enables use of request types (like [`TorrentSetArgs`]) as keys in
+//! [`HashMap`], [`HashSet`], etc.
 //!
 //! > Specifically this applies [`Eq`] and [`Hash`] to [`SessionSetArgs`] and [`TorrentSetArgs`]
 //! > by converting their float field(s) to [`OrderedFloat`].
@@ -53,6 +54,50 @@
 //! - `sync`: Enables a thread-safe version of `TransClient`.
 //! - `tor-get-serde`: Enables serde of `TorrentGetField`s.
 //!
+//! ### Examples
+//! 
+//! To run examples: `cargo run --example EXAMPLE-NAME`, eg.
+//! 
+//! ```bash
+//! cargo run --example port-test
+//! ```
+//! 
+//! You can specify server url and, if needed, credentials by defining env vars:
+//! 
+//! * `TURL` - Transmission daemon rpc url, eg. `localhost:9091/transmission/rpc`
+//! * `TUSER` - Optional rpc username
+//! * `TPWD` - Optional rpc password
+//! 
+//! One way to define these:
+//! 
+//! ```bash
+//! TURL=localhost:9091/transmission/rpc TUSER=name TPWD=hunter2 \
+//!      cargo run --example port-test
+//! ```
+//! 
+//! **NOTE:** These examples will connect to and perform requests to an actual
+//! server! Run modifying rpc examples (like `torrent-remove`) with care!
+//! 
+//! 
+//! The following examples are implemented:
+//! 
+//! ```text
+//! $ tree examples/
+//! examples/
+//! ├── blocklist-update.rs
+//! ├── free-space.rs
+//! ├── port-test.rs
+//! ├── session-close.rs
+//! ├── session-get.rs
+//! ├── session-stats.rs
+//! ├── torrent-action.rs
+//! ├── torrent-add.rs
+//! ├── torrent-get.rs
+//! ├── torrent-remove.rs
+//! ├── torrent-rename-path.rs
+//! └── torrent-set-location.rs
+//! ```
+//! 
 //! -----
 //! 
 //! Support the project: [![Donate button](https://www.paypalobjects.com/en_US/DK/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=H337RKJSC4YG4&source=url)
