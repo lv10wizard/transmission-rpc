@@ -12,17 +12,17 @@
 //! <https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md>
 //!
 //! #### Supported Methods
-//! 
+//!
 //! ##### Torrent Actions
-//! 
+//!
 //! - [X] torrent-start
 //! - [X] torrent-stop
 //! - [X] torrent-start-now
 //! - [X] torrent-verify
 //! - [X] torrent-reannounce
-//! 
+//!
 //! ##### Torrent Mutators
-//! 
+//!
 //! - [X] torrent-set
 //! - [X] torrent-get
 //! - [X] torrent-add
@@ -42,9 +42,9 @@
 //! - [X] free-space
 //! - [ ] group-set
 //! - [ ] group-get
-//! 
+//!
 //! ##### Feature Flags
-//! 
+//!
 //! - `hashable-request`: Enables use of request types (like [`TorrentSetArgs`]) as keys in
 //! [`HashMap`], [`HashSet`], etc.
 //!
@@ -55,32 +55,32 @@
 //! - `tor-get-serde`: Enables serde of `TorrentGetField`s.
 //!
 //! ### Examples
-//! 
+//!
 //! To run examples: `cargo run --example EXAMPLE-NAME`, eg.
-//! 
+//!
 //! ```bash
 //! cargo run --example port-test
 //! ```
-//! 
+//!
 //! You can specify server url and, if needed, credentials by defining env vars:
-//! 
+//!
 //! * `TURL` - Transmission daemon rpc url, eg. `localhost:9091/transmission/rpc`
 //! * `TUSER` - Optional rpc username
 //! * `TPWD` - Optional rpc password
-//! 
+//!
 //! One way to define these:
-//! 
+//!
 //! ```bash
 //! TURL=localhost:9091/transmission/rpc TUSER=name TPWD=hunter2 \
 //!      cargo run --example port-test
 //! ```
-//! 
+//!
 //! **NOTE:** These examples will connect to and perform requests to an actual
 //! server! Run modifying rpc examples (like `torrent-remove`) with care!
-//! 
-//! 
+//!
+//!
 //! The following examples are implemented:
-//! 
+//!
 //! ```text
 //! $ tree examples/
 //! examples/
@@ -97,11 +97,11 @@
 //! ├── torrent-rename-path.rs
 //! └── torrent-set-location.rs
 //! ```
-//! 
+//!
 //! -----
-//! 
+//!
 //! Support the project: [![Donate button](https://www.paypalobjects.com/en_US/DK/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=H337RKJSC4YG4&source=url)
-//! 
+//!
 //! <a href="https://www.buymeacoffee.com/j0rsa" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 //!
 //! [`HashMap`]: std::collections::HashMap
@@ -111,7 +111,7 @@
 #[macro_use]
 extern crate log;
 
-use reqwest::{header::CONTENT_TYPE, Client, StatusCode, Url};
+use reqwest::{Client, StatusCode, Url, header::CONTENT_TYPE};
 use serde::de::DeserializeOwned;
 
 #[cfg(feature = "sync")]
@@ -599,7 +599,7 @@ impl TransClient {
         &mut self,
         fields: Option<FIELDS>,
         ids: Option<IDS>,
-    ) -> Result<RpcResponse<Torrents<Torrent>>> 
+    ) -> Result<RpcResponse<Torrents<Torrent>>>
     where
         FIELDS: IntoIterator<Item = TorrentGetField> + FromIterator<TorrentGetField>,
         IDS: IntoIterator<Item = Id>,

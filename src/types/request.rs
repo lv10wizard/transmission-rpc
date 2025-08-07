@@ -1,4 +1,4 @@
-use enum_iterator::{all, Sequence};
+use enum_iterator::{Sequence, all};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -84,7 +84,7 @@ impl RpcRequest {
         }
     }
 
-    pub fn torrent_set<I>(mut args: TorrentSetArgs, ids: Option<I>) -> RpcRequest 
+    pub fn torrent_set<I>(mut args: TorrentSetArgs, ids: Option<I>) -> RpcRequest
     where
         I: IntoIterator<Item = Id>,
     {
@@ -95,7 +95,7 @@ impl RpcRequest {
         }
     }
 
-    pub fn torrent_remove<I>(ids: I, delete_local_data: bool) -> RpcRequest 
+    pub fn torrent_remove<I>(ids: I, delete_local_data: bool) -> RpcRequest
     where
         I: IntoIterator<Item = Id>,
     {
@@ -116,7 +116,7 @@ impl RpcRequest {
         }
     }
 
-    pub fn torrent_action<I>(action: TorrentAction, ids: I) -> RpcRequest 
+    pub fn torrent_action<I>(action: TorrentAction, ids: I) -> RpcRequest
     where
         I: IntoIterator<Item = Id>,
     {
@@ -127,11 +127,7 @@ impl RpcRequest {
         }
     }
 
-    pub fn torrent_set_location<I>(
-        ids: I,
-        location: String,
-        move_from: Option<bool>,
-    ) -> RpcRequest
+    pub fn torrent_set_location<I>(ids: I, location: String, move_from: Option<bool>) -> RpcRequest
     where
         I: IntoIterator<Item = Id>,
     {
@@ -146,7 +142,7 @@ impl RpcRequest {
         }
     }
 
-    pub fn torrent_rename_path<I>(ids: I, path: String, name: String) -> RpcRequest 
+    pub fn torrent_rename_path<I>(ids: I, path: String, name: String) -> RpcRequest
     where
         I: IntoIterator<Item = Id>,
     {
@@ -455,7 +451,9 @@ pub enum Id {
     Hash(String),
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Serialize_repr, Deserialize_repr, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 #[repr(i8)]
 pub enum Priority {
     Low = -1,
@@ -463,7 +461,9 @@ pub enum Priority {
     High = 1,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 #[repr(i8)]
 pub enum IdleMode {
     Global = 0,
@@ -471,7 +471,9 @@ pub enum IdleMode {
     Unlimited = 2,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 #[repr(i8)]
 pub enum RatioMode {
     Global = 0,

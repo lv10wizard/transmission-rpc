@@ -6,17 +6,17 @@
 
 use std::{ops::Deref, sync::RwLock};
 
-use reqwest::{header::CONTENT_TYPE, Client, StatusCode, Url};
+use reqwest::{Client, StatusCode, Url, header::CONTENT_TYPE};
 use serde::de::DeserializeOwned;
 
 use crate::{
+    BodyString, MAX_RETRIES, TransError,
     types::{
         BasicAuth, BlocklistUpdate, FreeSpace, Id, Nothing, PortTest, Result, RpcRequest,
         RpcResponse, RpcResponseArgument, SessionClose, SessionGet, SessionSet, SessionSetArgs,
         SessionStats, Torrent, TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate,
         TorrentGetField, TorrentRenamePath, TorrentSetArgs, Torrents,
     },
-    BodyString, TransError, MAX_RETRIES,
 };
 
 pub struct SharableTransClient {
@@ -471,7 +471,7 @@ impl SharableTransClient {
         &self,
         fields: Option<FIELDS>,
         ids: Option<IDS>,
-    ) -> Result<RpcResponse<Torrents<Torrent>>> 
+    ) -> Result<RpcResponse<Torrents<Torrent>>>
     where
         FIELDS: IntoIterator<Item = TorrentGetField> + FromIterator<TorrentGetField>,
         IDS: IntoIterator<Item = Id>,
