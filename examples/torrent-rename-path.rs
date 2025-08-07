@@ -23,6 +23,7 @@ async fn main() -> Result<()> {
         )
         .await?;
     println!("rename-path result: {:#?}", res);
+    assert_eq!(res.tag, Some(tag));
 
     Ok(())
 }

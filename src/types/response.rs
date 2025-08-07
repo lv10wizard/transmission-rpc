@@ -8,13 +8,18 @@ use serde::de::{Deserializer, Error as _};
 use serde_json::Value;
 use serde_repr::*;
 
-use crate::types::Id;
 use crate::types::request::{IdleMode, Priority, RatioMode};
+use crate::types::{Id, Tag};
 
 #[derive(Deserialize, Debug)]
 pub struct RpcResponse<T: RpcResponseArgument> {
     pub arguments: T,
     pub result: String,
+    /// "An optional `tag` number as described in [`2.1`]." <sup>[[1]]</sup>
+    ///
+    /// [`2.1`]: <https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md#21-requests>
+    /// [1]: <https://github.com/transmission/transmission/blob/4.0.6/libtransmission/rpcimpl.cc#L2520>
+    pub tag: Option<Tag>,
 }
 
 impl<T: RpcResponseArgument> RpcResponse<T> {

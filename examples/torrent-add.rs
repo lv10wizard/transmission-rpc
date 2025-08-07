@@ -4,7 +4,7 @@ use dotenvy::dotenv;
 use std::env;
 use transmission_rpc::TransClient;
 use transmission_rpc::types::{
-    BasicAuth, Result, RpcResponse, TorrentAddArgs, TorrentAddedOrDuplicate,
+    BasicAuth, Result, RpcResponse, Tag, TorrentAddArgs, TorrentAddedOrDuplicate,
 };
 
 #[tokio::main]
@@ -25,9 +25,16 @@ async fn main() -> Result<()> {
         ),
         ..TorrentAddArgs::default()
     };
-    let res: RpcResponse<TorrentAddedOrDuplicate> = client.torrent_add(add).await?;
+    let res: RpcResponse<TorrentAddedOrDuplicate> = client.torrent_add(add.clone()).await?;
     println!("Add result: {:?}", &res.is_ok());
     println!("response: {:?}", &res);
+    assert_eq!(res.tag, None);
+
+    let tag = Tag(9);
+    let res: RpcResponse<TorrentAddedOrDuplicate> = client.torrent_add_tagged(add, tag).await?;
+    println!("Add result: {:?}", &res.is_ok());
+    println!("response: {:?}", &res);
+    assert_eq!(res.tag, Some(tag));
 
     Ok(())
 }

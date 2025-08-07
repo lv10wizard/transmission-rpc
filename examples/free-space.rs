@@ -3,7 +3,7 @@ extern crate transmission_rpc;
 use dotenvy::dotenv;
 use std::env;
 use transmission_rpc::TransClient;
-use transmission_rpc::types::{BasicAuth, FreeSpace, Result, RpcResponse};
+use transmission_rpc::types::{BasicAuth, FreeSpace, Result, RpcResponse, Tag};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -17,9 +17,23 @@ async fn main() -> Result<()> {
     } else {
         client = TransClient::new(url.parse()?);
     }
-    let response: Result<RpcResponse<FreeSpace>> = client.free_space(dir).await;
-    match response {
-        Ok(_) => println!("Yay!"),
+    let response: Result<RpcResponse<FreeSpace>> = client.free_space(dir.clone()).await;
+    match &response {
+        Ok(resp) => {
+            assert_eq!(resp.tag, None);
+            println!("Yay!");
+        }
+        Err(_) => panic!("Oh no!"),
+    }
+    println!("Rpc response is ok: {}", response?.is_ok());
+
+    let tag = Tag(-5);
+    let response: Result<RpcResponse<FreeSpace>> = client.free_space_tagged(dir, tag).await;
+    match &response {
+        Ok(resp) => {
+            assert_eq!(resp.tag, Some(tag));
+            println!("Yay!");
+        }
         Err(_) => panic!("Oh no!"),
     }
     println!("Rpc response is ok: {}", response?.is_ok());

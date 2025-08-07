@@ -5,66 +5,99 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "hashable-request")]
 use ordered_float::OrderedFloat;
 
+use super::Tag;
+
 mod torrent_set;
 
+/// Represents a transmission rpc method.
 #[derive(Serialize, Debug)]
-pub struct RpcRequest {
+pub(crate) struct RpcRequest {
     method: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     arguments: Option<Args>,
+    /// "An optional `tag` number used by clients to track responses. If provided by a request, the
+    /// response MUST include the same tag." <sup>[1][2]</sup>
+    ///
+    /// [1]: <https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md#21-requests>
+    /// [2]: <https://github.com/transmission/transmission/blob/4.0.6/libtransmission/rpcimpl.cc#L2520>
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tag: Option<Tag>,
 }
 
 impl RpcRequest {
-    pub fn session_set(args: SessionSetArgs) -> RpcRequest {
+    /// Fluent setter to assign an arbitrary `tag` to the `RpcRequest`.
+    #[allow(dead_code)]
+    pub fn with_tag(mut self, tag: Tag) -> Self {
+        self.set_tag(tag);
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn set_tag(&mut self, tag: Tag) {
+        self.tag = Some(tag);
+    }
+
+    pub fn session_set(args: SessionSetArgs, tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
             method: String::from("session-set"),
             arguments: Some(Args::SessionSet(args)),
+            tag,
         }
     }
 
-    pub fn session_get() -> RpcRequest {
+    pub fn session_get(tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
             method: String::from("session-get"),
             arguments: None,
+            tag,
         }
     }
 
-    pub fn session_stats() -> RpcRequest {
+    pub fn session_stats(tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
             method: String::from("session-stats"),
             arguments: None,
+            tag,
         }
     }
 
-    pub fn session_close() -> RpcRequest {
+    pub fn session_close(tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
             method: String::from("session-close"),
             arguments: None,
+            tag,
         }
     }
 
-    pub fn blocklist_update() -> RpcRequest {
+    pub fn blocklist_update(tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
             method: String::from("blocklist-update"),
             arguments: None,
+            tag,
         }
     }
 
-    pub fn free_space(path: String) -> RpcRequest {
+    pub fn free_space(path: String, tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
             method: String::from("free-space"),
             arguments: Some(Args::FreeSpace(FreeSpaceArgs { path })),
+            tag,
         }
     }
 
-    pub fn port_test() -> RpcRequest {
+    pub fn port_test(tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
             method: String::from("port-test"),
             arguments: None,
+            tag,
         }
     }
 
-    pub fn torrent_get<FIELDS, IDS>(fields: Option<FIELDS>, ids: Option<IDS>) -> RpcRequest
+    pub fn torrent_get<FIELDS, IDS>(
+        fields: Option<FIELDS>,
+        ids: Option<IDS>,
+        tag: Option<Tag>,
+    ) -> RpcRequest
     where
         FIELDS: IntoIterator<Item = TorrentGetField> + FromIterator<TorrentGetField>,
         IDS: IntoIterator<Item = Id>,
@@ -81,10 +114,11 @@ impl RpcRequest {
                 fields: Some(string_fields),
                 ids,
             })),
+            tag,
         }
     }
 
-    pub fn torrent_set<I>(mut args: TorrentSetArgs, ids: Option<I>) -> RpcRequest
+    pub fn torrent_set<I>(mut args: TorrentSetArgs, ids: Option<I>, tag: Option<Tag>) -> RpcRequest
     where
         I: IntoIterator<Item = Id>,
     {
@@ -92,10 +126,11 @@ impl RpcRequest {
         RpcRequest {
             method: String::from("torrent-set"),
             arguments: Some(Args::TorrentSet(args)),
+            tag,
         }
     }
 
-    pub fn torrent_remove<I>(ids: I, delete_local_data: bool) -> RpcRequest
+    pub fn torrent_remove<I>(ids: I, delete_local_data: bool, tag: Option<Tag>) -> RpcRequest
     where
         I: IntoIterator<Item = Id>,
     {
@@ -106,17 +141,19 @@ impl RpcRequest {
                 ids,
                 delete_local_data,
             })),
+            tag,
         }
     }
 
-    pub fn torrent_add(add: TorrentAddArgs) -> RpcRequest {
+    pub fn torrent_add(add: TorrentAddArgs, tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
             method: String::from("torrent-add"),
             arguments: Some(Args::TorrentAdd(add)),
+            tag,
         }
     }
 
-    pub fn torrent_action<I>(action: TorrentAction, ids: I) -> RpcRequest
+    pub fn torrent_action<I>(action: TorrentAction, ids: I, tag: Option<Tag>) -> RpcRequest
     where
         I: IntoIterator<Item = Id>,
     {
@@ -124,10 +161,16 @@ impl RpcRequest {
         RpcRequest {
             method: action.to_str(),
             arguments: Some(Args::TorrentAction(TorrentActionArgs { ids })),
+            tag,
         }
     }
 
-    pub fn torrent_set_location<I>(ids: I, location: String, move_from: Option<bool>) -> RpcRequest
+    pub fn torrent_set_location<I>(
+        ids: I,
+        location: String,
+        move_from: Option<bool>,
+        tag: Option<Tag>,
+    ) -> RpcRequest
     where
         I: IntoIterator<Item = Id>,
     {
@@ -139,10 +182,16 @@ impl RpcRequest {
                 location,
                 move_from,
             })),
+            tag,
         }
     }
 
-    pub fn torrent_rename_path<I>(ids: I, path: String, name: String) -> RpcRequest
+    pub fn torrent_rename_path<I>(
+        ids: I,
+        path: String,
+        name: String,
+        tag: Option<Tag>,
+    ) -> RpcRequest
     where
         I: IntoIterator<Item = Id>,
     {
@@ -154,6 +203,7 @@ impl RpcRequest {
                 path,
                 name,
             })),
+            tag,
         }
     }
 }

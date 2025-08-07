@@ -4,7 +4,7 @@ use dotenvy::dotenv;
 use std::env;
 use transmission_rpc::TransClient;
 use transmission_rpc::types::{
-    BasicAuth, Id, Result, RpcResponse, Torrent, TorrentGetField, Torrents,
+    BasicAuth, Id, Result, RpcResponse, Tag, Torrent, TorrentGetField, Torrents,
 };
 
 #[tokio::main]
@@ -19,7 +19,9 @@ async fn main() -> Result<()> {
         client = TransClient::new(url.parse()?);
     }
 
-    let res: RpcResponse<Torrents<Torrent>> = client.torrent_get(None, None).await?;
+    let fields: Option<Vec<_>> = None;
+    let ids: Option<Vec<_>> = None;
+    let res: RpcResponse<Torrents<Torrent>> = client.torrent_get(fields, ids).await?;
     let names: Vec<&String> = res
         .arguments
         .torrents
@@ -27,13 +29,17 @@ async fn main() -> Result<()> {
         .map(|it| it.name.as_ref().unwrap())
         .collect();
     println!("{:#?}", names);
+    assert_eq!(res.tag, None);
 
+    let tag1 = Tag(1);
     let res1: RpcResponse<Torrents<Torrent>> = client
-        .torrent_get(
+        .torrent_get_tagged(
             Some(vec![TorrentGetField::Id, TorrentGetField::Name]),
             Some(vec![Id::Id(1), Id::Id(2), Id::Id(3)]),
+            tag1,
         )
         .await?;
+    assert_eq!(res1.tag, Some(tag1));
     let first_three: Vec<String> = res1
         .arguments
         .torrents
@@ -48,8 +54,9 @@ async fn main() -> Result<()> {
         .collect();
     println!("{:#?}", first_three);
 
+    let tag2 = Tag(2);
     let res2: RpcResponse<Torrents<Torrent>> = client
-        .torrent_get(
+        .torrent_get_tagged(
             Some(vec![
                 TorrentGetField::Id,
                 TorrentGetField::HashString,
@@ -58,8 +65,10 @@ async fn main() -> Result<()> {
             Some(vec![Id::Hash(String::from(
                 "64b0d9a53ac9cd1002dad1e15522feddb00152fe",
             ))]),
+            tag2,
         )
         .await?;
+    assert_eq!(res2.tag, Some(tag2));
     let info: Vec<String> = res2
         .arguments
         .torrents

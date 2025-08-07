@@ -118,7 +118,7 @@ use serde::de::DeserializeOwned;
 pub use sync::SharableTransClient;
 use types::{
     BasicAuth, BlocklistUpdate, FreeSpace, Id, Nothing, PortTest, Result, RpcRequest, RpcResponse,
-    RpcResponseArgument, SessionClose, SessionGet, SessionSet, SessionSetArgs, SessionStats,
+    RpcResponseArgument, SessionClose, SessionGet, SessionSet, SessionSetArgs, SessionStats, Tag,
     Torrent, TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate, TorrentGetField,
     TorrentRenamePath, TorrentSetArgs, Torrents,
 };
@@ -239,8 +239,11 @@ impl TransClient {
     ///         ..SessionSetArgs::default()
     ///     };
     ///     let response: Result<RpcResponse<SessionSet>> = client.session_set(args).await;
-    ///     match response {
-    ///         Ok(_) => println!("Yay!"),
+    ///     match &response {
+    ///         Ok(resp) => {
+    ///             println!("Yay!");
+    ///             assert_eq!(resp.tag, None);
+    ///         },
     ///         Err(_) => panic!("Oh no!"),
     ///     }
     ///     println!("Rpc response is ok: {}", response?.is_ok());
@@ -248,7 +251,16 @@ impl TransClient {
     /// }
     /// ```
     pub async fn session_set(&mut self, args: SessionSetArgs) -> Result<RpcResponse<SessionSet>> {
-        self.call(RpcRequest::session_set(args)).await
+        self.call(RpcRequest::session_set(args, None)).await
+    }
+
+    /// Performs a session-set request that can be tracked by `tag`.
+    pub async fn session_set_tagged(
+        &mut self,
+        args: SessionSetArgs,
+        tag: Tag,
+    ) -> Result<RpcResponse<SessionSet>> {
+        self.call(RpcRequest::session_set(args, Some(tag))).await
     }
 
     /// Performs a session get call
@@ -281,8 +293,11 @@ impl TransClient {
     ///     };
     ///     let mut client = TransClient::with_auth(url.parse()?, basic_auth);
     ///     let response: Result<RpcResponse<SessionGet>> = client.session_get().await;
-    ///     match response {
-    ///         Ok(_) => println!("Yay!"),
+    ///     match &response {
+    ///         Ok(resp) => {
+    ///             println!("Yay!");
+    ///             assert_eq!(resp.tag, None);
+    ///         },
     ///         Err(_) => panic!("Oh no!"),
     ///     }
     ///     println!("Rpc response is ok: {}", response?.is_ok());
@@ -290,7 +305,12 @@ impl TransClient {
     /// }
     /// ```
     pub async fn session_get(&mut self) -> Result<RpcResponse<SessionGet>> {
-        self.call(RpcRequest::session_get()).await
+        self.call(RpcRequest::session_get(None)).await
+    }
+
+    /// Performs a session-get request that can be tracked by `tag`.
+    pub async fn session_get_tagged(&mut self, tag: Tag) -> Result<RpcResponse<SessionGet>> {
+        self.call(RpcRequest::session_get(Some(tag))).await
     }
 
     /// Performs a session stats call
@@ -323,8 +343,11 @@ impl TransClient {
     ///     };
     ///     let mut client = TransClient::with_auth(url.parse()?, basic_auth);
     ///     let response: Result<RpcResponse<SessionStats>> = client.session_stats().await;
-    ///     match response {
-    ///         Ok(_) => println!("Yay!"),
+    ///     match &response {
+    ///         Ok(resp) => {
+    ///             println!("Yay!");
+    ///             assert_eq!(resp.tag, None);
+    ///         },
     ///         Err(_) => panic!("Oh no!"),
     ///     }
     ///     println!("Rpc response is ok: {}", response?.is_ok());
@@ -332,7 +355,12 @@ impl TransClient {
     /// }
     /// ```
     pub async fn session_stats(&mut self) -> Result<RpcResponse<SessionStats>> {
-        self.call(RpcRequest::session_stats()).await
+        self.call(RpcRequest::session_stats(None)).await
+    }
+
+    /// Performs a session-stats request that can be tracked by `tag`.
+    pub async fn session_stats_tagged(&mut self, tag: Tag) -> Result<RpcResponse<SessionStats>> {
+        self.call(RpcRequest::session_stats(Some(tag))).await
     }
 
     /// Performs a session close call
@@ -365,8 +393,11 @@ impl TransClient {
     ///     };
     ///     let mut client = TransClient::with_auth(url.parse()?, basic_auth);
     ///     let response: Result<RpcResponse<SessionClose>> = client.session_close().await;
-    ///     match response {
-    ///         Ok(_) => println!("Yay!"),
+    ///     match &response {
+    ///         Ok(resp) => {
+    ///             println!("Yay!");
+    ///             assert_eq!(resp.tag, None);
+    ///         },
     ///         Err(_) => panic!("Oh no!"),
     ///     }
     ///     println!("Rpc response is ok: {}", response?.is_ok());
@@ -374,7 +405,12 @@ impl TransClient {
     /// }
     /// ```
     pub async fn session_close(&mut self) -> Result<RpcResponse<SessionClose>> {
-        self.call(RpcRequest::session_close()).await
+        self.call(RpcRequest::session_close(None)).await
+    }
+
+    /// Performs a session-close request that can be tracked by `tag`.
+    pub async fn session_close_tagged(&mut self, tag: Tag) -> Result<RpcResponse<SessionClose>> {
+        self.call(RpcRequest::session_close(Some(tag))).await
     }
 
     /// Performs a blocklist update call
@@ -406,9 +442,13 @@ impl TransClient {
     ///         password: env::var("TPWD")?,
     ///     };
     ///     let mut client = TransClient::with_auth(url.parse()?, basic_auth);
-    ///     let response: Result<RpcResponse<BlocklistUpdate>> = client.blocklist_update().await;
-    ///     match response {
-    ///         Ok(_) => println!("Yay!"),
+    ///     let response: Result<RpcResponse<BlocklistUpdate>> =
+    ///         client.blocklist_update().await;
+    ///     match &response {
+    ///         Ok(resp) => {
+    ///             println!("Yay!");
+    ///             assert_eq!(resp.tag, None);
+    ///         },
     ///         Err(_) => panic!("Oh no!"),
     ///     }
     ///     println!("Rpc response is ok: {}", response?.is_ok());
@@ -416,10 +456,18 @@ impl TransClient {
     /// }
     /// ```
     pub async fn blocklist_update(&mut self) -> Result<RpcResponse<BlocklistUpdate>> {
-        self.call(RpcRequest::blocklist_update()).await
+        self.call(RpcRequest::blocklist_update(None)).await
     }
 
-    /// Performs a session stats call
+    /// Performs a blocklist-update request that can be tracked by `tag`.
+    pub async fn blocklist_update_tagged(
+        &mut self,
+        tag: Tag,
+    ) -> Result<RpcResponse<BlocklistUpdate>> {
+        self.call(RpcRequest::blocklist_update(Some(tag))).await
+    }
+
+    /// Performs a free space call
     ///
     /// # Errors
     ///
@@ -450,8 +498,11 @@ impl TransClient {
     ///     };
     ///     let mut client = TransClient::with_auth(url.parse()?, basic_auth);
     ///     let response: Result<RpcResponse<FreeSpace>> = client.free_space(dir).await;
-    ///     match response {
-    ///         Ok(_) => println!("Yay!"),
+    ///     match &response {
+    ///         Ok(resp) => {
+    ///             println!("Yay!");
+    ///             assert_eq!(resp.tag, None);
+    ///         },
     ///         Err(_) => panic!("Oh no!"),
     ///     }
     ///     println!("Rpc response is ok: {}", response?.is_ok());
@@ -459,7 +510,16 @@ impl TransClient {
     /// }
     /// ```
     pub async fn free_space(&mut self, path: String) -> Result<RpcResponse<FreeSpace>> {
-        self.call(RpcRequest::free_space(path)).await
+        self.call(RpcRequest::free_space(path, None)).await
+    }
+
+    /// Performs a free-space request that can be tracked by `tag`.
+    pub async fn free_space_tagged(
+        &mut self,
+        path: String,
+        tag: Tag,
+    ) -> Result<RpcResponse<FreeSpace>> {
+        self.call(RpcRequest::free_space(path, Some(tag))).await
     }
 
     /// Performs a port test call
@@ -492,8 +552,11 @@ impl TransClient {
     ///     };
     ///     let mut client = TransClient::with_auth(url.parse()?, basic_auth);
     ///     let response: Result<RpcResponse<PortTest>> = client.port_test().await;
-    ///     match response {
-    ///         Ok(_) => println!("Yay!"),
+    ///     match &response {
+    ///         Ok(resp) => {
+    ///             println!("Yay!");
+    ///             assert_eq!(resp.tag, None);
+    ///         },
     ///         Err(_) => panic!("Oh no!"),
     ///     }
     ///     println!("Rpc response is ok: {}", response?.is_ok());
@@ -501,7 +564,12 @@ impl TransClient {
     /// }
     /// ```
     pub async fn port_test(&mut self) -> Result<RpcResponse<PortTest>> {
-        self.call(RpcRequest::port_test()).await
+        self.call(RpcRequest::port_test(None)).await
+    }
+
+    /// Performs a port-test request that can be tracked by `tag`.
+    pub async fn port_test_tagged(&mut self, tag: Tag) -> Result<RpcResponse<PortTest>> {
+        self.call(RpcRequest::port_test(Some(tag))).await
     }
 
     /// Performs a torrent get call
@@ -521,7 +589,7 @@ impl TransClient {
     ///
     /// use dotenvy::dotenv;
     /// use transmission_rpc::{
-    ///     types::{BasicAuth, Id, Result, RpcResponse, Torrent, TorrentGetField, Torrents},
+    ///     types::{BasicAuth, Id, Result, RpcResponse, Tag, Torrent, TorrentGetField, Torrents},
     ///     TransClient,
     /// };
     ///
@@ -536,7 +604,11 @@ impl TransClient {
     ///     };
     ///     let mut client = TransClient::with_auth(url.parse()?, basic_auth);
     ///
-    ///     let res: RpcResponse<Torrents<Torrent>> = client.torrent_get(None, None).await?;
+    ///     let fields: Option<Vec<_>> = None;
+    ///     let ids: Option<Vec<_>> = None;
+    ///     let res: RpcResponse<Torrents<Torrent>> =
+    ///         client.torrent_get(fields, ids).await?;
+    ///     assert_eq!(res.tag, None);
     ///     let names: Vec<&String> = res
     ///         .arguments
     ///         .torrents
@@ -545,12 +617,15 @@ impl TransClient {
     ///         .collect();
     ///     println!("{:#?}", names);
     ///
+    ///     let tag1 = Tag(1);
     ///     let res1: RpcResponse<Torrents<Torrent>> = client
-    ///         .torrent_get(
+    ///         .torrent_get_tagged(
     ///             Some(vec![TorrentGetField::Id, TorrentGetField::Name]),
     ///             Some(vec![Id::Id(1), Id::Id(2), Id::Id(3)]),
+    ///             tag1,
     ///         )
     ///         .await?;
+    ///     assert_eq!(res1.tag, Some(tag1));
     ///     let first_three: Vec<String> = res1
     ///         .arguments
     ///         .torrents
@@ -565,8 +640,9 @@ impl TransClient {
     ///         .collect();
     ///     println!("{:#?}", first_three);
     ///
+    ///     let tag2 = Tag(-1);
     ///     let res2: RpcResponse<Torrents<Torrent>> = client
-    ///         .torrent_get(
+    ///         .torrent_get_tagged(
     ///             Some(vec![
     ///                 TorrentGetField::Id,
     ///                 TorrentGetField::HashString,
@@ -575,8 +651,10 @@ impl TransClient {
     ///             Some(vec![Id::Hash(String::from(
     ///                 "64b0d9a53ac9cd1002dad1e15522feddb00152fe",
     ///             ))]),
+    ///             tag2,
     ///         )
     ///         .await?;
+    ///     assert_eq!(res2.tag, Some(tag2));
     ///     let info: Vec<String> = res2
     ///         .arguments
     ///         .torrents
@@ -604,7 +682,21 @@ impl TransClient {
         FIELDS: IntoIterator<Item = TorrentGetField> + FromIterator<TorrentGetField>,
         IDS: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_get(fields, ids)).await
+        self.call(RpcRequest::torrent_get(fields, ids, None)).await
+    }
+
+    /// Performs a torrent-get request that can be tracked by `tag`.
+    pub async fn torrent_get_tagged<FIELDS, IDS>(
+        &mut self,
+        fields: Option<FIELDS>,
+        ids: Option<IDS>,
+        tag: Tag,
+    ) -> Result<RpcResponse<Torrents<Torrent>>>
+    where
+        FIELDS: IntoIterator<Item = TorrentGetField> + FromIterator<TorrentGetField>,
+        IDS: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::torrent_get(fields, ids, Some(tag))).await
     }
 
     /// Performs a torrent set call
@@ -640,10 +732,8 @@ impl TransClient {
     ///     };
     ///     let mut client = TransClient::with_auth(url, basic_auth);
     ///
-    ///     let args = TorrentSetArgs {
-    ///         labels: Some(vec![String::from("blue")]),
-    ///         ..Default::default()
-    ///     };
+    ///     let args = TorrentSetArgs::default()
+    ///         .labels(vec![String::from("blue")]);
     ///     assert!(
     ///         client
     ///             .torrent_set(args, Some(vec![Id::Id(0)]))
@@ -662,7 +752,20 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_set(args, ids)).await
+        self.call(RpcRequest::torrent_set(args, ids, None)).await
+    }
+
+    /// Performs a torrent-set request that can be tracked by `tag`.
+    pub async fn torrent_set_tagged<I>(
+        &mut self,
+        args: TorrentSetArgs,
+        ids: Option<I>,
+        tag: Tag,
+    ) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::torrent_set(args, ids, Some(tag))).await
     }
 
     /// Performs a torrent action call
@@ -680,7 +783,7 @@ impl TransClient {
     ///
     /// use dotenvy::dotenv;
     /// use transmission_rpc::{
-    ///     types::{BasicAuth, Id, Nothing, Result, RpcResponse, TorrentAction},
+    ///     types::{BasicAuth, Id, Nothing, Result, RpcResponse, Tag, TorrentAction},
     ///     TransClient,
     /// };
     ///
@@ -697,10 +800,12 @@ impl TransClient {
     ///     let res1: RpcResponse<Nothing> = client
     ///         .torrent_action(TorrentAction::Start, vec![Id::Id(1)])
     ///         .await?;
+    ///     assert_eq!(res1.tag, None);
     ///     println!("Start result: {:?}", &res1.is_ok());
     ///     let res2: RpcResponse<Nothing> = client
-    ///         .torrent_action(TorrentAction::Stop, vec![Id::Id(1)])
+    ///         .torrent_action_tagged(TorrentAction::Stop, vec![Id::Id(1)], Tag(-1))
     ///         .await?;
+    ///     assert_eq!(res2.tag, Some(Tag(-1)));
     ///     println!("Stop result: {:?}", &res2.is_ok());
     ///
     ///     Ok(())
@@ -714,7 +819,22 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_action(action, ids)).await
+        self.call(RpcRequest::torrent_action(action, ids, None))
+            .await
+    }
+
+    /// Performs a torrent-action request that can be tracked by `tag`.
+    pub async fn torrent_action_tagged<I>(
+        &mut self,
+        action: TorrentAction,
+        ids: I,
+        tag: Tag,
+    ) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::torrent_action(action, ids, Some(tag)))
+            .await
     }
 
     /// Performs a torrent remove call
@@ -746,7 +866,9 @@ impl TransClient {
     ///         password: env::var("TPWD")?,
     ///     };
     ///     let mut client = TransClient::with_auth(url.parse()?, basic_auth);
-    ///     let res: RpcResponse<Nothing> = client.torrent_remove(vec![Id::Id(1)], false).await?;
+    ///     let res: RpcResponse<Nothing> =
+    ///         client.torrent_remove(vec![Id::Id(1)], false).await?;
+    ///     assert_eq!(res.tag, None);
     ///     println!("Remove result: {:?}", &res.is_ok());
     ///
     ///     Ok(())
@@ -760,7 +882,21 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_remove(ids, delete_local_data))
+        self.call(RpcRequest::torrent_remove(ids, delete_local_data, None))
+            .await
+    }
+
+    /// Performs a torrent-remove request that can be tracked by `tag`.
+    pub async fn torrent_remove_tagged<I>(
+        &mut self,
+        ids: I,
+        delete_local_data: bool,
+        tag: Tag,
+    ) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::torrent_remove(ids, delete_local_data, Some(tag)))
             .await
     }
 
@@ -800,6 +936,7 @@ impl TransClient {
     ///             Option::from(false),
     ///         )
     ///         .await?;
+    ///     assert_eq!(res.tag, None);
     ///     println!("Set-location result: {:?}", &res.is_ok());
     ///
     ///     Ok(())
@@ -814,7 +951,22 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_set_location(ids, location, move_from))
+        self.call(RpcRequest::torrent_set_location(ids, location, move_from, None))
+            .await
+    }
+
+    /// Performs a torrent-set-location request that can be tracked by `tag`.
+    pub async fn torrent_set_location_tagged<I>(
+        &mut self,
+        ids: I,
+        location: String,
+        move_from: Option<bool>,
+        tag: Tag,
+    ) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::torrent_set_location(ids, location, move_from, Some(tag)))
             .await
     }
 
@@ -854,6 +1006,7 @@ impl TransClient {
     ///             String::from("NewFile.jpg"),
     ///         )
     ///         .await?;
+    ///     assert_eq!(res.tag, None);
     ///     println!("rename-path result: {:#?}", res);
     ///
     ///     Ok(())
@@ -868,7 +1021,22 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_rename_path(ids, path, name))
+        self.call(RpcRequest::torrent_rename_path(ids, path, name, None))
+            .await
+    }
+
+    /// Performs a torrent-rename-path request that can be tracked by `tag`.
+    pub async fn torrent_rename_path_tagged<I>(
+        &mut self,
+        ids: I,
+        path: String,
+        name: String,
+        tag: Tag,
+    ) -> Result<RpcResponse<TorrentRenamePath>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::torrent_rename_path(ids, path, name, Some(tag)))
             .await
     }
 
@@ -909,6 +1077,7 @@ impl TransClient {
     ///         ..TorrentAddArgs::default()
     ///     };
     ///     let res: RpcResponse<TorrentAddedOrDuplicate> = client.torrent_add(add).await?;
+    ///     assert_eq!(res.tag, None);
     ///     println!("Add result: {:?}", &res.is_ok());
     ///     println!("response: {:?}", &res);
     ///
@@ -926,7 +1095,20 @@ impl TransClient {
             add.metainfo.is_some() || add.filename.is_some(),
             "Metainfo or Filename should be provided"
         );
-        self.call(RpcRequest::torrent_add(add)).await
+        self.call(RpcRequest::torrent_add(add, None)).await
+    }
+
+    /// Performs a `torrent-add` request that can be tracked by `tag`.
+    pub async fn torrent_add_tagged(
+        &mut self,
+        add: TorrentAddArgs,
+        tag: Tag,
+    ) -> Result<RpcResponse<TorrentAddedOrDuplicate>> {
+        assert!(
+            add.metainfo.is_some() || add.filename.is_some(),
+            "Metainfo or Filename should be provided"
+        );
+        self.call(RpcRequest::torrent_add(add, Some(tag))).await
     }
 
     /// Performs a JRPC call to the server
@@ -1023,6 +1205,7 @@ mod tests {
                 println!("Add result: {:?}", &res.is_ok());
                 println!("response: {:?}", &res);
                 assert!(!&res.is_ok());
+                assert_eq!(res.tag, None);
             }
             Err(e) => {
                 println!("Error: {:#?}", e);

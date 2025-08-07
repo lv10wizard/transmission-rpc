@@ -3,7 +3,7 @@ extern crate transmission_rpc;
 use dotenvy::dotenv;
 use std::env;
 use transmission_rpc::TransClient;
-use transmission_rpc::types::{BasicAuth, Id, Nothing, Result, RpcResponse};
+use transmission_rpc::types::{BasicAuth, Id, Nothing, Result, RpcResponse, Tag};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -16,8 +16,18 @@ async fn main() -> Result<()> {
     } else {
         client = TransClient::new(url.parse()?);
     }
-    let res: RpcResponse<Nothing> = client.torrent_remove(vec![Id::Id(1)], false).await?;
+    let res: RpcResponse<Nothing> = client
+        .torrent_remove(vec![Id::Id(1)], false)
+        .await?;
     println!("Remove result: {:?}", &res.is_ok());
+    assert_eq!(res.tag, None);
+
+    let tag = Tag(4);
+    let res: RpcResponse<Nothing> = client
+        .torrent_remove_tagged(vec![Id::Id(1)], false, tag)
+        .await?;
+    println!("Remove result: {:?}", &res.is_ok());
+    assert_eq!(res.tag, Some(tag));
 
     Ok(())
 }

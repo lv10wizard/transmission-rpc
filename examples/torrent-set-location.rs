@@ -3,7 +3,7 @@ extern crate transmission_rpc;
 use dotenvy::dotenv;
 use std::env;
 use transmission_rpc::TransClient;
-use transmission_rpc::types::{BasicAuth, Id, Nothing, Result, RpcResponse};
+use transmission_rpc::types::{BasicAuth, Id, Nothing, Result, RpcResponse, Tag};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -24,6 +24,19 @@ async fn main() -> Result<()> {
         )
         .await?;
     println!("Set-location result: {:?}", &res.is_ok());
+    assert_eq!(res.tag, None);
+
+    let tag = Tag(777);
+    let res: RpcResponse<Nothing> = client
+        .torrent_set_location_tagged(
+            vec![Id::Id(1)],
+            String::from("/new/location"),
+            Option::from(false),
+            tag,
+        )
+        .await?;
+    println!("Set-location result: {:?}", &res.is_ok());
+    assert_eq!(res.tag, Some(tag));
 
     Ok(())
 }
