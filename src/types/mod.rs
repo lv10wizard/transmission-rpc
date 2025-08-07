@@ -21,6 +21,18 @@ pub struct BasicAuth {
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Tag(pub i64);
 
+impl From<i64> for Tag {
+    fn from(value: i64) -> Self {
+        Self(value)
+    }
+}
+
+impl From<&i64> for Tag {
+    fn from(value: &i64) -> Self {
+        Self(*value)
+    }
+}
+
 pub(crate) use self::request::RpcRequest;
 pub use self::request::{
     ArgumentFields, Id, IdleMode, Priority, RatioMode, SessionSetArgs, TorrentAction,
