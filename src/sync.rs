@@ -122,10 +122,7 @@ impl SharableTransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn session_set(
-        &self,
-        args: SessionSetArgs,
-    ) -> Result<RpcResponse<SessionSet>> {
+    pub async fn session_set(&self, args: SessionSetArgs) -> Result<RpcResponse<SessionSet>> {
         self.call(RpcRequest::session_set(args, None)).await
     }
 
@@ -334,10 +331,7 @@ impl SharableTransClient {
     }
 
     /// Performs a blocklist-update request that can be tracked by `tag`.
-    pub async fn blocklist_update_tagged(
-        &self,
-        tag: Tag,
-    ) -> Result<RpcResponse<BlocklistUpdate>> {
+    pub async fn blocklist_update_tagged(&self, tag: Tag) -> Result<RpcResponse<BlocklistUpdate>> {
         self.call(RpcRequest::blocklist_update(Some(tag))).await
     }
 
@@ -383,10 +377,7 @@ impl SharableTransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn free_space(
-        &self,
-        path: String,
-    ) -> Result<RpcResponse<FreeSpace>> {
+    pub async fn free_space(&self, path: String) -> Result<RpcResponse<FreeSpace>> {
         self.call(RpcRequest::free_space(path, None)).await
     }
 
@@ -573,7 +564,8 @@ impl SharableTransClient {
         FIELDS: IntoIterator<Item = TorrentGetField> + FromIterator<TorrentGetField>,
         IDS: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_get(fields, ids, Some(tag))).await
+        self.call(RpcRequest::torrent_get(fields, ids, Some(tag)))
+            .await
     }
 
     /// Performs a torrent set call
@@ -642,7 +634,8 @@ impl SharableTransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_set(args, ids, Some(tag))).await
+        self.call(RpcRequest::torrent_set(args, ids, Some(tag)))
+            .await
     }
 
     /// Performs a torrent action call
@@ -773,8 +766,12 @@ impl SharableTransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_remove(ids, delete_local_data, Some(tag)))
-            .await
+        self.call(RpcRequest::torrent_remove(
+            ids,
+            delete_local_data,
+            Some(tag),
+        ))
+        .await
     }
 
     /// Performs a torrent set location call
@@ -845,8 +842,13 @@ impl SharableTransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_set_location(ids, location, move_from, Some(tag)))
-            .await
+        self.call(RpcRequest::torrent_set_location(
+            ids,
+            location,
+            move_from,
+            Some(tag),
+        ))
+        .await
     }
 
     /// Performs a torrent rename path call

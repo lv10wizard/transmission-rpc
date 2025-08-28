@@ -696,7 +696,8 @@ impl TransClient {
         FIELDS: IntoIterator<Item = TorrentGetField> + FromIterator<TorrentGetField>,
         IDS: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_get(fields, ids, Some(tag))).await
+        self.call(RpcRequest::torrent_get(fields, ids, Some(tag)))
+            .await
     }
 
     /// Performs a torrent set call
@@ -765,7 +766,8 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_set(args, ids, Some(tag))).await
+        self.call(RpcRequest::torrent_set(args, ids, Some(tag)))
+            .await
     }
 
     /// Performs a torrent action call
@@ -896,8 +898,12 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_remove(ids, delete_local_data, Some(tag)))
-            .await
+        self.call(RpcRequest::torrent_remove(
+            ids,
+            delete_local_data,
+            Some(tag),
+        ))
+        .await
     }
 
     /// Performs a torrent set location call
@@ -951,8 +957,10 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_set_location(ids, location, move_from, None))
-            .await
+        self.call(RpcRequest::torrent_set_location(
+            ids, location, move_from, None,
+        ))
+        .await
     }
 
     /// Performs a torrent-set-location request that can be tracked by `tag`.
@@ -966,8 +974,13 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        self.call(RpcRequest::torrent_set_location(ids, location, move_from, Some(tag)))
-            .await
+        self.call(RpcRequest::torrent_set_location(
+            ids,
+            location,
+            move_from,
+            Some(tag),
+        ))
+        .await
     }
 
     /// Performs a torrent rename path call

@@ -16,9 +16,7 @@ async fn main() -> Result<()> {
     } else {
         client = TransClient::new(url.parse()?);
     }
-    let res: RpcResponse<Nothing> = client
-        .torrent_remove(vec![Id::Id(1)], false)
-        .await?;
+    let res: RpcResponse<Nothing> = client.torrent_remove(vec![Id::Id(1)], false).await?;
     println!("Remove result: {:?}", &res.is_ok());
     assert_eq!(res.tag, None);
 
