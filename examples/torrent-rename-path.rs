@@ -3,7 +3,7 @@ extern crate transmission_rpc;
 use dotenvy::dotenv;
 use std::env;
 use transmission_rpc::TransClient;
-use transmission_rpc::types::{BasicAuth, Id, Result, RpcResponse, TorrentRenamePath};
+use transmission_rpc::types::{BasicAuth, Id, Result, RpcResponse, Tag, TorrentRenamePath};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -15,11 +15,13 @@ async fn main() -> Result<()> {
         password: env::var("TPWD")?,
     };
     let mut client = TransClient::with_auth(url.parse()?, basic_auth);
+    let tag = Tag(11);
     let res: RpcResponse<TorrentRenamePath> = client
-        .torrent_rename_path(
+        .torrent_rename_path_tagged(
             vec![Id::Id(1)],
             String::from("Folder/OldFile.jpg"),
             String::from("NewFile.jpg"),
+            tag,
         )
         .await?;
     println!("rename-path result: {:#?}", res);
