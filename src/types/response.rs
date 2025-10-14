@@ -33,7 +33,7 @@ pub trait RpcResponseArgument {}
 pub struct SessionSet {}
 impl RpcResponseArgument for SessionSet {}
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct SessionGet {
     pub blocklist_enabled: bool,
@@ -45,7 +45,7 @@ pub struct SessionGet {
 }
 impl RpcResponseArgument for SessionGet {}
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionStats {
     pub torrent_count: i32,
@@ -60,18 +60,18 @@ pub struct SessionStats {
 }
 impl RpcResponseArgument for SessionStats {}
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SessionClose {}
 impl RpcResponseArgument for SessionClose {}
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub struct BlocklistUpdate {
     pub blocklist_size: Option<i32>,
 }
 impl RpcResponseArgument for BlocklistUpdate {}
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct FreeSpace {
     pub path: String,
@@ -79,7 +79,7 @@ pub struct FreeSpace {
 }
 impl RpcResponseArgument for FreeSpace {}
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub struct PortTest {
     pub port_is_open: bool,
@@ -273,7 +273,7 @@ impl Torrent {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Stats {
     pub files_added: i32,
@@ -289,7 +289,7 @@ pub struct Torrents<T> {
 }
 impl RpcResponseArgument for Torrents<Torrent> {}
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct Trackers {
     pub id: i32,
     pub announce: String,
@@ -302,7 +302,7 @@ pub struct Trackers {
     pub tier: usize,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct File {
     /// "the total size of the file"
@@ -326,7 +326,7 @@ pub struct File {
     pub end_piece: Option<u64>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct FileStat {
     pub bytes_completed: i64,
@@ -334,7 +334,7 @@ pub struct FileStat {
     pub priority: Priority,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Peer {
     // FIXME? serde doesn't like simplified ipv6 addresses
@@ -358,7 +358,7 @@ pub struct Peer {
     pub rate_to_peer: u64,   // (B/s)
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PeersFrom {
     pub from_cache: u16,
@@ -370,7 +370,7 @@ pub struct PeersFrom {
     pub from_tracker: u16,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackerStat {
     pub announce_state: TrackerState,
@@ -421,7 +421,7 @@ pub enum TrackerState {
     Active = 3,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Nothing {}
 impl RpcResponseArgument for Nothing {}
 
@@ -451,7 +451,7 @@ impl<'de> Deserialize<'de> for TorrentAddedOrDuplicate {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct TorrentRenamePath {
     pub path: Option<String>,
     pub name: Option<String>,
