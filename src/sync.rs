@@ -4,7 +4,7 @@
 //! all requests methods by using a lock on inner state. This may introduce some
 //! overhead so choose as needed.
 
-use std::{ops::Deref, sync::RwLock};
+use std::{ops::Deref, sync::{Arc, RwLock}};
 
 use reqwest::{Client, StatusCode, Url, header::CONTENT_TYPE};
 use serde::de::DeserializeOwned;
@@ -19,10 +19,11 @@ use crate::{
     },
 };
 
+#[derive(Clone)]
 pub struct SharableTransClient {
     url: Url,
     auth: Option<BasicAuth>,
-    session_id: RwLock<Option<String>>,
+    session_id: Arc<RwLock<Option<String>>>,
     client: Client,
 }
 
@@ -33,7 +34,7 @@ impl SharableTransClient {
         SharableTransClient {
             url,
             auth: Some(basic_auth),
-            session_id: RwLock::new(None),
+            session_id: RwLock::new(None).into(),
             client: Client::new(),
         }
     }
@@ -44,7 +45,7 @@ impl SharableTransClient {
         SharableTransClient {
             url,
             auth: None,
-            session_id: RwLock::new(None),
+            session_id: RwLock::new(None).into(),
             client: Client::new(),
         }
     }
@@ -54,7 +55,7 @@ impl SharableTransClient {
         SharableTransClient {
             url,
             auth: None,
-            session_id: RwLock::new(None),
+            session_id: RwLock::new(None).into(),
             client,
         }
     }
