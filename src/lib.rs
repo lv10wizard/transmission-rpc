@@ -601,8 +601,20 @@ impl TransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn queue_move_top(&mut self, ids: Vec<Id>) -> Result<RpcResponse<Nothing>> {
-        self.call(RpcRequest::queue_move_top(ids)).await
+    pub async fn queue_move_top<I>(&mut self, ids: I) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_top(ids, None)).await
+    }
+
+    /// Performs a `queue-move-top` request that can be tracked by `tag`.
+    pub async fn queue_move_top_tagged<I>(&mut self, ids: I, tag: Tag)
+        -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_top(ids, Some(tag))).await
     }
 
     /// Move torrents with IDs specified in `ids` up in the download queue.
@@ -638,8 +650,20 @@ impl TransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn queue_move_up(&mut self, ids: Vec<Id>) -> Result<RpcResponse<Nothing>> {
-        self.call(RpcRequest::queue_move_up(ids)).await
+    pub async fn queue_move_up<I>(&mut self, ids: I) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_up(ids, None)).await
+    }
+
+    /// Performs a `queue-move-up` request that can be tracked by `tag`.
+    pub async fn queue_move_up_tagged<I>(&mut self, ids: I, tag: Tag)
+        -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_up(ids, Some(tag))).await
     }
 
     /// Move torrents with IDs specified in `ids` down in the download queue.
@@ -675,8 +699,20 @@ impl TransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn queue_move_down(&mut self, ids: Vec<Id>) -> Result<RpcResponse<Nothing>> {
-        self.call(RpcRequest::queue_move_down(ids)).await
+    pub async fn queue_move_down<I>(&mut self, ids: I) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_down(ids, None)).await
+    }
+
+    /// Performs a `queue-move-down` request that can be tracked by `tag`.
+    pub async fn queue_move_down_tagged<I>(&mut self, ids: I, tag: Tag)
+        -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_down(ids, Some(tag))).await
     }
 
     /// Move torrents with IDs specified in `ids` to the bottom of the download queue.
@@ -712,8 +748,20 @@ impl TransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn queue_move_bottom(&mut self, ids: Vec<Id>) -> Result<RpcResponse<Nothing>> {
-        self.call(RpcRequest::queue_move_bottom(ids)).await
+    pub async fn queue_move_bottom<I>(&mut self, ids: I) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_bottom(ids, None)).await
+    }
+
+    /// Performs a `queue-move-bottom` request that can be tracked by `tag`.
+    pub async fn queue_move_bottom_tagged<I>(&mut self, ids: I, tag: Tag)
+        -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_bottom(ids, Some(tag))).await
     }
 
     /// Performs a torrent get call

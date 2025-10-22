@@ -441,6 +441,202 @@ impl SharableTransClient {
         self.call(RpcRequest::port_test(Some(tag))).await
     }
 
+    /// Move torrents with IDs specified in `ids` to the top of the download queue.
+    ///
+    /// # Errors
+    ///
+    /// Any IO Error or Deserialization error
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use dotenvy::dotenv;
+    /// use std::env;
+    /// use transmission_rpc::types::{BasicAuth, Id, Result};
+    /// use transmission_rpc::TransClient;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<()> {
+    ///     dotenv()?;
+    ///     env_logger::init();
+    ///     let url = env::var("TURL")?;
+    ///     let mut client = if let (Ok(user), Ok(password)) = (env::var("TUSER"), env::var("TPWD")) {
+    ///         TransClient::with_auth(url.parse()?, BasicAuth { user, password })
+    ///     } else {
+    ///         TransClient::new(url.parse()?)
+    ///     };
+    ///     let response = client.queue_move_top(vec![Id::Id(1)]).await?;
+    ///     if response.is_ok() {
+    ///         println!("Ok!");
+    ///     } else {
+    ///         println!("Err: {}", response.result);
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn queue_move_top<I>(&self, ids: I) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_top(ids, None)).await
+    }
+
+    /// Performs a `queue-move-top` request that can be tracked by `tag`.
+    pub async fn queue_move_top_tagged<I>(&self, ids: I, tag: Tag)
+        -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_top(ids, Some(tag))).await
+    }
+
+    /// Move torrents with IDs specified in `ids` up in the download queue.
+    ///
+    /// # Errors
+    ///
+    /// Any IO Error or Deserialization error
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use dotenvy::dotenv;
+    /// use std::env;
+    /// use transmission_rpc::types::{BasicAuth, Id, Result};
+    /// use transmission_rpc::TransClient;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<()> {
+    ///     dotenv()?;
+    ///     env_logger::init();
+    ///     let url = env::var("TURL")?;
+    ///     let mut client = if let (Ok(user), Ok(password)) = (env::var("TUSER"), env::var("TPWD")) {
+    ///         TransClient::with_auth(url.parse()?, BasicAuth { user, password })
+    ///     } else {
+    ///         TransClient::new(url.parse()?)
+    ///     };
+    ///     let response = client.queue_move_up(vec![Id::Id(1)]).await?;
+    ///     if response.is_ok() {
+    ///         println!("Ok!");
+    ///     } else {
+    ///         println!("Err: {}", response.result);
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn queue_move_up<I>(&self, ids: I) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_up(ids, None)).await
+    }
+
+    /// Performs a `queue-move-up` request that can be tracked by `tag`.
+    pub async fn queue_move_up_tagged<I>(&self, ids: I, tag: Tag)
+        -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_up(ids, Some(tag))).await
+    }
+
+    /// Move torrents with IDs specified in `ids` down in the download queue.
+    ///
+    /// # Errors
+    ///
+    /// Any IO Error or Deserialization error
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use dotenvy::dotenv;
+    /// use std::env;
+    /// use transmission_rpc::types::{BasicAuth, Id, Result};
+    /// use transmission_rpc::TransClient;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<()> {
+    ///     dotenv()?;
+    ///     env_logger::init();
+    ///     let url = env::var("TURL")?;
+    ///     let mut client = if let (Ok(user), Ok(password)) = (env::var("TUSER"), env::var("TPWD")) {
+    ///         TransClient::with_auth(url.parse()?, BasicAuth { user, password })
+    ///     } else {
+    ///         TransClient::new(url.parse()?)
+    ///     };
+    ///     let response = client.queue_move_down(vec![Id::Id(1)]).await?;
+    ///     if response.is_ok() {
+    ///         println!("Ok!");
+    ///     } else {
+    ///         println!("Err: {}", response.result);
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn queue_move_down<I>(&self, ids: I) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_down(ids, None)).await
+    }
+
+    /// Performs a `queue-move-down` request that can be tracked by `tag`.
+    pub async fn queue_move_down_tagged<I>(&self, ids: I, tag: Tag)
+        -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_down(ids, Some(tag))).await
+    }
+
+    /// Move torrents with IDs specified in `ids` to the bottom of the download queue.
+    ///
+    /// # Errors
+    ///
+    /// Any IO Error or Deserialization error
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use dotenvy::dotenv;
+    /// use std::env;
+    /// use transmission_rpc::types::{BasicAuth, Id, Result};
+    /// use transmission_rpc::TransClient;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<()> {
+    ///     dotenv()?;
+    ///     env_logger::init();
+    ///     let url = env::var("TURL")?;
+    ///     let mut client = if let (Ok(user), Ok(password)) = (env::var("TUSER"), env::var("TPWD")) {
+    ///         TransClient::with_auth(url.parse()?, BasicAuth { user, password })
+    ///     } else {
+    ///         TransClient::new(url.parse()?)
+    ///     };
+    ///     let response = client.queue_move_bottom(vec![Id::Id(1)]).await?;
+    ///     if response.is_ok() {
+    ///         println!("Ok!");
+    ///     } else {
+    ///         println!("Err: {}", response.result);
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn queue_move_bottom<I>(&self, ids: I) -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_bottom(ids, None)).await
+    }
+
+    /// Performs a `queue-move-bottom` request that can be tracked by `tag`.
+    pub async fn queue_move_bottom_tagged<I>(&self, ids: I, tag: Tag)
+        -> Result<RpcResponse<Nothing>>
+    where
+        I: IntoIterator<Item = Id>,
+    {
+        self.call(RpcRequest::queue_move_bottom(ids, Some(tag))).await
+    }
+
     /// Performs a torrent get call
     /// fields - if None then ALL fields
     /// ids - if None then All items

@@ -93,31 +93,47 @@ impl RpcRequest {
         }
     }
 
-    pub fn queue_move_top(ids: Vec<Id>) -> RpcRequest {
+    pub fn queue_move_top<I>(ids: I, tag: Option<Tag>) -> RpcRequest
+    where
+        I: IntoIterator<Item = Id>,
+    {
         RpcRequest {
             method: Method::QueueMoveTop,
-            arguments: Args::QueueMove(ids.into()).into(),
+            arguments: Args::QueueMove(Vec::from_iter(ids).into()).into(),
+            tag,
         }
     }
 
-    pub fn queue_move_up(ids: Vec<Id>) -> RpcRequest {
+    pub fn queue_move_up<I>(ids: I, tag: Option<Tag>) -> RpcRequest
+    where
+        I: IntoIterator<Item = Id>,
+    {
         RpcRequest {
             method: Method::QueueMoveUp,
-            arguments: Args::QueueMove(ids.into()).into(),
+            arguments: Args::QueueMove(Vec::from_iter(ids).into()).into(),
+            tag,
         }
     }
 
-    pub fn queue_move_down(ids: Vec<Id>) -> RpcRequest {
+    pub fn queue_move_down<I>(ids: I, tag: Option<Tag>) -> RpcRequest
+    where
+        I: IntoIterator<Item = Id>,
+    {
         RpcRequest {
             method: Method::QueueMoveDown,
-            arguments: Args::QueueMove(ids.into()).into(),
+            arguments: Args::QueueMove(Vec::from_iter(ids).into()).into(),
+            tag,
         }
     }
 
-    pub fn queue_move_bottom(ids: Vec<Id>) -> RpcRequest {
+    pub fn queue_move_bottom<I>(ids: I, tag: Option<Tag>) -> RpcRequest
+    where
+        I: IntoIterator<Item = Id>,
+    {
         RpcRequest {
             method: Method::QueueMoveBottom,
-            arguments: Args::QueueMove(ids.into()).into(),
+            arguments: Args::QueueMove(Vec::from_iter(ids).into()).into(),
+            tag,
         }
     }
 
