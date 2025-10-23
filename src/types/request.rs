@@ -1,9 +1,10 @@
 use enum_iterator::{all, Sequence};
-use serde::{Deserialize, Serialize, Serializer};
-use serde_repr::{Deserialize_repr, Serialize_repr};
+use serde::{Serialize, Serializer};
 
 use super::{Id, IdleMode, Priority, RatioMode, Tag};
 
+#[cfg(feature = "tor-get-serde")]
+use serde::Deserialize; 
 #[cfg(feature = "hashable-request")]
 use ordered_float::OrderedFloat;
 
