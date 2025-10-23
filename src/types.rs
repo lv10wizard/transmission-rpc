@@ -3,14 +3,14 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 pub(crate) use self::request::RpcRequest;
 pub use self::request::{
-    ArgumentFields, SessionSetArgs, TorrentAction, TorrentAddArgs, TorrentGetField,
+    ArgumentFields, GroupSetArgs, SessionSetArgs, TorrentAction, TorrentAddArgs, TorrentGetField,
     TorrentRenamePathArgs, TorrentSetArgs, TrackerList,
 };
 
 pub use self::response::{
-    BlocklistUpdate, ErrorType, FreeSpace, Nothing, PortTest, RpcResponse, RpcResponseArgument,
-    SessionGet, SessionStats, Torrent, TorrentAddedOrDuplicate, TorrentRenamePath, TorrentStatus,
-    Torrents, TrackerState,
+    BlocklistUpdate, ErrorType, FreeSpace, GroupGet, Nothing, PortTest, RpcResponse,
+    RpcResponseArgument, SessionGet, SessionStats, Torrent, TorrentAddedOrDuplicate,
+    TorrentRenamePath, TorrentStatus, Torrents, TrackerState,
 };
 
 /// [`Torrent`] field sub-type. You probably won't need to interact with this directly.

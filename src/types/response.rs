@@ -450,6 +450,19 @@ pub struct TorrentRenamePath {
 }
 impl RpcResponseArgument for TorrentRenamePath {}
 
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub struct GroupGet {
+    #[serde(rename = "honorsSessionLimits")]
+    pub honors_session_limits: bool,
+    pub name: String,
+    pub speed_limit_down_enabled: bool,
+    pub speed_limit_down: u64,
+    pub speed_limit_up_enabled: bool,
+    pub speed_limit_up: u64,
+}
+impl RpcResponseArgument for Vec<GroupGet> {}
+
 #[cfg(test)]
 mod tests {
     use crate::types::{Result, RpcResponse, TorrentAddedOrDuplicate};

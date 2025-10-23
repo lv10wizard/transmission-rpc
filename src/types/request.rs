@@ -8,6 +8,7 @@ use serde::Deserialize;
 #[cfg(feature = "hashable-request")]
 use ordered_float::OrderedFloat;
 
+mod group_set;
 mod torrent_set;
 
 /// Represents a transmission rpc method.
@@ -251,6 +252,25 @@ impl RpcRequest {
             tag,
         }
     }
+
+    pub fn group_get<I>(groups: Option<I>, tag: Option<Tag>) -> RpcRequest
+    where
+        I: IntoIterator<Item = String>,
+    {
+        RpcRequest {
+            method: Method::GroupGet,
+            arguments: Some(Args::GroupGet(groups.map(Vec::from_iter).into())),
+            tag,
+        }
+    }
+
+    pub fn group_set(args: GroupSetArgs, tag: Option<Tag>) -> RpcRequest {
+        RpcRequest {
+            method: Method::GroupSet,
+            arguments: Some(Args::GroupSet(args)),
+            tag,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -261,6 +281,8 @@ enum Method {
     SessionClose,
     BlocklistUpdate,
     FreeSpace,
+    GroupGet,
+    GroupSet,
     PortTest,
     TorrentGet,
     TorrentSet,
@@ -286,6 +308,8 @@ impl Method {
             M::SessionClose => "session-close",
             M::BlocklistUpdate => "blocklist-update",
             M::FreeSpace => "free-space",
+            M::GroupGet => "group-get",
+            M::GroupSet => "group-set",
             M::PortTest => "port-test",
             M::TorrentGet => "torrent-get",
             M::TorrentSet => "torrent-set",
@@ -320,6 +344,8 @@ impl ArgumentFields for TorrentGetField {}
 #[serde(untagged)]
 pub enum Args {
     FreeSpace(FreeSpaceArgs),
+    GroupGet(GroupGetArgs),
+    GroupSet(GroupSetArgs),
     SessionSet(SessionSetArgs),
     QueueMove(QueueMoveArgs),
     TorrentGet(TorrentGetArgs),
@@ -334,6 +360,89 @@ pub enum Args {
 #[derive(Serialize, Debug, Clone)]
 pub struct FreeSpaceArgs {
     path: String,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub(crate) struct GroupGetArgs {
+    groups: Option<Vec<String>>,
+}
+
+impl From<Vec<String>> for GroupGetArgs {
+    fn from(value: Vec<String>) -> Self {
+        Some(value).into()
+    }
+}
+
+impl From<Option<Vec<String>>> for GroupGetArgs {
+    fn from(value: Option<Vec<String>>) -> Self {
+        Self {
+            groups: value,
+        }
+    }
+}
+
+/// Defines request arguments for the [`group_set`] method.
+///
+/// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17).
+///
+/// # Constructor
+///
+/// * [`GroupSetArgs::new`] creates an empty `GroupSetArgs` object with the given group name.
+///
+/// # Setters
+///
+/// The following methods are fluent setters, returning a new `GroupSetArgs` instance modifying
+/// only the corresponding field while leaving all other fields untouched.
+///
+/// * [`GroupSetArgs::honors_session_limits`]: Whether the session's upload limits are honored.
+/// * [`GroupSetArgs::speed_limit_down_enabled`]: Whether the bandwidth group limits download
+/// speed.
+/// * [`GroupSetArgs::speed_limit_down`]: Maximum download speed (`KBps`).
+/// * [`GroupSetArgs::speed_limit_up_enabled`]: Whether the bandwidth group limits upload speed.
+/// * [`GroupSetArgs::speed_limit_up`]: Maximum upload speed (`KBps`).
+///
+/// # Examples
+///
+/// With fluent setters:
+/// ```
+/// use transmission_rpc::types::GroupSetArgs;
+///
+/// let args = GroupSetArgs()::new("my-bandwidth-group".to_owned())
+///                .honors_session_limits(false)
+///                .speed_limit_up_enabled(true)
+///                .speed_limit_up(500);
+/// ```
+///
+/// Directly setting struct fields:
+/// ```
+/// use transmission_rpc::types::GroupSetArgs;
+///
+/// let mut args = GroupSetArgs()::new("my-bandwidth-group".to_owned());
+/// args.honors_session_limits = Some(false);
+/// args.speed_limit_up_enabled = Some(true);
+/// args.speed_limit_up = Some(500);
+/// ```
+///
+/// [`group_set`]: crate::TransClient::group_set
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub struct GroupSetArgs {
+    #[serde(skip_serializing_if = "Option::is_none", rename = "honorsSessionLimits")]
+    pub honors_session_limits: Option<bool>,
+
+    pub name: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub speed_limit_down_enabled: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub speed_limit_down: Option<u64>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub speed_limit_up_enabled: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub speed_limit_up: Option<u64>,
 }
 
 #[derive(Serialize, Debug, Clone, Default, PartialEq)]

@@ -40,8 +40,8 @@
 //! - [X] queue-move-top, queue-move-up, queue-move-down, queue-move-bottom
 //! - [X] session-close
 //! - [X] free-space
-//! - [ ] group-set
-//! - [ ] group-get
+//! - [X] group-set
+//! - [X] group-get
 //!
 //! ##### Feature Flags
 //!
@@ -86,7 +86,10 @@
 //! examples/
 //! ├── blocklist-update.rs
 //! ├── free-space.rs
+//! ├── group-get.rs
+//! ├── group-set.rs
 //! ├── port-test.rs
+//! ├── queue-move.rs
 //! ├── session-close.rs
 //! ├── session-get.rs
 //! ├── session-stats.rs
@@ -96,6 +99,8 @@
 //! ├── torrent-remove.rs
 //! ├── torrent-rename-path.rs
 //! └── torrent-set-location.rs
+//! 
+//! 1 directory, 15 files
 //! ```
 //!
 //! -----
@@ -117,10 +122,10 @@ use serde::de::DeserializeOwned;
 #[cfg(feature = "sync")]
 pub use sync::SharableTransClient;
 use types::{
-    BasicAuth, BlocklistUpdate, FreeSpace, Id, Nothing, PortTest, Result, RpcRequest, RpcResponse,
-    RpcResponseArgument, SessionGet, SessionSetArgs, SessionStats, Tag, Torrent, TorrentAction,
-    TorrentAddArgs, TorrentAddedOrDuplicate, TorrentGetField, TorrentRenamePath, TorrentSetArgs,
-    Torrents,
+    BasicAuth, BlocklistUpdate, FreeSpace, GroupGet, GroupSetArgs, Id, Nothing, PortTest, Result,
+    RpcRequest, RpcResponse, RpcResponseArgument, SessionGet, SessionSetArgs, SessionStats, Tag,
+    Torrent, TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate, TorrentGetField,
+    TorrentRenamePath, TorrentSetArgs, Torrents,
 };
 
 #[cfg(feature = "sync")]
@@ -1314,6 +1319,130 @@ impl TransClient {
             "Metainfo or Filename should be provided"
         );
         self.call(RpcRequest::torrent_add(add, Some(tag))).await
+    }
+
+    /// Performs a group-set request.
+    ///
+    /// # Errors
+    ///
+    /// Any IO Error or Deserialization error
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use dotenvy::dotenv;
+    /// use std::env;
+    /// use transmission_rpc::types::{BasicAuth, Result};
+    /// use transmission_rpc::TransClient;
+    /// 
+    /// #[tokio::main]
+    /// async fn main() -> Result<()> {
+    ///     dotenv()?;
+    ///     env_logger::init();
+    ///     let url = env::var("TURL")?;
+    ///     let mut client = if let (Ok(user), Ok(password)) = (env::var("TUSER"), env::var("TPWD")) {
+    ///         TransClient::with_auth(url.parse()?, BasicAuth { user, password })
+    ///     } else {
+    ///         TransClient::new(url.parse()?)
+    ///     };
+    /// 
+    ///     let tag = 123.into();
+    ///     let group = Some(vec!["my-group-name".to_owned()]);
+    ///     let response = client.group_get_tagged(group, tag).await?;
+    ///     println!("response: {response:#?}");
+    ///     match response.is_ok() {
+    ///         true => {
+    ///             println!("Ok!");
+    ///             assert_eq!(response.tag, Some(tag));
+    ///         },
+    ///         false => println!("Err: {}", response.result),
+    ///     }
+    /// 
+    ///     let response = client.group_get(None).await?;
+    ///     println!("response: {response:#?}");
+    ///     if response.is_ok() {
+    ///         println!("Ok!");
+    ///     } else {
+    ///         println!("Err: {}", response.result);
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn group_get(&mut self, groups: Option<Vec<String>>)
+        -> Result<RpcResponse<Vec<GroupGet>>>
+    {
+        self.call(RpcRequest::group_get(groups, None)).await
+    }
+
+    /// Performs a group-get request that can be tracked by `tag`.
+    pub async fn group_get_tagged(&mut self, groups: Option<Vec<String>>, tag: Tag)
+        -> Result<RpcResponse<Vec<GroupGet>>>
+    {
+        self.call(RpcRequest::group_get(groups, Some(tag))).await
+    }
+
+    /// Performs a group-set request.
+    ///
+    /// # Errors
+    ///
+    /// Any IO Error or Deserialization error
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use dotenvy::dotenv;
+    /// use std::env;
+    /// use transmission_rpc::types::{BasicAuth, GroupSetArgs, Result};
+    /// use transmission_rpc::TransClient;
+    /// 
+    /// #[tokio::main]
+    /// async fn main() -> Result<()> {
+    ///     dotenv()?;
+    ///     env_logger::init();
+    ///     let url = env::var("TURL")?;
+    ///     let mut client = if let (Ok(user), Ok(password)) = (env::var("TUSER"), env::var("TPWD")) {
+    ///         TransClient::with_auth(url.parse()?, BasicAuth { user, password })
+    ///     } else {
+    ///         TransClient::new(url.parse()?)
+    ///     };
+    /// 
+    ///     let tag = 123.into();
+    ///     let args = GroupSetArgs::new("group-name".to_owned())
+    ///         .speed_limit_down_enabled(true)
+    ///         .speed_limit_down(1000);
+    ///     let response = client.group_set_tagged(args, tag).await?;
+    ///     println!("response: {response:#?}");
+    ///     match response.is_ok() {
+    ///         true => {
+    ///             println!("Ok! (tag: {:?})", response.tag);
+    ///             assert_eq!(response.tag, Some(tag));
+    ///         },
+    ///         false => println!("Err: {}", response.result),
+    ///     }
+    /// 
+    ///     let mut args = GroupSetArgs::new("group-name".to_owned());
+    ///     args.speed_limit_down_enabled = Some(true);
+    ///     args.speed_limit_down = Some(1000);
+    ///     let response = client.group_set(args).await?;
+    ///     println!("response: {response:#?}");
+    ///     if response.is_ok() {
+    ///         println!("Ok!");
+    ///     } else {
+    ///         println!("Err: {}", response.result);
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn group_set(&mut self, args: GroupSetArgs) -> Result<RpcResponse<Nothing>>
+    {
+        self.call(RpcRequest::group_set(args, None)).await
+    }
+
+    /// Performs a group-set request that can be tracked by `tag`.
+    pub async fn group_set_tagged(&mut self, args: GroupSetArgs, tag: Tag)
+        -> Result<RpcResponse<Nothing>>
+    {
+        self.call(RpcRequest::group_set(args, Some(tag))).await
     }
 
     /// Performs a JRPC call to the server

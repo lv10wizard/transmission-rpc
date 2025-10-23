@@ -42,8 +42,8 @@ https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md
 - [X] queue-move-top, queue-move-up, queue-move-down, queue-move-bottom
 - [X] session-close
 - [X] free-space
-- [ ] group-set
-- [ ] group-get
+- [X] group-set
+- [X] group-get
 
 ##### Feature Flags
 
@@ -89,7 +89,10 @@ $ tree examples/
 examples/
 ├── blocklist-update.rs
 ├── free-space.rs
+├── group-get.rs
+├── group-set.rs
 ├── port-test.rs
+├── queue-move.rs
 ├── session-close.rs
 ├── session-get.rs
 ├── session-stats.rs
@@ -99,6 +102,8 @@ examples/
 ├── torrent-remove.rs
 ├── torrent-rename-path.rs
 └── torrent-set-location.rs
+
+1 directory, 15 files
 ```
 
 -----
