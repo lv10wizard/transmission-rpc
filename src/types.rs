@@ -37,7 +37,7 @@ pub enum Id {
     Hash(String),
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(i8)]
 pub enum Priority {
     Low = -1,
@@ -45,7 +45,7 @@ pub enum Priority {
     High = 1,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(i8)]
 pub enum IdleMode {
     Global = 0,
@@ -53,7 +53,7 @@ pub enum IdleMode {
     Unlimited = 2,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(i8)]
 pub enum RatioMode {
     Global = 0,
