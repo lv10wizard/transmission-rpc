@@ -98,7 +98,7 @@ pub enum ErrorType {
     LocalError = 3,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Default, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Torrent {
     #[serde(deserialize_with = "from_ts_option", default)]
