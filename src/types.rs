@@ -1,10 +1,13 @@
-use serde::{Deserialize, Serialize};
+use std::fmt::{self, Display};
+
+use bitflags::{self, parser};
+use serde::{Deserialize, Serialize, de::Error as _};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 pub(crate) use self::request::RpcRequest;
 pub use self::request::{
-    ArgumentFields, GroupSetArgs, SessionSetArgs, TorrentAction, TorrentAddArgs, TorrentGetField,
-    TorrentRenamePathArgs, TorrentSetArgs, TrackerList,
+    ArgumentFields, GroupSetArgs, SessionGetField, SessionSetArgs, TorrentAction, TorrentAddArgs,
+    TorrentGetField, TorrentRenamePathArgs, TorrentSetArgs, TrackerList,
 };
 
 pub use self::response::{
@@ -59,6 +62,102 @@ pub enum RatioMode {
     Global = 0,
     Single = 1,
     Unlimited = 2,
+}
+
+/// Represents how transmission handles peer connection encryption.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
+pub enum Encryption {
+    /// Encrypt all peer connections.
+    Required,
+    /// Prefer encrypted peer connections.
+    Preferred,
+    /// Prefer unencrypted peer connections.
+    Tolerated,
+}
+
+// XXX: Is there a way to utilize the serde implementation?
+impl Display for Encryption {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
+            Self::Required => "required",
+            Self::Preferred => "preferred",
+            Self::Tolerated => "tolerated",
+        })
+    }
+}
+
+bitflags::bitflags! {
+    /// One or more day(s) of the week represented as a bitfield used for session
+    /// `alt-speed-time-day` (the day(s) to turn on alt speeds, ie. turtle mode).
+    ///
+    /// See: [`tr_sched_day`]
+    ///
+    /// # Example
+    ///
+    /// To specify weekends (Saturday and Sunday):
+    ///
+    /// ```rust
+    /// let weekend = AltSpeedDay::WEEKEND;
+    /// ```
+    ///
+    /// or:
+    ///
+    /// ```rust
+    /// let weekend = AltSpeedDay::SATURDAY | AltSpeedDay::SUNDAY;
+    /// ```
+    ///
+    /// To specify Monday, Wednesday, and Friday:
+    ///
+    /// ```rust
+    /// let mwf = AltSpeedDay::Monday | AltSpeedDay::WEDNESDAY | AltSpeedDay::FRIDAY;
+    /// ```
+    ///
+    /// [`tr_sched_day`]: https://github.com/transmission/transmission/blob/08ec7fb7c7b9c77ba52ff84d853833d70fd6f59b/libtransmission/transmission.h#L515-L527
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub struct AltSpeedDay: u8 {
+        /// 0b_0000_0001
+        const SUNDAY = 1 << 0;
+        /// 0b_0000_0010
+        const MONDAY = 1 << 1;
+        /// 0b_0000_0100
+        const TUESDAY = 1 << 2;
+        /// 0b_0000_1000
+        const WEDNESDAY = 1 << 3;
+        /// 0b_0001_0000
+        const THURSDAY = 1 << 4;
+        /// 0b_0010_0000
+        const FRIDAY = 1 << 5;
+        /// 0b_0100_0000
+        const SATURDAY = 1 << 6;
+        /// 0b_0011_1110
+        const WEEKDAY = {
+            Self::MONDAY.bits() | Self::TUESDAY.bits() | Self::WEDNESDAY.bits()
+                | Self::THURSDAY.bits() | Self::FRIDAY.bits()
+        };
+        /// 0b_0100_0001
+        const WEEKEND = Self::SUNDAY.bits() | Self::SATURDAY.bits();
+    }
+}
+
+impl Serialize for AltSpeedDay {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer
+    {
+        serializer.serialize_u8(self.bits())
+    }
+}
+
+impl<'de> Deserialize<'de> for AltSpeedDay {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>
+    {
+        let value: u8 = Deserialize::deserialize(deserializer)?;
+        parser::from_str(&format!("0x{value:x}"))
+            .map_err(D::Error::custom)
+    }
 }
 
 /// Represents an arbitrary `tag` number used by clients to track responses. <sup>[1][2]</sup>

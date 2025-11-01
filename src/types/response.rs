@@ -8,7 +8,7 @@ use serde::de::{Deserializer, Error as _};
 use serde_json::Value;
 use serde_repr::*;
 
-use super::{Id, IdleMode, Priority, RatioMode, Tag};
+use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag};
 
 #[derive(Deserialize, Debug)]
 pub struct RpcResponse<T: RpcResponseArgument> {
@@ -31,14 +31,275 @@ pub trait RpcResponseArgument {}
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct SessionGet {
-    pub blocklist_enabled: bool,
-    pub download_dir: String,
-    pub encryption: String,
-    pub rpc_version: i32,
-    pub rpc_version_minimum: i32,
-    pub version: String,
+    /// Max global download speed (kB/s)
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    pub alt_speed_down: Option<i32>,
+    /// `true` means use the alt speeds (ie, turtle mode)
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    pub alt_speed_enabled: Option<bool>,
+    /// When to turn on alt speeds (units: minutes after midnight)
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    pub alt_speed_time_begin: Option<i32>,
+    /// What day(s) to turn on alt speeds (ie. turtle mode)
+    pub alt_speed_time_day: Option<AltSpeedDay>,
+    /// `true` means the scheduled on/off times are used
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    pub alt_speed_time_enabled: Option<bool>,
+    /// when to turn off alt speeds (units: minutes after midnight)
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    pub alt_speed_time_end: Option<i32>,
+    /// Max global upload speed (kB/s)
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    pub alt_speed_up: Option<i32>,
+    /// `true` means block peers based on the configured blocklist (see: [blocklists.md])
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    ///
+    /// [blocklists.md]: https://github.com/transmission/transmission/blob/main/docs/Blocklists.md
+    pub blocklist_enabled: Option<bool>,
+    /// Number of rules in the blocklist
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    pub blocklist_size: Option<i32>,
+    /// location of the blocklist to use for `blocklist-update`
+    ///
+    /// > Added in Transmission 2.12 (`rpc-version-semver` 3.5.0, `rpc-version`: 11)
+    pub blocklist_url: Option<String>,
+    /// Maximum size of the disk cache (MiB). Pieces are guaranteed to be written to filesystem if
+    /// sequential download is enabled. Otherwise, data might still be in cache only.
+    ///
+    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
+    pub cache_size_mb: Option<i32>,
+    /// Location of transmission's configuration directory
+    ///
+    /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
+    pub config_dir: Option<String>,
+    /// Announce URLs, one per line, and a blank line between [tiers].
+    ///
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
+    ///
+    /// [tiers]: https://www.bittorrent.org/beps/bep_0012.html
+    pub default_trackers: Option<String>,
+    /// `true` means allow [DHT] in public torrents
+    ///
+    /// [DHT]: https://wikipedia.org/wiki/Distributed_hash_table
+    pub dht_enabled: Option<bool>,
+    /// Default path to download torrents
+    pub download_dir: Option<String>,
+    /// **DEPRECATED** Use the `free-space` method instead.
+    ///
+    /// > Added in Transmission 2.20 (`rpc-version-semver` 3.6.0, `rpc-version`: 12)
+    pub download_dir_free_space: Option<u64>,
+    /// If `true`, limit how many torrents can be downloaded at once
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    pub download_queue_enabled: Option<bool>,
+    /// Max number of torrents to download at once (see [`download_queue_enabled`])
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    ///
+    /// [`download_queue_enabled`]: Self::download_queue_enabled
+    pub download_queue_size: Option<i32>,
+    /// The encryption type for peer connections.
+    pub encryption: Option<Encryption>,
+    /// `true` if the seeding inactivity limit is honored by default
+    ///
+    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
+    pub idle_seeding_limit_enabled: Option<bool>,
+    /// torrents we're seeding will be stopped if they're idle for this long (in minutes)
+    ///
+    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
+    pub idle_seeding_limit: Option<i32>,
+    /// `true` means keep torrents in [`incomplete_dir`] until done
+    ///
+    /// > Added in Transmission 1.80 (`rpc-version-semver` 3.0.0, `rpc-version`: 7)
+    ///
+    /// [`incomplete_dir`]: Self::incomplete_dir
+    pub incomplete_dir_enabled: Option<bool>,
+    /// Path for incomplete torrents, when enabled
+    ///
+    /// > Added in Transmission 1.80 (`rpc-version-semver` 3.0.0, `rpc-version`: 7)
+    pub incomplete_dir: Option<String>,
+    /// `true` means allow Local Peer Discovery in public torrents
+    pub lpd_enabled: Option<bool>,
+    /// Maximum global number of peers
+    ///
+    /// > Renamed from `peer-limit` to `peer-limit-global` in Transmission 1.60
+    /// (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    pub peer_limit_global: Option<i32>,
+    /// Default maximum number of peers per torrent
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    pub peer_limit_per_torrent: Option<i32>,
+    /// `true` means pick a random peer port on launch
+    pub peer_port_random_on_start: Option<bool>,
+    /// The port that the daemon listens for peer connections on
+    ///
+    /// > Renamed from `port` to `peer-port` in Transmission 1.60 (`rpc-version-semver` 2.0.0,
+    /// `rpc-version`: 5)
+    pub peer_port: Option<u16>,
+    /// `true` means allow [PEX] in public torrents
+    ///
+    /// > Renamed from `pex-allowed` to `pex-enabled` in Transmission 1.60 (`rpc-version-semver`
+    /// 2.0.0, `rpc-version`: 5)
+    ///
+    /// [PEX]: https://wikipedia.org/wiki/Peer_exchange
+    pub pex_enabled: Option<bool>,
+    /// `true` means ask upstream router to forward the configured peer port to transmission using
+    /// [UPnP] or [NAT-PMP]
+    ///
+    /// [UPnP]: https://wikipedia.org/wiki/Universal_Plug_and_Play
+    /// [NAT-PMP]: https://wikipedia.org/wiki/NAT_Port_Mapping_Protocol
+    pub port_forwarding_enabled: Option<bool>,
+    /// Whether or not to consider idle torrents as stalled
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    pub queue_stalled_enabled: Option<bool>,
+    /// Torrents that are idle for `queue_stalled_minutes` aren't counted toward
+    /// [`seed_queue_size`] or [`download-queue-size`]
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    ///
+    /// [`seed_queue_size`]: Self::seed_queue_size
+    /// [`download-queue-size`]: Self::download-queue-size
+    pub queue_stalled_minutes: Option<i32>,
+    /// `true` means append `.part` to incomplete files
+    /// 
+    /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
+    pub rename_partial_files: Option<bool>,
+    /// The number of outstanding block requests a peer is allowed to queue in the client
+    ///
+    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 5.4.0, `rpc-version`: 18)
+    pub reqq: Option<i32>,
+    /// The minimum RPC API version supported by the RPC server. It changes when a new version of
+    /// Transmission changes the RPC interface in a way that is not backwards compatible.
+    pub rpc_version_minimum: Option<i32>,
+    /// The current RPC API version in a [semver]-compatible string
+    ///
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
+    ///
+    /// [semver]: https://semver.org/
+    pub rpc_version_semver: Option<String>,
+    /// the current RPC API version
+    pub rpc_version: Option<i32>,
+    /// Whether or not to call the [added script] (see: [scripts.md])
+    ///
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
+    ///
+    /// [added script]: Self::script_torrent_added_filename
+    /// [scripts.md]: https://github.com/transmission/transmission/blob/main/docs/Scripts.md
+    pub script_torrent_added_enabled: Option<bool>,
+    /// Path of the script to run on torrent added (see: [scripts.md])
+    ///
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
+    ///
+    /// [scripts.md]: https://github.com/transmission/transmission/blob/main/docs/Scripts.md
+    pub script_torrent_added_filename: Option<String>,
+    /// Whether or not to call the [done script] (see: [scripts.md])
+    ///
+    /// [done script]: Self::script_torrent_done_filename
+    /// [scripts.md]: https://github.com/transmission/transmission/blob/main/docs/Scripts.md
+    pub script_torrent_done_enabled: Option<bool>,
+    /// Path of the script to run on torrent completion (see: [scripts.md])
+    ///
+    /// [scripts.md]: https://github.com/transmission/transmission/blob/main/docs/Scripts.md
+    pub script_torrent_done_filename: Option<String>,
+    /// Whether or not to call the [seeding-done] script (see: [scripts.md])
+    ///
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
+    ///
+    /// [seeding-done]: Self::script_torrent_done_seeding_filename
+    /// [scripts.md]: https://github.com/transmission/transmission/blob/main/docs/Scripts.md
+    pub script_torrent_done_seeding_enabled: Option<bool>,
+    /// Path of the script to run on torrent seeding completion (see: [scripts.md])
+    /// 
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
+    ///
+    /// [scripts.md]: https://github.com/transmission/transmission/blob/main/docs/Scripts.md
+    pub script_torrent_done_seeding_filename: Option<String>,
+    /// if `true`, limit how many torrents can be uploaded at once
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    pub seed_queue_enabled: Option<bool>,
+    /// Max number of torrents to uploaded at once (see [seed_queue_enabled])
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    ///
+    /// [seed_queue_enabled]: Self::seed_queue_enabled
+    pub seed_queue_size: Option<i32>,
+    /// The default seed ratio for torrents to use
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    #[serde(rename = "seedRatioLimit")]
+    pub seed_ratio_limit: Option<f64>,
+    /// `true` if [`seed_ratio_limit`] is honored by default
+    ///
+    /// [`seed_ratio_limit`]: Self::seed_ratio_limit
+    #[serde(rename = "seedRatioLimited")]
+    pub seed_ratio_limited: Option<bool>,
+    /// `true` means sequential download is enabled by default for added torrents
+    /// 
+    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 5.4.0, `rpc-version`: 18)
+    pub sequential_download: Option<bool>,
+    /// The current [`X-Transmission-Session-Id`] value
+    ///
+    /// > Added in Transmission 3.00 (`rpc-version-semver` 5.2.0, `rpc-version`: 16)
+    ///
+    /// [`X-Transmission-Session-Id`]: https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md#231-csrf-protection
+    pub session_id: Option<String>,
+    /// `true` means limit global download speed
+    pub speed_limit_down_enabled: Option<bool>,
+    /// Max global download speed (kB/s)
+    pub speed_limit_down: Option<i32>,
+    /// `true` means limit global upload speed
+    pub speed_limit_up_enabled: Option<bool>,
+    /// Max global upload speed (kB/s)
+    pub speed_limit_up: Option<i32>,
+    /// `true` means added torrents will be started right away
+    ///
+    /// > Added in Transmission 2.00 (`rpc-version-semver` 3.3.0, `rpc-version`: 9)
+    pub start_added_torrents: Option<bool>,
+    /// `true` means the `.torrent` file of added torrents will be deleted
+    ///
+    /// > Added in Transmission 2.00 (`rpc-version-semver` 3.3.0, `rpc-version`: 9)
+    pub trash_original_torrent_files: Option<bool>,
+    /// The units used by the daemon (I think?)
+    ///
+    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
+    pub units: Option<SessionGetUnits>,
+    /// `true` means allow [UTP]
+    ///
+    /// [UTP]: https://wikipedia.org/wiki/Micro_Transport_Protocol
+    pub utp_enabled: Option<bool>,
+    /// Long version string, ie. `$version ($revision)`
+    ///
+    /// > Added in Transmission 1.41 (`rpc-version-semver` 1.2.0, `rpc-version`: 3)
+    pub version: Option<String>,
 }
 impl RpcResponseArgument for SessionGet {}
+
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub struct SessionGetUnits {
+    /// 4 strings: KB/s, MB/s, GB/s, TB/s
+    pub speed_units: [String; 4],
+    /// number of bytes in a KB (1000 for kB; 1024 for KiB)
+    pub speed_bytes: usize,
+    /// 4 strings: KB/s, MB/s, GB/s, TB/s
+    pub size_units: [String; 4],
+    /// number of bytes in a KB (1000 for kB; 1024 for KiB)
+    pub size_bytes: usize,
+    /// 4 strings: KB/s, MB/s, GB/s, TB/s
+    pub memory_units: [String; 4],
+    /// number of bytes in a KB (1000 for kB; 1024 for KiB)
+    pub memory_bytes: usize,
+}
 
 #[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]

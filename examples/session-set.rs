@@ -3,7 +3,9 @@ extern crate transmission_rpc;
 use dotenvy::dotenv;
 use std::env;
 use transmission_rpc::TransClient;
-use transmission_rpc::types::{BasicAuth, Result, RpcResponse, SessionGet, SessionGetField, Tag};
+use transmission_rpc::types::{
+    AltSpeedDay, BasicAuth, Encryption, Nothing, Result, RpcResponse, SessionSetArgs, Tag,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -16,7 +18,12 @@ async fn main() -> Result<()> {
     } else {
         client = TransClient::new(url.parse()?);
     }
-    let response: Result<RpcResponse<SessionGet>> = client.session_get(None).await;
+    let args = SessionSetArgs {
+        alt_speed_time_day: Some(AltSpeedDay::WEEKDAY),
+        encryption: Some(Encryption::Preferred),
+        ..Default::default()
+    };
+    let response: Result<RpcResponse<Nothing>> = client.session_set(args).await;
     println!("{response:#?}");
     match &response {
         Ok(resp) => {
@@ -28,22 +35,13 @@ async fn main() -> Result<()> {
     println!("Rpc response is ok: {}", response?.is_ok());
 
     let tag = Tag(123);
-    let args = vec![
-        SessionGetField::AltSpeedDown,
-        SessionGetField::AltSpeedEnabled,
-        SessionGetField::AltSpeedTimeBegin,
-        SessionGetField::AltSpeedTimeDay,
-        SessionGetField::AltSpeedTimeEnabled,
-        SessionGetField::AltSpeedTimeEnd,
-        SessionGetField::DownloadDirFreeSpace,
-        SessionGetField::Reqq,
-        SessionGetField::RpcVersion,
-        SessionGetField::SeedRatioLimit,
-        SessionGetField::SeedRatioLimited,
-        SessionGetField::SequentialDownload,
-    ];
-    let response: Result<RpcResponse<SessionGet>> = client.session_get_tagged(Some(args), tag)
-        .await;
+    let args = SessionSetArgs {
+        alt_speed_time_day: Some({
+            AltSpeedDay::MONDAY | AltSpeedDay::WEDNESDAY | AltSpeedDay::FRIDAY
+        }),
+        ..Default::default()
+    };
+    let response: Result<RpcResponse<Nothing>> = client.session_set_tagged(args, tag).await;
     println!("{response:#?}");
     match &response {
         Ok(resp) => {

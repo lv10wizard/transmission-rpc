@@ -1,7 +1,10 @@
 use enum_iterator::{all, Sequence};
 use serde::{Serialize, Serializer};
 
-use super::{Id, IdleMode, Priority, RatioMode, Tag};
+use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag};
+
+use session_get::SessionGetArgs;
+pub use session_get::SessionGetField;
 
 #[cfg(feature = "tor-get-serde")]
 use serde::Deserialize; 
@@ -9,6 +12,7 @@ use serde::Deserialize;
 use ordered_float::OrderedFloat;
 
 mod group_set;
+mod session_get;
 mod torrent_set;
 
 /// Represents a transmission rpc method.
@@ -47,10 +51,10 @@ impl RpcRequest {
         }
     }
 
-    pub fn session_get(tag: Option<Tag>) -> RpcRequest {
+    pub fn session_get(args: Option<SessionGetArgs>, tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
             method: Method::SessionGet,
-            arguments: None,
+            arguments: args.map(Into::into),
             tag,
         }
     }
@@ -346,6 +350,7 @@ pub enum Args {
     FreeSpace(FreeSpaceArgs),
     GroupGet(GroupGetArgs),
     GroupSet(GroupSetArgs),
+    SessionGet(SessionGetArgs),
     SessionSet(SessionSetArgs),
     QueueMove(QueueMoveArgs),
     TorrentGet(TorrentGetArgs),
@@ -461,7 +466,7 @@ pub struct SessionSetArgs {
     pub alt_speed_time_begin: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none", rename = "alt-speed-time-day")]
-    pub alt_speed_time_day: Option<i32>,
+    pub alt_speed_time_day: Option<AltSpeedDay>,
 
     #[serde(
         skip_serializing_if = "Option::is_none",
@@ -497,7 +502,7 @@ pub struct SessionSetArgs {
         skip_serializing_if = "Option::is_none",
         rename = "download-dir-free-space"
     )]
-    pub download_dir_free_space: Option<i32>,
+    pub download_dir_free_space: Option<u64>,
 
     #[serde(
         skip_serializing_if = "Option::is_none",
@@ -512,7 +517,7 @@ pub struct SessionSetArgs {
     pub download_queue_size: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub encryption: Option<String>,
+    pub encryption: Option<Encryption>,
 
     #[serde(
         skip_serializing_if = "Option::is_none",
@@ -551,7 +556,7 @@ pub struct SessionSetArgs {
     pub peer_port_random_on_start: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none", rename = "peer-port")]
-    pub peer_port: Option<i32>,
+    pub peer_port: Option<u16>,
 
     #[serde(skip_serializing_if = "Option::is_none", rename = "pex-enabled")]
     pub pex_enabled: Option<bool>,
@@ -579,6 +584,9 @@ pub struct SessionSetArgs {
         rename = "rename-partial-files"
     )]
     pub rename_partial_files: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reqq: Option<i32>,
 
     #[serde(
         skip_serializing_if = "Option::is_none",

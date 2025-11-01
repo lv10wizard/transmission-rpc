@@ -13,8 +13,8 @@ use crate::{
     BodyString, MAX_RETRIES, TransError,
     types::{
         BasicAuth, BlocklistUpdate, FreeSpace, GroupGet, Id, Nothing, PortTest, Result, RpcRequest,
-        RpcResponse, RpcResponseArgument, SessionGet, SessionStats, Torrent, TorrentAction,
-        TorrentAddArgs, TorrentAddedOrDuplicate, TorrentGetField, TorrentRenamePath,
+        RpcResponse, RpcResponseArgument, SessionGet, SessionGetField, SessionStats, Torrent,
+        TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate, TorrentGetField, TorrentRenamePath,
         TorrentSetArgs, Torrents,
     },
 };
@@ -136,7 +136,14 @@ impl SharableTransClient {
         self.call(RpcRequest::session_set(args, Some(tag))).await
     }
 
-    /// Performs a session get call
+    /// Performs a session get call.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - An optional collection of [`SessionGetFields`] to request. Specifying either
+    /// `None` or an empty collection (eg. `Some(vec![])`) will request all possible session
+    /// arguments. (Note that the latter behavior differs from manual rpc requests where an empty
+    /// `fields` array will yield a `session-get` response with an empty arguments object).
     ///
     /// # Errors
     ///
@@ -147,12 +154,11 @@ impl SharableTransClient {
     /// ```
     /// extern crate transmission_rpc;
     ///
-    /// use std::env;
-    ///
     /// use dotenvy::dotenv;
-    /// use transmission_rpc::{
-    ///     types::{BasicAuth, Result, RpcResponse, SessionGet},
-    ///     SharableTransClient,
+    /// use std::env;
+    /// use transmission_rpc::SharableTransClient;
+    /// use transmission_rpc::types::{
+    ///     BasicAuth, Result, RpcResponse, SessionGet, SessionGetField, Tag,
     /// };
     ///
     /// #[tokio::main]
@@ -160,30 +166,53 @@ impl SharableTransClient {
     ///     dotenv().ok();
     ///     env_logger::init();
     ///     let url = env::var("TURL")?;
-    ///     let basic_auth = BasicAuth {
-    ///         user: env::var("TUSER")?,
-    ///         password: env::var("TPWD")?,
-    ///     };
-    ///     let client = SharableTransClient::with_auth(url.parse()?, basic_auth);
-    ///     let response: Result<RpcResponse<SessionSet>> = client.session_get(args).await;
+    ///     let client;
+    ///     if let (Ok(user), Ok(password)) = (env::var("TUSER"), env::var("TPWD")) {
+    ///         client = SharableTransClient::with_auth(url.parse()?, BasicAuth {
+    ///             user, password,
+    ///         });
+    ///     } else {
+    ///         client = SharableTransClient::new(url.parse()?);
+    ///     }
+    ///     let response: Result<RpcResponse<SessionGet>> = client.session_get(None).await;
+    ///     println!("{response:#?}");
     ///     match &response {
     ///         Ok(resp) => {
-    ///             println!("Yay!");
     ///             assert_eq!(resp.tag, None);
-    ///         },
+    ///             println!("Yay!");
+    ///         }
+    ///         Err(_) => panic!("Oh no!"),
+    ///     }
+    ///     println!("Rpc response is ok: {}", response?.is_ok());
+    ///
+    ///     let tag = Tag(123);
+    ///     let args = vec![SessionGetField::RpcVersion];
+    ///     let response: Result<RpcResponse<SessionGet>> = client
+    ///         .session_get_tagged(Some(args), tag)
+    ///         .await;
+    ///     println!("{response:#?}");
+    ///     match &response {
+    ///         Ok(resp) => {
+    ///             assert_eq!(resp.tag, Some(tag));
+    ///             println!("Yay!");
+    ///         }
     ///         Err(_) => panic!("Oh no!"),
     ///     }
     ///     println!("Rpc response is ok: {}", response?.is_ok());
     ///     Ok(())
     /// }
     /// ```
-    pub async fn session_get(&self) -> Result<RpcResponse<SessionGet>> {
-        self.call(RpcRequest::session_get(None)).await
+    pub async fn session_get(&self, fields: Option<Vec<SessionGetField>>)
+        -> Result<RpcResponse<SessionGet>>
+    {
+        self.call(RpcRequest::session_get(fields.map(Into::into), None)).await
     }
 
     /// Performs a session-get request that can be tracked by `tag`.
-    pub async fn session_get_tagged(&self, tag: Tag) -> Result<RpcResponse<SessionGet>> {
-        self.call(RpcRequest::session_get(Some(tag))).await
+    pub async fn session_get_tagged(&self, fields: Option<Vec<SessionGetField>>, tag: Tag)
+        -> Result<RpcResponse<SessionGet>>
+    {
+        self.call(RpcRequest::session_get(fields.map(Into::into), Some(tag))).await
     }
 
     /// Performs a session stats call
