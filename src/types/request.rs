@@ -732,6 +732,8 @@ pub struct TorrentAddArgs {
     /// filename or URL of the .torrent file
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<Vec<String>>,
     /// semi-optional
     /// base64-encoded .torrent content
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -759,8 +761,9 @@ pub struct TorrentAddArgs {
     /// list of indices of files to be downloaded with normal priority
     #[serde(skip_serializing_if = "Option::is_none", rename = "priority-normal")]
     pub priority_normal: Option<Vec<i32>>,
+    /// whether to download torrent pieces sequentially
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub labels: Option<Vec<String>>,
+    pub sequential_download: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Sequence)]
@@ -914,7 +917,7 @@ impl TorrentGetField {
             TorrentGetField::SeedIdleMode => "seedIdleMode",
             TorrentGetField::SeedRatioLimit => "seedRatioLimit",
             TorrentGetField::SeedRatioMode => "seedRatioMode",
-            TorrentGetField::SequentialDownload => "sequentialDownload",
+            TorrentGetField::SequentialDownload => "sequential_download",
             TorrentGetField::SizeWhenDone => "sizeWhenDone",
             TorrentGetField::StartDate => "startDate",
             TorrentGetField::Status => "status",
