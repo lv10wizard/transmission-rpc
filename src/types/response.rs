@@ -57,6 +57,14 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     pub alt_speed_up: Option<i32>,
+    /// `true` means to enable a basic brute force protection for RPC server.
+    ///
+    /// > Added in Transmission ???
+    pub anti_brute_force_enabled: Option<bool>,
+    /// Basic brute force protection threshold in an unknown unit.
+    ///
+    /// > Added in Transmission ??? [NOT DOCUMENTED IN RPC-SPEC]
+    pub anti_brute_force_threshold: Option<i32>,
     /// `true` means block peers based on the configured blocklist (see: [blocklists.md])
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
@@ -75,6 +83,10 @@ pub struct SessionGet {
     /// sequential download is enabled. Otherwise, data might still be in cache only.
     ///
     /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
+    ///
+    /// > Renamed `cache_size_mb` to `cache_size_mib` in Transmission 4.1.0 (`rpc-version-semver`
+    /// > 6.0.0,, `rpc-version`: 18)
+    #[serde(alias = "cache_size_mib")]
     pub cache_size_mb: Option<i32>,
     /// Location of transmission's configuration directory
     ///
@@ -157,6 +169,14 @@ pub struct SessionGet {
     /// [UPnP]: https://wikipedia.org/wiki/Universal_Plug_and_Play
     /// [NAT-PMP]: https://wikipedia.org/wiki/NAT_Port_Mapping_Protocol
     pub port_forwarding_enabled: Option<bool>,
+    /// List of preferred transport protocols in the order of preferred-first.
+    ///
+    /// * ["utp"](https://en.wikipedia.org/wiki/Micro_Transport_Protocol)
+    /// * ["tcp"](https://en.wikipedia.org/wiki/Transmission_Control_Protocol)
+    ///
+    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
+    #[serde(alias = "preferred_transports")]
+    pub preferred_transports: Option<Vec<String>>,
     /// Whether or not to consider idle torrents as stalled
     ///
     /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
@@ -236,16 +256,17 @@ pub struct SessionGet {
     /// The default seed ratio for torrents to use
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
-    #[serde(rename = "seedRatioLimit")]
+    #[serde(alias = "seedRatioLimit")]
     pub seed_ratio_limit: Option<f64>,
     /// `true` if [`seed_ratio_limit`] is honored by default
     ///
     /// [`seed_ratio_limit`]: Self::seed_ratio_limit
-    #[serde(rename = "seedRatioLimited")]
+    #[serde(alias = "seedRatioLimited")]
     pub seed_ratio_limited: Option<bool>,
     /// `true` means sequential download is enabled by default for added torrents
     /// 
     /// > Added in Transmission 4.1.0 (`rpc-version-semver` 5.4.0, `rpc-version`: 18)
+    #[serde(alias = "sequential_download")]
     pub sequential_download: Option<bool>,
     /// The current [`X-Transmission-Session-Id`] value
     ///
@@ -265,6 +286,10 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 2.00 (`rpc-version-semver` 3.3.0, `rpc-version`: 9)
     pub start_added_torrents: Option<bool>,
+    /// `true` means allow [TCP]
+    ///
+    /// [TCP]: https://en.wikipedia.org/wiki/Transmission_Control_Protocol
+    pub tcp_enabled: Option<bool>,
     /// `true` means the `.torrent` file of added torrents will be deleted
     ///
     /// > Added in Transmission 2.00 (`rpc-version-semver` 3.3.0, `rpc-version`: 9)
@@ -288,15 +313,21 @@ impl RpcResponseArgument for SessionGet {}
 #[serde(rename_all = "kebab-case")]
 pub struct SessionGetUnits {
     /// 4 strings: KB/s, MB/s, GB/s, TB/s
-    pub speed_units: [String; 4],
+    ///
+    /// v4.1.1: 5 strings: B/s, KB/s, MB/s, GB/s, TB/s
+    pub speed_units: Vec<String>,
     /// number of bytes in a KB (1000 for kB; 1024 for KiB)
     pub speed_bytes: usize,
-    /// 4 strings: KB/s, MB/s, GB/s, TB/s
-    pub size_units: [String; 4],
+    /// 4 strings: KB, MB, GB, TB
+    ///
+    /// v4.1.1: 5 strings: B, KB, MB, GB, TB
+    pub size_units: Vec<String>,
     /// number of bytes in a KB (1000 for kB; 1024 for KiB)
     pub size_bytes: usize,
-    /// 4 strings: KB/s, MB/s, GB/s, TB/s
-    pub memory_units: [String; 4],
+    /// 4 strings: KiB, MiB, GiB, TiB
+    ///
+    /// v4.1.1: 5 strings: B, KiB, MiB, GiB, TiB
+    pub memory_units: Vec<String>,
     /// number of bytes in a KB (1000 for kB; 1024 for KiB)
     pub memory_bytes: usize,
 }
