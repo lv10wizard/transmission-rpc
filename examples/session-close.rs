@@ -2,7 +2,7 @@ extern crate transmission_rpc;
 
 use dotenvy::dotenv;
 use std::env;
-use transmission_rpc::types::{BasicAuth, Result};
+use transmission_rpc::types::{BasicAuth, Result, Tag};
 use transmission_rpc::TransClient;
 
 #[tokio::main]
