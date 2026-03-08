@@ -73,7 +73,10 @@ pub enum Encryption {
     /// Prefer encrypted peer connections.
     Preferred,
     /// Prefer unencrypted peer connections.
-    Tolerated,
+    ///
+    /// [Transmission 4.1.0] Renamed from "tolerated" to "allowed".
+    #[serde(alias = "tolerated")]
+    Allowed,
 }
 
 // XXX: Is there a way to utilize the serde implementation?
@@ -82,7 +85,7 @@ impl Display for Encryption {
         write!(f, "{}", match self {
             Self::Required => "required",
             Self::Preferred => "preferred",
-            Self::Tolerated => "tolerated",
+            Self::Allowed => "allowed",
         })
     }
 }
