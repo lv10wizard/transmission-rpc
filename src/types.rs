@@ -23,7 +23,7 @@ mod request;
 mod response;
 
 #[cfg(test)]
-mod tests;
+mod torrent_get_serde_tests;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
