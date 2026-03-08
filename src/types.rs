@@ -167,6 +167,9 @@ impl<'de> Deserialize<'de> for AltSpeedDay {
 
 /// Represents an arbitrary `tag` number used by clients to track responses. <sup>[1][2]</sup>
 ///
+/// This struct also doubles as the JSON-RPC "id" request field for Transmission 4.1.0
+/// (rpc_version_semver 6.0.0, rpc_version: 18) and later.
+///
 /// [1]: <https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md#21-requests>
 /// [2]: <https://github.com/transmission/transmission/blob/4.0.6/libtransmission/rpcimpl.cc#L2520>
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]

@@ -1,5 +1,5 @@
 use enum_iterator::{all, Sequence};
-use serde::{Serialize, Serializer};
+use serde::{Serialize, Serializer, ser::SerializeStruct};
 
 use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag};
 
@@ -16,18 +16,70 @@ mod session_get;
 mod torrent_set;
 
 /// Represents a transmission rpc method.
-#[derive(Serialize, Debug)]
+#[derive(Debug)]
 pub(crate) struct RpcRequest {
     method: Method,
-    #[serde(skip_serializing_if = "Option::is_none")]
     arguments: Option<Args>,
     /// "An optional `tag` number used by clients to track responses. If provided by a request, the
     /// response MUST include the same tag." <sup>[1][2]</sup>
     ///
+    /// This struct also doubles as the JSON-RPC "id" request field for Transmission 4.1.0
+    /// (rpc_version_semver 6.0.0, rpc_version: 18) and later. "id" defaults to `Tag(0)` if `None`.
+    ///
     /// [1]: <https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md#21-requests>
     /// [2]: <https://github.com/transmission/transmission/blob/4.0.6/libtransmission/rpcimpl.cc#L2520>
-    #[serde(skip_serializing_if = "Option::is_none")]
     tag: Option<Tag>,
+    pub(crate) jsonrpc: Option<String>,
+}
+
+impl Serialize for RpcRequest {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let include_args = self.arguments.is_some();
+        // Repurpose the `tag` field into `id` in json-rpc 2.0 requests.
+        let include_tag = self.jsonrpc.is_some() || self.tag.is_some();
+
+        let mut len = 3;
+        if !include_args {
+            len -= 1;
+        }
+        if !include_tag {
+            len -= 1 ;
+        }
+        let mut state = serializer.serialize_struct("RpcRequest", len)?;
+        match &self.jsonrpc {
+            // >= Transmission 4.1.0 (rpc_version_semver 6.0.0, rpc_version: 18)
+            Some(jsonrpc) => {
+                state.serialize_field("jsonrpc", &jsonrpc)?;
+                let method = self.method
+                    .as_str()
+                    .replace("-", "_");
+                state.serialize_field("method", &method)?;
+                if include_args {
+                    state.serialize_field("params", &self.arguments)?;
+                }
+                if include_tag {
+                    // Always ask the rpc server for a response so that library users can decide
+                    // what they want to do with it.
+                    state.serialize_field("id", &self.tag.or(Tag(0).into()))?;
+                }
+            },
+
+            // < Transmission 4.1.0 (rpc_version_semver 6.0.0, rpc_version: 18)
+            None => {
+                state.serialize_field("method", &self.method)?;
+                if include_args {
+                    state.serialize_field("arguments", &self.arguments)?;
+                }
+                if include_tag {
+                    state.serialize_field("tag", &self.tag)?;
+                }
+            },
+        }
+        state.end()
+    }
 }
 
 impl RpcRequest {
@@ -48,6 +100,7 @@ impl RpcRequest {
             method: Method::SessionSet,
             arguments: Some(Args::SessionSet(args)),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -56,6 +109,7 @@ impl RpcRequest {
             method: Method::SessionGet,
             arguments: args.map(Into::into),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -64,6 +118,7 @@ impl RpcRequest {
             method: Method::SessionStats,
             arguments: None,
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -72,6 +127,7 @@ impl RpcRequest {
             method: Method::SessionClose,
             arguments: None,
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -80,6 +136,7 @@ impl RpcRequest {
             method: Method::BlocklistUpdate,
             arguments: None,
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -88,6 +145,7 @@ impl RpcRequest {
             method: Method::FreeSpace,
             arguments: Some(Args::FreeSpace(FreeSpaceArgs { path })),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -96,6 +154,7 @@ impl RpcRequest {
             method: Method::PortTest,
             arguments: None,
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -107,6 +166,7 @@ impl RpcRequest {
             method: Method::QueueMoveTop,
             arguments: Args::QueueMove(Vec::from_iter(ids).into()).into(),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -118,6 +178,7 @@ impl RpcRequest {
             method: Method::QueueMoveUp,
             arguments: Args::QueueMove(Vec::from_iter(ids).into()).into(),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -129,6 +190,7 @@ impl RpcRequest {
             method: Method::QueueMoveDown,
             arguments: Args::QueueMove(Vec::from_iter(ids).into()).into(),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -140,6 +202,7 @@ impl RpcRequest {
             method: Method::QueueMoveBottom,
             arguments: Args::QueueMove(Vec::from_iter(ids).into()).into(),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -165,6 +228,7 @@ impl RpcRequest {
                 ids,
             })),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -177,6 +241,7 @@ impl RpcRequest {
             method: Method::TorrentSet,
             arguments: Some(Args::TorrentSet(args)),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -192,6 +257,7 @@ impl RpcRequest {
                 delete_local_data,
             })),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -200,6 +266,7 @@ impl RpcRequest {
             method: Method::TorrentAdd,
             arguments: Some(Args::TorrentAdd(add)),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -212,6 +279,7 @@ impl RpcRequest {
             method: Method::TorrentAction(action),
             arguments: Some(Args::TorrentAction(TorrentActionArgs { ids })),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -233,6 +301,7 @@ impl RpcRequest {
                 move_from,
             })),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -254,6 +323,7 @@ impl RpcRequest {
                 name,
             })),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -265,6 +335,7 @@ impl RpcRequest {
             method: Method::GroupGet,
             arguments: Some(Args::GroupGet(groups.map(Vec::from_iter).into())),
             tag,
+            jsonrpc: None,
         }
     }
 
@@ -273,6 +344,7 @@ impl RpcRequest {
             method: Method::GroupSet,
             arguments: Some(Args::GroupSet(args)),
             tag,
+            jsonrpc: None,
         }
     }
 }

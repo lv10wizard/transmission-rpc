@@ -6,7 +6,8 @@
 
 use std::{ops::Deref, sync::{Arc, RwLock}};
 
-use reqwest::{Client, StatusCode, Url, header::CONTENT_TYPE};
+use reqwest::{Client, StatusCode, Url, header::{CONTENT_TYPE, HeaderValue}};
+use semver::Version;
 use serde::de::DeserializeOwned;
 
 use crate::{
@@ -25,6 +26,7 @@ pub struct SharableTransClient {
     auth: Option<BasicAuth>,
     session_id: Arc<RwLock<Option<String>>>,
     client: Client,
+    semver: Option<Version>,
 }
 
 impl SharableTransClient {
@@ -36,6 +38,7 @@ impl SharableTransClient {
             auth: Some(basic_auth),
             session_id: RwLock::new(None).into(),
             client: Client::new(),
+            semver: None,
         }
     }
 
@@ -47,6 +50,7 @@ impl SharableTransClient {
             auth: None,
             session_id: RwLock::new(None).into(),
             client: Client::new(),
+            semver: None,
         }
     }
 
@@ -57,6 +61,7 @@ impl SharableTransClient {
             auth: None,
             session_id: RwLock::new(None).into(),
             client,
+            semver: None,
         }
     }
 
@@ -1347,7 +1352,7 @@ impl SharableTransClient {
     /// # Errors
     ///
     /// Any IO Error or Deserialization error
-    async fn call<RS>(&self, request: RpcRequest) -> Result<RpcResponse<RS>>
+    async fn call<RS>(&self, mut request: RpcRequest) -> Result<RpcResponse<RS>>
     where
         RS: RpcResponseArgument + DeserializeOwned + std::fmt::Debug,
     {
@@ -1375,6 +1380,25 @@ impl SharableTransClient {
 
             debug!("Response: {:?}", &rsp);
             if matches!(rsp.status(), StatusCode::CONFLICT) {
+                // "Starting from rpc-version-semver 6.0.0, Transmission returns the RPC version in
+                //  an HTTP header X-Transmission-Rpc-Version: {rpc_version_semver} in the CSRF
+                //  HTTP 409 response. This is so that clients supporting both JSON-RPC and the old
+                //  bespoke API can determine which scheme to use without making any extra
+                //  requests. Example: X-Transmission-Rpc-Version: 6.0.0"
+                self.semver = rsp
+                    .headers()
+                    .get("X-Transmission-Rpc-Version")
+                    .map(HeaderValue::to_str)
+                    .transpose()?
+                    .map(Version::parse)
+                    .transpose()?;
+                if let Some(semver) = &self.semver {
+                    // Flag that the request should be transformed into JSON-RPC.
+                    request.jsonrpc = (semver >= &"6.0.0".parse::<Version>()?)
+                        .then_some("2.0".to_string());
+                    debug!("Got rpc-semver: {}", semver);
+                }
+
                 let session_id = rsp
                     .headers()
                     .get("X-Transmission-Session-Id")
