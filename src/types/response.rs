@@ -8,12 +8,18 @@ use serde::de::{Deserializer, Error as _};
 use serde_json::Value;
 use serde_repr::*;
 
-use super::{JSON_RPC_VERSION_2_0, Encryption, Id, IdleMode, Priority, RatioMode, Tag};
-use crate::json_rpc::{JsonRpc, JsonRpcResponse, JsonRpcError};
+use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag};
+use crate::json_rpc::{JsonRpcResponse, JsonRpcResult};
 
-#[derive(Debug)]
+const SUCCESS: &'static str = "success";
+
+#[derive(Deserialize, Debug)]
 pub struct RpcResponse<T: RpcResponseArgument> {
+    /// "An optional `arguments` object of key/value pairs. Its keys contents are defined by the
+    ///  `method` and `arguments` of the original request."
     pub arguments: T,
+    /// "A required `result` string whose value MUST be `success` on success, or an error string on
+    ///  failure."
     pub result: String,
     /// "An optional `tag` number as described in [`2.1`]." <sup>[[1]]</sup>
     ///
@@ -22,30 +28,37 @@ pub struct RpcResponse<T: RpcResponseArgument> {
     pub tag: Option<Tag>,
 }
 
-// TODO: Refactor to https://docs.rs/jsonrpc/latest/jsonrpc ?
-impl<'de, T: RpcResponseArgument> Deserialize<'de> for RpcResponse<T> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>
-    {
-        #[derive(Deserialize)]
-        struct JsonRpc<'a> {
-            #[serde(borrow)]
-            jsonrpc: &'a str,
-            #[serde(flatten)]
-            result: JsonRpcResp,
+/// Converts a `JsonRpcResponse<T>` into a backwards compatible `RpcReponse<T>` for external use.
+impl<T: RpcResponseArgument> From<JsonRpcResponse<T>> for RpcResponse<T> {
+    fn from(value: JsonRpcResponse<T>) -> Self {
+        let result = match &value.result {
+            JsonRpcResult::Result(_) => SUCCESS.to_string(),
+            JsonRpcResult::Error(err) => format!("{} (code: {})", err.message, err.code),
+        };
+
+        Self {
+            arguments: match value.result {
+                JsonRpcResult::Result(data) => data,
+                JsonRpcResult::Error(_) => T::default(),
+            },
+            result,
+            tag: value.id.map(Into::into),
         }
     }
 }
 
 impl<T: RpcResponseArgument> RpcResponse<T> {
     pub fn is_ok(&self) -> bool {
-        self.result == "success"
+        self.result == SUCCESS
     }
 }
-pub trait RpcResponseArgument {}
+/// Rpc response data returned by the server.
+///
+/// This trait is bound by [`Default`] so that [`RpcResponse`] can maintain pre-semver-6.0.0
+/// compatibility in case of a JSON-RPC protocol error.
+pub trait RpcResponseArgument: Default {}
 
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Default, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct SessionGet {
     /// Max global download speed (kB/s)
@@ -413,7 +426,7 @@ pub struct SessionGetUnits {
     pub memory_bytes: usize,
 }
 
-#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Deserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionStats {
     #[serde(alias = "torrent_count")]
@@ -435,7 +448,7 @@ pub struct SessionStats {
 }
 impl RpcResponseArgument for SessionStats {}
 
-#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Deserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub struct BlocklistUpdate {
     #[serde(alias = "blocklist_size")]
@@ -443,7 +456,7 @@ pub struct BlocklistUpdate {
 }
 impl RpcResponseArgument for BlocklistUpdate {}
 
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Default, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct FreeSpace {
     pub path: String,
@@ -453,7 +466,7 @@ pub struct FreeSpace {
 }
 impl RpcResponseArgument for FreeSpace {}
 
-#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Deserialize, Default, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub struct PortTest {
     #[serde(alias = "port_is_open")]
@@ -710,7 +723,7 @@ impl Torrent {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Deserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Stats {
     #[serde(alias = "files_added")]
@@ -725,7 +738,7 @@ pub struct Stats {
     pub session_count: Option<i32>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Default, Debug)]
 pub struct Torrents<T> {
     pub torrents: Vec<T>,
 }
@@ -908,14 +921,15 @@ pub enum TrackerState {
     Active = 3,
 }
 
-#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Deserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Nothing {}
 impl RpcResponseArgument for Nothing {}
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub enum TorrentAddedOrDuplicate {
     TorrentDuplicate(Torrent),
     TorrentAdded(Torrent),
+    #[default]
     Error,
 }
 
@@ -938,7 +952,7 @@ impl<'de> Deserialize<'de> for TorrentAddedOrDuplicate {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Default, Debug, Clone, PartialEq)]
 pub struct TorrentRenamePath {
     pub path: Option<String>,
     pub name: Option<String>,

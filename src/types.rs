@@ -4,7 +4,8 @@ use bitflags::{self, parser};
 use serde::{Deserialize, Serialize, de::Error as _};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-pub(crate) use self::request::RpcRequest;
+#[allow(unused_imports)]
+pub(crate) use self::request::{RpcRequest, SessionGetArgs};
 pub use self::request::{
     ArgumentFields, GroupSetArgs, SessionGetField, SessionSetArgs, TorrentAction, TorrentAddArgs,
     TorrentGetField, TorrentRenamePathArgs, TorrentSetArgs, TrackerList,

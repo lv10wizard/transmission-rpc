@@ -122,6 +122,7 @@ use serde::de::DeserializeOwned;
 
 #[cfg(feature = "sync")]
 pub use sync::SharableTransClient;
+use json_rpc::JsonRpcResponse;
 use types::{
     JSON_RPC_VERSION_2_0, BasicAuth, BlocklistUpdate, FreeSpace, GroupGet, GroupSetArgs, Id,
     Nothing, PortTest, Result, RpcRequest, RpcResponse, RpcResponseArgument, SessionGet,
@@ -141,13 +142,15 @@ const MAX_RETRIES: usize = 5;
 enum TransError {
     MaxRetriesReached,
     NoSessionIdReceived,
+    UnhandledJsonRpcVersion(String),
 }
 
 impl std::fmt::Display for TransError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
+        match self {
             TransError::MaxRetriesReached => write!(f, "Max retries reached!"),
             TransError::NoSessionIdReceived => write!(f, "No session id received!"),
+            TransError::UnhandledJsonRpcVersion(v) => write!(f, "Unhandled JSON-RPC version: {v}"),
         }
     }
 }
@@ -161,7 +164,7 @@ pub struct TransClient {
     // TODO: refactor to a wrapper Client that handles both reqwest & jsonrpc clients
     client: Client,
     /// Stores the `X-Transmission-Rpc-Version` HTTP header value from the server if provided in
-    /// the `409 (Conflict)` response. `semver` is used to flag that requests should be transformed
+    /// the `409 Conflict` response. `semver` is used to flag that requests should be transformed
     /// into a [JSON-RPC] request.
     ///
     /// [JSON-RPC]: <https://www.jsonrpc.org/specification>
@@ -1546,8 +1549,24 @@ impl TransClient {
 
                 debug!("Got new session_id: {}. Retrying request.", session_id);
             } else {
-                let rpc_response: RpcResponse<RS> = rsp.json().await?;
-                debug!("Response body: {:#?}", rpc_response);
+                let rpc_response: RpcResponse<RS> = match request.jsonrpc.is_some() {
+                    true => {
+                        let resp = rsp.json::<JsonRpcResponse<RS>>().await?;
+                        debug!("JSON-RPC response body: {:#?}", resp);
+                        if resp.jsonrpc != JSON_RPC_VERSION_2_0 {
+                            // This probably means that the request was handled by a new
+                            // Transmission version with an upgrade JSON-RPC protocol.
+                            let err = TransError::UnhandledJsonRpcVersion(resp.jsonrpc.clone());
+                            return Err(Box::new(err));
+                        }
+                        resp.into()
+                    },
+                    false => {
+                        let resp = rsp.json().await?;
+                        debug!("Response body: {:#?}", resp);
+                        resp
+                    },
+                };
 
                 return Ok(rpc_response);
             }

@@ -27,7 +27,7 @@ pub struct SharableTransClient {
     session_id: Arc<RwLock<Option<String>>>,
     client: Client,
     /// Stores the `X-Transmission-Rpc-Version` HTTP header value from the server if provided in
-    /// the `409 (Conflict)` response. `semver` is used to flag that requests should be transformed
+    /// the `409 Conflict` response. `semver` is used to flag that requests should be transformed
     /// into a [JSON-RPC] request.
     ///
     /// [JSON-RPC]: <https://www.jsonrpc.org/specification>

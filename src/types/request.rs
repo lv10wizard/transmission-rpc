@@ -4,7 +4,7 @@ use serde::{Serialize, Serializer};
 use crate::json_rpc::{JsonRpcId, JsonRpcRequest};
 use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag};
 
-use session_get::SessionGetArgs;
+pub(crate) use session_get::SessionGetArgs;
 pub use session_get::SessionGetField;
 
 #[cfg(feature = "tor-get-serde")]

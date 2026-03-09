@@ -28,9 +28,9 @@ use super::Args;
 /// [`HashSet`]: std::collections::HashSet
 #[derive(Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
-pub struct SessionGetArgs {
+pub(crate) struct SessionGetArgs {
     #[serde(skip_serializing_if = "Vec::is_empty")] // Treat empty the same as `None`.
-    pub fields: Vec<SessionGetField>,
+    pub(crate) fields: Vec<SessionGetField>,
 }
 
 impl<I> From<I> for SessionGetArgs

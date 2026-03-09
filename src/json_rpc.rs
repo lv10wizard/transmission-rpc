@@ -1,12 +1,14 @@
+use std::fmt::{self, Display};
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::types::JSON_RPC_VERSION_2_0;
+use crate::types::{RpcResponseArgument, Tag};
 
 /// Represents a [JSON-RPC] request.
 ///
 /// [JSON-RPC]: <https://www.jsonrpc.org/specification>
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub(crate) struct JsonRpcRequest<'a, T> {
     /// "A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0".
     pub(crate) jsonrpc: &'a str,
@@ -24,28 +26,28 @@ pub(crate) struct JsonRpcRequest<'a, T> {
     /// "An identifier established by the Client that MUST contain a String, Number, or NULL value
     ///  if included. If it is not included it is assumed to be a notification."
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) id: Option<JsonRpcId<'a>>,
+    pub(crate) id: Option<JsonRpcId>,
 }
 
 /// Represents a [JSON-RPC] response.
 ///
 /// [JSON-RPC]: <https://www.jsonrpc.org/specification>
-#[derive(Deserialize)]
-pub(crate) struct JsonRpcResponse<'a> {
+#[derive(Deserialize, Debug)]
+pub(crate) struct JsonRpcResponse<T: RpcResponseArgument> {
     /// "A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0"."
-    jsonrpc: &'a str,
+    pub(crate) jsonrpc: String,
 
     /// Either a "result" or "error" as defined in [JSON-RPC]
     ///
     /// [JSON-RPC]: <https://www.jsonrpc.org/specification>
     #[serde(flatten)]
-    result: JsonRpcResult,
+    pub(crate) result: JsonRpcResult<T>,
 
     /// "This member is REQUIRED.
     ///  It MUST be the same as the value of the id member in the Request Object.
     ///  If there was an error in detecting the id in the Request object (e.g. Parse error/Invalid
     ///  Request), it MUST be Null."
-    id: Option<JsonRpcId<'a>>,
+    pub(crate) id: Option<JsonRpcId>,
 }
 
 /// "An identifier established by the Client that MUST contain a String, Number, or NULL value if
@@ -61,14 +63,72 @@ pub(crate) struct JsonRpcResponse<'a> {
 ///      exactly as binary fractions."
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
-pub(crate) enum JsonRpcId<'a> {
+pub(crate) enum JsonRpcId {
     Number(i64),
-    String(&'a str),
+    String(String),
 }
 
-impl<'a> Default for JsonRpcId<'a> {
+impl Display for JsonRpcId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Number(n) => write!(f, "{n}"),
+            Self::String(s) => write!(f, "{s}"),
+        }
+    }
+}
+
+impl<'a> Default for JsonRpcId {
     fn default() -> Self {
         Self::Number(0)
+    }
+}
+
+impl<'a> From<Tag> for JsonRpcId {
+    fn from(value: Tag) -> Self {
+        Self::Number(value.0)
+    }
+}
+
+impl From<JsonRpcId> for Tag {
+    fn from(value: JsonRpcId) -> Self {
+        match value {
+            JsonRpcId::Number(id) => Self(id),
+            JsonRpcId::String(s) => {
+                let tag = i64::default();
+                debug!("Converting string JSON-RPC \"id\" into number tag: \"{}\" -> {}", s, tag);
+                Self(tag)
+            },
+        }
+    }
+}
+
+impl From<i32> for JsonRpcId {
+    fn from(value: i32) -> Self {
+        Self::Number(value.into())
+    }
+}
+
+impl From<i64> for JsonRpcId {
+    fn from(value: i64) -> Self {
+        Self::Number(value)
+    }
+}
+
+impl From<&str> for JsonRpcId {
+    fn from(value: &str) -> Self {
+        Self::String(value.to_string())
+    }
+}
+
+impl From<&String> for JsonRpcId {
+    fn from(value: &String) -> Self {
+        Self::String(value.clone())
+    }
+}
+
+impl From<String> for JsonRpcId {
+    fn from(value: String) -> Self {
+        Self::String(value)
     }
 }
 
@@ -77,11 +137,11 @@ impl<'a> Default for JsonRpcId<'a> {
 /// [JSON-RPC]: <https://www.jsonrpc.org/specification>
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
-pub(crate) enum JsonRpcResult {
+pub(crate) enum JsonRpcResult<T: RpcResponseArgument> {
     /// "This member is REQUIRED on success.
     ///  This member MUST NOT exist if there was an error invoking the method.
     ///  The value of this member is determined by the method invoked on the Server."
-    Result(Value),
+    Result(T),
 
     /// "This member is REQUIRED on error.
     ///  This member MUST NOT exist if there was no error triggered during invocation."
@@ -130,4 +190,106 @@ pub(crate) struct JsonRpcError {
     ///  errors etc.)."
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) data: Option<Value>,
+}
+
+#[cfg(test)]
+mod json_rpc_test {
+    use serde_json::{self, Map, Value};
+
+    use super::*;
+    use crate::types::{
+        JSON_RPC_VERSION_2_0, Nothing, Result, SessionGet, SessionGetArgs, SessionGetField,
+    };
+
+    #[test]
+    fn json_rpc_request_serialize() -> Result<()> {
+        let params: Option<SessionGetArgs> = Some([SessionGetField::Version].into());
+        let id: Option<JsonRpcId> = Some(912313.into());
+
+        let request = JsonRpcRequest::<SessionGetArgs> {
+            jsonrpc: JSON_RPC_VERSION_2_0,
+            method: "session_get",
+            params: &params,
+            id: id,
+        };
+
+        let ser_request = serde_json::to_string(&request)?;
+        println!("----- request:\n\n{ser_request}\n");
+
+        assert_eq!(ser_request, 
+            "{\
+               \"jsonrpc\":\"2.0\",\
+               \"method\":\"session_get\",\
+               \"params\":{\
+                 \"fields\":[\
+                   \"version\"\
+                 ]\
+               },\
+               \"id\":912313\
+            }");
+
+        Ok(())
+    }
+
+    #[test]
+    fn json_rpc_response_deserialize() -> Result<()> {
+        let response = r#"
+        {
+           "jsonrpc": "2.0",
+           "result": {
+              "version": "4.1.0-dev (ae226418eb)"
+           },
+           "id": 912313
+        }
+        "#;
+        let de_response = serde_json::from_str::<JsonRpcResponse<SessionGet>>(response)?;
+        println!("----- response:\n{response}\n");
+        println!("----- de_response:\n\n{de_response:#?}\n");
+
+        let expected = JsonRpcResult::Result({
+            let mut session_get = SessionGet::default();
+            session_get.version = Some("4.1.0-dev (ae226418eb)".to_string());
+            session_get
+        });
+        assert_eq!(de_response.jsonrpc, JSON_RPC_VERSION_2_0);
+        assert_eq!(de_response.result, expected);
+        assert_eq!(de_response.id, Some(912313.into()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn json_rpc_error_deserialize() -> Result<()> {
+        let error = r#"
+        {
+          "jsonrpc": "2.0",
+          "error": {
+            "code": -32600,
+            "data": {
+              "error_string": "id type must be String, Number, or Null"
+            },
+            "message": "Invalid Request"
+          },
+          "id": null
+        }
+        "#;
+        let de_error = serde_json::from_str::<JsonRpcResponse<Nothing>>(error)?;
+        println!("----- error:\n{error}\n");
+        println!("----- de_error:\n\n{de_error:#?}\n");
+
+        let expected = JsonRpcResult::<Nothing>::Error(JsonRpcError {
+            code: -32600,
+            message: "Invalid Request".to_string(),
+            data: Some(Value::Object({
+                let key = "error_string".to_string();
+                let val = "id type must be String, Number, or Null".to_string();
+                Map::from_iter([(key, Value::String(val))])
+            })),
+        });
+        assert_eq!(de_error.jsonrpc, JSON_RPC_VERSION_2_0);
+        assert_eq!(de_error.result, expected);
+        assert_eq!(de_error.id, None);
+
+        Ok(())
+    }
 }
