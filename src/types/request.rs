@@ -1,7 +1,7 @@
 use enum_iterator::{all, Sequence};
-use serde::{Serialize, Serializer, ser::SerializeStruct};
+use serde::{Serialize, Serializer};
 
-use crate::json_rpc::JsonRpcId;
+use crate::json_rpc::{JsonRpcId, JsonRpcRequest};
 use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag};
 
 use session_get::SessionGetArgs;
@@ -30,6 +30,7 @@ pub(crate) struct RpcRequest {
     /// [1]: <https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md#21-requests>
     /// [2]: <https://github.com/transmission/transmission/blob/4.0.6/libtransmission/rpcimpl.cc#L2520>
     tag: Option<Tag>,
+
     pub(crate) jsonrpc: Option<String>,
 }
 
@@ -38,44 +39,42 @@ impl Serialize for RpcRequest {
     where
         S: Serializer,
     {
-        let include_args = self.arguments.is_some();
-
-        let mut len = 3;
-        if !include_args {
-            len -= 1;
-        }
-        if self.jsonrpc.is_none() && self.tag.is_none() {
-            len -= 1 ;
-        }
-        let mut state = serializer.serialize_struct("RpcRequest", len)?;
-        match &self.jsonrpc {
-            // >= Transmission 4.1.0 (rpc_version_semver 6.0.0, rpc_version: 18)
+        match self.jsonrpc.as_ref() {
             Some(jsonrpc) => {
-                state.serialize_field("jsonrpc", &jsonrpc)?;
-                let method = self.method
-                    .as_str()
-                    .replace("-", "_");
-                state.serialize_field("method", &method)?;
-                if include_args {
-                    state.serialize_field("params", &self.arguments)?;
+                JsonRpcRequest {
+                    jsonrpc: jsonrpc,
+                    // All method names were converted to snake_case in Transmission 4.1.0 (when
+                    // the RPC server switched to the JSON-RPC 2.0 protocol).
+                    method: &self.method
+                        .as_str()
+                        .replace("-", "_"),
+                    params: &self.arguments,
+                    // Always ask the rpc server for a response so that users can decide what they
+                    // want to do with it.
+                    id: Some(JsonRpcId::default()),
                 }
-                // Always ask the rpc server for a response so that library users can decide what
-                // they want to do with it.
-                state.serialize_field("id", &self.tag.or(Tag(0).into()))?;
+                .serialize(serializer)
             },
 
-            // < Transmission 4.1.0 (rpc_version_semver 6.0.0, rpc_version: 18)
             None => {
-                state.serialize_field("method", &self.method)?;
-                if include_args {
-                    state.serialize_field("arguments", &self.arguments)?;
+                /// Serialization helper for legacy requests (pre- Transmission 4.1.0).
+                #[derive(Serialize)]
+                struct LegacyRequest<'a> {
+                    method: &'a Method,
+                    #[serde(skip_serializing_if = "Option::is_none")]
+                    arguments: &'a Option<Args>,
+                    #[serde(skip_serializing_if = "Option::is_none")]
+                    tag: Option<Tag>,
                 }
-                if let Some(tag) = self.tag {
-                    state.serialize_field("tag", &tag)?;
+
+                LegacyRequest {
+                    method: &self.method,
+                    arguments: &self.arguments,
+                    tag: self.tag,
                 }
+                .serialize(serializer)
             },
         }
-        state.end()
     }
 }
 

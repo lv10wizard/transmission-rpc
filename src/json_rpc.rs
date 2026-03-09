@@ -3,13 +3,36 @@ use serde_json::Value;
 
 use crate::types::JSON_RPC_VERSION_2_0;
 
+/// Represents a [JSON-RPC] request.
+///
+/// [JSON-RPC]: <https://www.jsonrpc.org/specification>
+#[derive(Serialize)]
+pub(crate) struct JsonRpcRequest<'a, T> {
+    /// "A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0".
+    pub(crate) jsonrpc: &'a str,
+
+    /// "A String containing the name of the method to be invoked. Method names that begin with the
+    ///  word rpc followed by a period character (U+002E or ASCII 46) are reserved for rpc-internal
+    ///  methods and extensions and MUST NOT be used for anything else."
+    pub(crate) method: &'a str,
+
+    /// "A Structured value that holds the parameter values to be used during the invocation of the
+    ///  method. This member MAY be omitted."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) params: &'a Option<T>,
+
+    /// "An identifier established by the Client that MUST contain a String, Number, or NULL value
+    ///  if included. If it is not included it is assumed to be a notification."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) id: Option<JsonRpcId<'a>>,
+}
+
 /// Represents a [JSON-RPC] response.
 ///
 /// [JSON-RPC]: <https://www.jsonrpc.org/specification>
 #[derive(Deserialize)]
 pub(crate) struct JsonRpcResponse<'a> {
     /// "A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0"."
-    #[serde(borrow)]
     jsonrpc: &'a str,
 
     /// Either a "result" or "error" as defined in [JSON-RPC]
@@ -22,7 +45,7 @@ pub(crate) struct JsonRpcResponse<'a> {
     ///  It MUST be the same as the value of the id member in the Request Object.
     ///  If there was an error in detecting the id in the Request object (e.g. Parse error/Invalid
     ///  Request), it MUST be Null."
-    id: Option<JsonRpcId>,
+    id: Option<JsonRpcId<'a>>,
 }
 
 /// "An identifier established by the Client that MUST contain a String, Number, or NULL value if
@@ -37,9 +60,16 @@ pub(crate) struct JsonRpcResponse<'a> {
 /// \[2\] "Fractional parts may be problematic, since many decimal fractions cannot be represented
 ///      exactly as binary fractions."
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub(crate) enum JsonRpcId {
+#[serde(untagged)]
+pub(crate) enum JsonRpcId<'a> {
     Number(i64),
-    String(String),
+    String(&'a str),
+}
+
+impl<'a> Default for JsonRpcId<'a> {
+    fn default() -> Self {
+        Self::Number(0)
+    }
 }
 
 /// Either a [JSON-RPC] "result" or "error".
