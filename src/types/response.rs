@@ -8,9 +8,10 @@ use serde::de::{Deserializer, Error as _};
 use serde_json::Value;
 use serde_repr::*;
 
-use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag};
+use super::{JSON_RPC_VERSION_2_0, Encryption, Id, IdleMode, Priority, RatioMode, Tag};
+use crate::json_rpc::{JsonRpc, JsonRpcResponse, JsonRpcError};
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug)]
 pub struct RpcResponse<T: RpcResponseArgument> {
     pub arguments: T,
     pub result: String,
@@ -19,6 +20,22 @@ pub struct RpcResponse<T: RpcResponseArgument> {
     /// [`2.1`]: <https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md#21-requests>
     /// [1]: <https://github.com/transmission/transmission/blob/4.0.6/libtransmission/rpcimpl.cc#L2520>
     pub tag: Option<Tag>,
+}
+
+// TODO: Refactor to https://docs.rs/jsonrpc/latest/jsonrpc ?
+impl<'de, T: RpcResponseArgument> Deserialize<'de> for RpcResponse<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>
+    {
+        #[derive(Deserialize)]
+        struct JsonRpc<'a> {
+            #[serde(borrow)]
+            jsonrpc: &'a str,
+            #[serde(flatten)]
+            result: JsonRpcResp,
+        }
+    }
 }
 
 impl<T: RpcResponseArgument> RpcResponse<T> {

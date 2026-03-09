@@ -1,6 +1,7 @@
 use enum_iterator::{all, Sequence};
 use serde::{Serialize, Serializer, ser::SerializeStruct};
 
+use crate::json_rpc::JsonRpcId;
 use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag};
 
 use session_get::SessionGetArgs;
@@ -38,14 +39,12 @@ impl Serialize for RpcRequest {
         S: Serializer,
     {
         let include_args = self.arguments.is_some();
-        // Repurpose the `tag` field into `id` in json-rpc 2.0 requests.
-        let include_tag = self.jsonrpc.is_some() || self.tag.is_some();
 
         let mut len = 3;
         if !include_args {
             len -= 1;
         }
-        if !include_tag {
+        if self.jsonrpc.is_none() && self.tag.is_none() {
             len -= 1 ;
         }
         let mut state = serializer.serialize_struct("RpcRequest", len)?;
@@ -60,11 +59,9 @@ impl Serialize for RpcRequest {
                 if include_args {
                     state.serialize_field("params", &self.arguments)?;
                 }
-                if include_tag {
-                    // Always ask the rpc server for a response so that library users can decide
-                    // what they want to do with it.
-                    state.serialize_field("id", &self.tag.or(Tag(0).into()))?;
-                }
+                // Always ask the rpc server for a response so that library users can decide what
+                // they want to do with it.
+                state.serialize_field("id", &self.tag.or(Tag(0).into()))?;
             },
 
             // < Transmission 4.1.0 (rpc_version_semver 6.0.0, rpc_version: 18)
@@ -73,8 +70,8 @@ impl Serialize for RpcRequest {
                 if include_args {
                     state.serialize_field("arguments", &self.arguments)?;
                 }
-                if include_tag {
-                    state.serialize_field("tag", &self.tag)?;
+                if let Some(tag) = self.tag {
+                    state.serialize_field("tag", &tag)?;
                 }
             },
         }

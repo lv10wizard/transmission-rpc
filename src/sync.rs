@@ -13,10 +13,10 @@ use serde::de::DeserializeOwned;
 use crate::{
     BodyString, MAX_RETRIES, TransError,
     types::{
-        BasicAuth, BlocklistUpdate, FreeSpace, GroupGet, Id, Nothing, PortTest, Result, RpcRequest,
-        RpcResponse, RpcResponseArgument, SessionGet, SessionGetField, SessionStats, Torrent,
-        TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate, TorrentGetField, TorrentRenamePath,
-        TorrentSetArgs, Torrents,
+        JSON_RPC_VERSION_2_0, BasicAuth, BlocklistUpdate, FreeSpace, GroupGet, GroupSetArgs, Id,
+        Nothing, PortTest, Result, RpcRequest, RpcResponse, RpcResponseArgument, SessionGet,
+        SessionGetField, SessionSetArgs, SessionStats, Tag, Torrent, TorrentAction, TorrentAddArgs,
+        TorrentAddedOrDuplicate, TorrentGetField, TorrentRenamePath, TorrentSetArgs, Torrents,
     },
 };
 
@@ -26,6 +26,11 @@ pub struct SharableTransClient {
     auth: Option<BasicAuth>,
     session_id: Arc<RwLock<Option<String>>>,
     client: Client,
+    /// Stores the `X-Transmission-Rpc-Version` HTTP header value from the server if provided in
+    /// the `409 (Conflict)` response. `semver` is used to flag that requests should be transformed
+    /// into a [JSON-RPC] request.
+    ///
+    /// [JSON-RPC]: <https://www.jsonrpc.org/specification>
     semver: Option<Version>,
 }
 
@@ -1362,6 +1367,12 @@ impl SharableTransClient {
                 .checked_sub(1)
                 .ok_or(TransError::MaxRetriesReached)?;
 
+            if let Some(semver) = &self.semver {
+                // Flag that the request should be transformed into JSON-RPC.
+                request.jsonrpc = (semver >= &"6.0.0".parse::<Version>()?)
+                    .then_some(JSON_RPC_VERSION_2_0.to_string());
+            }
+
             debug!("Loaded auth: {:?}", &self.auth);
             let rq = match &self.session_id.read().expect("lock being poisoned").deref() {
                 None => self.rpc_request(),
@@ -1393,9 +1404,6 @@ impl SharableTransClient {
                     .map(Version::parse)
                     .transpose()?;
                 if let Some(semver) = &self.semver {
-                    // Flag that the request should be transformed into JSON-RPC.
-                    request.jsonrpc = (semver >= &"6.0.0".parse::<Version>()?)
-                        .then_some("2.0".to_string());
                     debug!("Got rpc-semver: {}", semver);
                 }
 

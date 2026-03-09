@@ -123,15 +123,16 @@ use serde::de::DeserializeOwned;
 #[cfg(feature = "sync")]
 pub use sync::SharableTransClient;
 use types::{
-    BasicAuth, BlocklistUpdate, FreeSpace, GroupGet, GroupSetArgs, Id, Nothing, PortTest, Result,
-    RpcRequest, RpcResponse, RpcResponseArgument, SessionGet, SessionGetField, SessionSetArgs,
-    SessionStats, Tag, Torrent, TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate,
-    TorrentGetField, TorrentRenamePath, TorrentSetArgs, Torrents,
+    JSON_RPC_VERSION_2_0, BasicAuth, BlocklistUpdate, FreeSpace, GroupGet, GroupSetArgs, Id,
+    Nothing, PortTest, Result, RpcRequest, RpcResponse, RpcResponseArgument, SessionGet,
+    SessionGetField, SessionSetArgs, SessionStats, Tag, Torrent, TorrentAction, TorrentAddArgs,
+    TorrentAddedOrDuplicate, TorrentGetField, TorrentRenamePath, TorrentSetArgs, Torrents,
 };
 
 #[cfg(feature = "sync")]
 mod sync;
 
+mod json_rpc;
 pub mod types;
 
 const MAX_RETRIES: usize = 5;
@@ -157,7 +158,13 @@ pub struct TransClient {
     url: Url,
     auth: Option<BasicAuth>,
     session_id: Option<String>,
+    // TODO: refactor to a wrapper Client that handles both reqwest & jsonrpc clients
     client: Client,
+    /// Stores the `X-Transmission-Rpc-Version` HTTP header value from the server if provided in
+    /// the `409 (Conflict)` response. `semver` is used to flag that requests should be transformed
+    /// into a [JSON-RPC] request.
+    ///
+    /// [JSON-RPC]: <https://www.jsonrpc.org/specification>
     semver: Option<Version>,
 }
 
@@ -1492,6 +1499,12 @@ impl TransClient {
                 .checked_sub(1)
                 .ok_or(TransError::MaxRetriesReached)?;
 
+            if let Some(semver) = &self.semver {
+                // Flag that the request should be transformed into JSON-RPC.
+                request.jsonrpc = (semver >= &"6.0.0".parse::<Version>()?)
+                    .then_some(JSON_RPC_VERSION_2_0.to_string());
+            }
+
             debug!("Loaded auth: {:?}", &self.auth);
             let rq = match &self.session_id {
                 None => self.rpc_request(),
@@ -1521,9 +1534,6 @@ impl TransClient {
                     .map(Version::parse)
                     .transpose()?;
                 if let Some(semver) = &self.semver {
-                    // Flag that the request should be transformed into JSON-RPC.
-                    request.jsonrpc = (semver >= &"6.0.0".parse::<Version>()?)
-                        .then_some("2.0".to_string());
                     debug!("Got rpc-semver: {}", semver);
                 }
 
