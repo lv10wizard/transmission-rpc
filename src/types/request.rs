@@ -16,6 +16,9 @@ mod group_set;
 mod session_get;
 mod torrent_set;
 
+#[cfg(test)]
+mod serde_tests;
+
 /// Represents a transmission rpc method.
 #[derive(Debug)]
 pub(crate) struct RpcRequest {
@@ -346,7 +349,7 @@ impl RpcRequest {
 }
 
 #[derive(Debug, Copy, Clone)]
-enum Method {
+pub(crate) enum Method {
     SessionSet,
     SessionGet,
     SessionStats,
