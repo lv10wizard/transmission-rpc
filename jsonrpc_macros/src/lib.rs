@@ -3,26 +3,32 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Ident, Item, Type};
 
-// TODO: attribute proc macro? derive macro? both?
-// TODO- want: macro to duplicate struct/enum (eg. FreeSpaceArgs) that serializes with
-// TODO-       rename="snake_case"
-
 /// TODO: doc
+/// TODO: mention that this #[attr] MUST be the first/top decorator (MUST be defined before/above
+/// TODO- all other eg. #[derive], #[cfg_attr], etc).
 #[proc_macro_attribute]
 pub fn generate_semver_600_compat(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    /*
     println!("----- attr: \"{_attr}\""); // TODO: DELETE
     println!("----- item: \"{item}\""); // TODO: DELETE
+    */
 
     // REF: https://compilenrun.com/docs/language/rust/rust-advanced-features/rust-derive-macros/
     // REF: https://docs.rs/quote/latest/quote/macro.quote.html#indexing-into-a-tuple-struct
 
-    let input = parse_macro_input!(item as Item);
+    let input = {
+        let item = item.clone();
+        parse_macro_input!(item as Item)
+    };
+    let item = proc_macro2::TokenStream::from(item);
     match &input {
         Item::Struct(input_struct) => {
             let token = &input_struct.struct_token; // "struct"
+            let vis = &input_struct.vis;
             let name = &input_struct.ident;
             let generics = &input_struct.generics;
             let fields = &input_struct.fields;
+            let semi_token = &input_struct.semi_token;
 
             let compat_name = format_ident!("__semver_600_compat_{}", name);
             // Extract the field names so that we can generate the `into_compat` method.
@@ -38,9 +44,16 @@ pub fn generate_semver_600_compat(_attr: TokenStream, item: TokenStream) -> Toke
                 .collect::<Vec<&Type>>();
 
             let out = quote! {
+                // Define the original (legacy) struct as-is.
+                #item
+
                 // Define the semver-6.0.0 compatible type.
-                #[derive(Serialize, Clone)]
+                // We don't bother with any meta macros (eg. derive, cfg_attr, etc) that exist on
+                // the legacy (original) struct because this generated compat type should be used
+                // only for serialization.
+                #[derive(serde::Serialize, Debug, Clone)]
                 #[serde(rename_all = "snake_case")]
+                #[allow(non_camel_case_types)]
                 #token #compat_name #generics {
                     // Expand out each `field: type`.
                     #(#field_name: #field_type,)*
@@ -72,17 +85,17 @@ pub fn generate_semver_600_compat(_attr: TokenStream, item: TokenStream) -> Toke
                     }
                 }
             };
-            println!("===== out:\n{out}\n\n");
+            /*
+            println!("===== out:\n{out}\n\n"); // TODO: DELETE
+            */
+            out.into()
         },
 
+        /*
         Item::Enum(input_enum) => {
         },
+        */
 
         _ => panic!("generate_semver_600_compat only supports structs and enums."),
-    };
-
-    quote!{
-        fn foo() { }
     }
-    .into()
 }

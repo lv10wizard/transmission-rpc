@@ -3,13 +3,13 @@ use jsonrpc_macros::generate_semver_600_compat;
 #[test]
 fn foo() {
     #[generate_semver_600_compat]
-    #[cfg(test)]
+    #[cfg(not(feature = "foo"))]
     #[derive(Debug, Clone)]
     #[warn(unused)]
-    struct Foo {
+    pub(crate) struct Foo {
         #[cfg(test)]
         pub bar: String,
-        xyz: i64,
+        xyz: Option<Vec<String>>,
     }
 
     assert!(true);
