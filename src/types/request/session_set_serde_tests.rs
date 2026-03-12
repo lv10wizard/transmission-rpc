@@ -609,7 +609,7 @@ fn request_session_set_semver_600_download_queue_size() -> Result<()> {
 #[test]
 fn request_session_set_legacy_encryption() -> Result<()> {
     let session_set_args = SessionSetArgs {
-        encryption: Some(Encryption::Allowed),
+        encryption: Some(Encryption::Tolerated),
         ..Default::default()
     };
     verify(session_set_args, None,
@@ -624,7 +624,7 @@ fn request_session_set_legacy_encryption() -> Result<()> {
 #[test]
 fn request_session_set_semver_600_encryption() -> Result<()> {
     let session_set_args = SessionSetArgs {
-        encryption: Some(Encryption::Allowed),
+        encryption: Some(Encryption::Tolerated),
         ..Default::default()
     };
     verify(session_set_args, Some(JSON_RPC_VERSION_2_0),

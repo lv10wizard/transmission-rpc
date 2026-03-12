@@ -28,7 +28,7 @@ fn session_get_v300() -> Result<()> {
             "download-dir-free-space": 123456789,
             "download-queue-enabled": true,
             "download-queue-size": 1,
-            "encryption": "allowed",
+            "encryption": "tolerated",
             "idle-seeding-limit": 30,
             "idle-seeding-limit-enabled": false,
             "incomplete-dir": "/incomplete",
@@ -117,7 +117,7 @@ fn session_get_v300() -> Result<()> {
     assert_eq!(resp.arguments.download_queue_enabled, Some(true));
     assert_eq!(resp.arguments.download_queue_size, Some(1));
 
-    assert_eq!(resp.arguments.encryption, Some(Encryption::Allowed));
+    assert_eq!(resp.arguments.encryption, Some(Encryption::Tolerated));
     assert_eq!(resp.arguments.idle_seeding_limit_enabled, Some(false));
     assert_eq!(resp.arguments.idle_seeding_limit, Some(30));
 
@@ -220,7 +220,7 @@ fn session_get_v411() -> Result<()> {
             "download-dir-free-space": 123456789,
             "download-queue-enabled": true,
             "download-queue-size": 2,
-            "encryption": "preferred",
+            "encryption": "allowed",
             "idle-seeding-limit": 30,
             "idle-seeding-limit-enabled": false,
             "incomplete-dir": "/incomplete",
@@ -326,7 +326,7 @@ fn session_get_v411() -> Result<()> {
     assert_eq!(resp.arguments.download_queue_enabled, Some(true));
     assert_eq!(resp.arguments.download_queue_size, Some(2));
 
-    assert_eq!(resp.arguments.encryption, Some(Encryption::Preferred));
+    assert_eq!(resp.arguments.encryption, Some(Encryption::Tolerated));
     assert_eq!(resp.arguments.idle_seeding_limit_enabled, Some(false));
     assert_eq!(resp.arguments.idle_seeding_limit, Some(30));
 

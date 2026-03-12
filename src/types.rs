@@ -74,9 +74,9 @@ pub enum Encryption {
     Preferred,
     /// Prefer unencrypted peer connections.
     ///
-    /// [Transmission 4.1.0] Renamed from "tolerated" to "allowed".
-    #[serde(alias = "tolerated")]
-    Allowed, // TODO: FIXME: needs compat for pre-semver-6.0.0 (tolerated) and post- (allowed)
+    /// > Renamed from "tolerated" to "allowed" in Transmission 4.1.0.
+    #[serde(alias = "allowed")]
+    Tolerated, // TODO: FIXME: needs compat for pre-semver-6.0.0 (tolerated) and post- (allowed)
 }
 
 // XXX: Is there a way to utilize the serde implementation?
@@ -85,8 +85,27 @@ impl Display for Encryption {
         write!(f, "{}", match self {
             Self::Required => "required",
             Self::Preferred => "preferred",
-            Self::Allowed => "allowed",
+            Self::Tolerated => "tolerated",
         })
+    }
+}
+
+/// Represents how transmission handles peer connection encryption.
+#[derive(Serialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
+enum EncryptionCompat {
+    Required,
+    Preferred,
+    Allowed,
+}
+
+impl From<Encryption> for EncryptionCompat {
+    fn from(value: Encryption) -> Self {
+        match value {
+            Encryption::Required => Self::Required,
+            Encryption::Preferred => Self::Preferred,
+            Encryption::Tolerated => Self::Allowed,
+        }
     }
 }
 

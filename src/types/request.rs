@@ -3,10 +3,12 @@ use enum_iterator::{all, Sequence};
 use serde::{Serialize, Serializer};
 use serde_with::skip_serializing_none;
 
-use jsonrpc_macros::generate_semver_600_compat;
+use jsonrpc_macros::{compat_with, generate_semver_600_compat};
 
 use crate::json_rpc::{JsonRpcId, JsonRpcRequest};
-use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag, Transport};
+use super::{
+    AltSpeedDay, Encryption, EncryptionCompat, Id, IdleMode, Priority, RatioMode, Tag, Transport,
+};
 
 pub(crate) use session_get::*; // SessionGetArgs, __semver_600_compat_SessionGetArgs
 pub use session_get::SessionGetField;
@@ -639,6 +641,7 @@ pub struct SessionSetArgs {
     pub download_dir: Option<String>,
     pub download_queue_enabled: Option<bool>,
     pub download_queue_size: Option<i32>,
+    #[compat_with(EncryptionCompat)]
     pub encryption: Option<Encryption>, // TODO: #[use_compat(Encryption600Compat)]
     pub idle_seeding_limit_enabled: Option<bool>,
     pub idle_seeding_limit: Option<i32>,
