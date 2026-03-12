@@ -21,7 +21,7 @@ pub(crate) struct JsonRpcRequest<'a, T> {
     /// "A Structured value that holds the parameter values to be used during the invocation of the
     ///  method. This member MAY be omitted."
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) params: &'a Option<T>,
+    pub(crate) params: Option<T>,
 
     /// "An identifier established by the Client that MUST contain a String, Number, or NULL value
     ///  if included. If it is not included it is assumed to be a notification."

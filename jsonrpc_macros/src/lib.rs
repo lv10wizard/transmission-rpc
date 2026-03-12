@@ -54,7 +54,7 @@ pub fn generate_semver_600_compat(_attr: TokenStream, item: TokenStream) -> Toke
                 #[derive(serde::Serialize, Debug, Clone)]
                 #[serde(rename_all = "snake_case")]
                 #[allow(non_camel_case_types)]
-                #token #compat_name #generics {
+                pub(crate) #token #compat_name #generics {
                     // Expand out each `field: type`.
                     #(#field_name: #field_type,)*
                 }
@@ -62,7 +62,7 @@ pub fn generate_semver_600_compat(_attr: TokenStream, item: TokenStream) -> Toke
                 // Generate a helper method on the legacy (original) struct to convert into the
                 // semver-6.0.0 compatible struct.
                 impl #name {
-                    fn into_compat(self) -> #compat_name {
+                    pub fn into_compat(self) -> #compat_name {
                         #compat_name {
                             // Move each `self.field` into the newly constructed compat instance's
                             // corresponding field.
