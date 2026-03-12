@@ -163,6 +163,28 @@ impl<'de> Deserialize<'de> for AltSpeedDay {
     }
 }
 
+/// Represents valid transport protocols recognized by various versions of Transmission.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
+pub enum Transport {
+    /// [Transmission control
+    /// protocol](https://en.wikipedia.org/wiki/Transmission_Control_Protocol)
+    TCP,
+
+    /// [Micro Transport Protocol](https://en.wikipedia.org/wiki/Micro_Transport_Protocol) (aka
+    /// "μTP" or "uTP")
+    UTP,
+}
+
+impl Display for Transport {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
+            Self::TCP => "tcp",
+            Self::UTP => "utp",
+        })
+    }
+}
+
 /// Represents an arbitrary `tag` number used by clients to track responses. <sup>[1][2]</sup>
 ///
 /// [1]: <https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md#21-requests>

@@ -3,7 +3,7 @@
 use serde_json;
 
 use super::*;
-use crate::types::{JSON_RPC_VERSION_2_0, Result};
+use crate::types::{JSON_RPC_VERSION_2_0, Result, Transport};
 
 /// Verifies the serialized [`RpcRequest`] matches the `expected` string.
 ///
@@ -254,7 +254,21 @@ fn request_session_set_semver_600_alt_speed_up() -> Result<()> {
         }}"))
 }
 
-/* TODO: needs SessionSetArgs
+#[test]
+fn request_session_set_legacy_anti_brute_force_enabled() -> Result<()> {
+    let session_set_args = SessionSetArgs {
+        anti_brute_force_enabled: Some(false),
+        ..Default::default()
+    };
+    // `anti_brute_force_enabled` only exists post- semver-6.0.0.
+    verify(session_set_args, None,
+        "{\
+            \"method\":\"session-set\",\
+            \"arguments\":{\
+            }\
+        }")
+}
+
 #[test]
 fn request_session_set_semver_600_anti_brute_force_enabled() -> Result<()> {
     let session_set_args = SessionSetArgs {
@@ -271,7 +285,38 @@ fn request_session_set_semver_600_anti_brute_force_enabled() -> Result<()> {
             \"id\":0\
         }}"))
 }
-*/
+
+#[test]
+fn request_session_set_legacy_anti_brute_force_threshold() -> Result<()> {
+    let session_set_args = SessionSetArgs {
+        anti_brute_force_threshold: Some(101),
+        ..Default::default()
+    };
+    // `anti_brute_force_threshold` only exists post- semver-6.0.0.
+    verify(session_set_args, None,
+        "{\
+            \"method\":\"session-set\",\
+            \"arguments\":{\
+            }\
+        }")
+}
+
+#[test]
+fn request_session_set_semver_600_anti_brute_force_threshold() -> Result<()> {
+    let session_set_args = SessionSetArgs {
+        anti_brute_force_threshold: Some(101),
+        ..Default::default()
+    };
+    verify(session_set_args, Some(JSON_RPC_VERSION_2_0),
+        &format!("{{\
+            \"jsonrpc\":\"{JSON_RPC_VERSION_2_0}\",\
+            \"method\":\"session_set\",\
+            \"params\":{{\
+                \"anti_brute_force_threshold\":101\
+            }},\
+            \"id\":0\
+        }}"))
+}
 
 #[test]
 fn request_session_set_legacy_blocklist_enabled() -> Result<()> {
@@ -369,7 +414,21 @@ fn request_session_set_semver_600_cache_size_mb() -> Result<()> {
         }}"))
 }
 
-/* TODO: needs SessionSetArgs
+#[test]
+fn request_session_set_legacy_cache_size_mib() -> Result<()> {
+    let session_set_args = SessionSetArgs {
+        cache_size_mib: Some(32),
+        ..Default::default()
+    };
+    // `cache_size_mib` only exists post- semver-6.0.0.
+    verify(session_set_args, None,
+        "{\
+            \"method\":\"session-set\",\
+            \"arguments\":{\
+            }\
+        }")
+}
+
 #[test]
 fn request_session_set_semver_600_cache_size_mib() -> Result<()> {
     let session_set_args = SessionSetArgs {
@@ -386,7 +445,6 @@ fn request_session_set_semver_600_cache_size_mib() -> Result<()> {
             \"id\":0\
         }}"))
 }
-*/
 
 #[test]
 fn request_session_set_legacy_default_trackers() -> Result<()> {
@@ -932,16 +990,25 @@ fn request_session_set_semver_600_port_forwarding_enabled() -> Result<()> {
         }}"))
 }
 
-/* TODO: needs SessionSetArgs
+#[test]
+fn request_session_set_legacy_preferred_transports() -> Result<()> {
+    let session_set_args = SessionSetArgs {
+        preferred_transports: Some(vec![Transport::UTP, Transport::TCP]),
+        ..Default::default()
+    };
+    // `preferred_transports` only exists post- semver-6.0.0.
+    verify(session_set_args, None,
+        "{\
+            \"method\":\"session-set\",\
+            \"arguments\":{\
+            }\
+        }")
+}
+
 #[test]
 fn request_session_set_semver_600_preferred_transports() -> Result<()> {
     let session_set_args = SessionSetArgs {
-        preferred_transports: Some({
-            ["utp", "tcp"]
-                .into_iter()
-                .map(ToString::to_string)
-                .collect()
-        }),
+        preferred_transports: Some(vec![Transport::UTP, Transport::TCP]),
         ..Default::default()
     };
     verify(session_set_args, Some(JSON_RPC_VERSION_2_0),
@@ -949,12 +1016,11 @@ fn request_session_set_semver_600_preferred_transports() -> Result<()> {
             \"jsonrpc\":\"{JSON_RPC_VERSION_2_0}\",\
             \"method\":\"session_set\",\
             \"params\":{{\
-                \"preferred_transports\":["utp","tcp"]\
+                \"preferred_transports\":[\"utp\",\"tcp\"]\
             }},\
             \"id\":0\
         }}"))
 }
-*/
 
 #[test]
 fn request_session_set_legacy_queue_stalled_enabled() -> Result<()> {
@@ -1404,7 +1470,21 @@ fn request_session_set_semver_600_seed_ratio_limited() -> Result<()> {
         }}"))
 }
 
-/* TODO: needs SessionSetArgs
+#[test]
+fn request_session_set_legacy_sequential_download() -> Result<()> {
+    let session_set_args = SessionSetArgs {
+        sequential_download: Some(false),
+        ..Default::default()
+    };
+    // `sequential_download` only exists post- semver-6.0.0.
+    verify(session_set_args, None,
+        "{\
+            \"method\":\"session-set\",\
+            \"arguments\":{\
+            }\
+        }")
+}
+
 #[test]
 fn request_session_set_semver_600_sequential_download() -> Result<()> {
     let session_set_args = SessionSetArgs {
@@ -1421,7 +1501,6 @@ fn request_session_set_semver_600_sequential_download() -> Result<()> {
             \"id\":0\
         }}"))
 }
-*/
 
 #[test]
 fn request_session_set_legacy_speed_limit_down_enabled() -> Result<()> {

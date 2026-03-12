@@ -8,7 +8,7 @@ use serde::de::{Deserializer, Error as _};
 use serde_json::Value;
 use serde_repr::*;
 
-use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag};
+use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag, Transport};
 use crate::json_rpc::{JsonRpcResponse, JsonRpcResult};
 
 #[cfg(test)]
@@ -133,6 +133,12 @@ pub struct SessionGet {
     ///
     /// > Renamed `cache_size_mb` to `cache_size_mib` in Transmission 4.1.0 (`rpc-version-semver`
     /// > 6.0.0,, `rpc-version`: 18)
+    ///
+    /// > ⚠ DEPRECATED in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?):
+    /// `cache_size_mib`. The memory cache is being removed, making this setting moot. The setting
+    /// will still be gettable and settable via RPC session_get and session_set until Transmission
+    /// 5.0.0 to avoid client breakage, but it will be otherwise unused in libtransmission. Clients
+    ///   should stop using this key.
     #[serde(alias = "cache_size_mib")]
     #[serde(alias = "cache_size_mb")]
     pub cache_size_mb: Option<i32>,
@@ -156,9 +162,10 @@ pub struct SessionGet {
     /// Default path to download torrents
     #[serde(alias = "download_dir")]
     pub download_dir: Option<String>,
-    /// **DEPRECATED** Use the `free-space` method instead.
-    ///
     /// > Added in Transmission 2.20 (`rpc-version-semver` 3.6.0, `rpc-version`: 12)
+    ///
+    /// > ⚠ **DEPRECATED** in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17):
+    /// Use the `free-space` method instead.
     #[serde(alias = "download_dir_free_space")]
     pub download_dir_free_space: Option<u64>,
     /// If `true`, limit how many torrents can be downloaded at once
@@ -243,7 +250,7 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
     #[serde(alias = "preferred_transports")]
-    pub preferred_transports: Option<Vec<String>>,
+    pub preferred_transports: Option<Vec<Transport>>,
     /// Whether or not to consider idle torrents as stalled
     ///
     /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
@@ -270,6 +277,9 @@ pub struct SessionGet {
     pub reqq: Option<i32>,
     /// The minimum RPC API version supported by the RPC server. It changes when a new version of
     /// Transmission changes the RPC interface in a way that is not backwards compatible.
+    ///
+    /// > ⚠ DEPRECATED in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18): Use
+    /// `rpc_version_semver` instead.
     #[serde(alias = "rpc_version_minimum")]
     pub rpc_version_minimum: Option<i32>,
     /// The current RPC API version in a [semver]-compatible string
@@ -280,6 +290,9 @@ pub struct SessionGet {
     #[serde(alias = "rpc_version_semver")]
     pub rpc_version_semver: Option<String>,
     /// the current RPC API version
+    ///
+    /// > ⚠ DEPRECATED in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18): Use
+    /// `rpc_version_semver` instead.
     #[serde(alias = "rpc_version")]
     pub rpc_version: Option<i32>,
     /// Whether or not to call the [added script] (see: [scripts.md])
@@ -376,6 +389,9 @@ pub struct SessionGet {
     pub start_added_torrents: Option<bool>,
     /// `true` means allow [TCP]
     ///
+    /// > ⚠ DEPRECATED in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
+    /// `tcp_enabled`. Use `preferred_transports` instead.
+    ///
     /// [TCP]: https://en.wikipedia.org/wiki/Transmission_Control_Protocol
     #[serde(alias = "tcp_enabled")]
     pub tcp_enabled: Option<bool>,
@@ -390,6 +406,9 @@ pub struct SessionGet {
     #[serde(alias = "units")]
     pub units: Option<SessionGetUnits>,
     /// `true` means allow [UTP]
+    ///
+    /// > ⚠ DEPRECATED in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
+    /// `utp_enabled`. Use `preferred_transports` instead.
     ///
     /// [UTP]: https://wikipedia.org/wiki/Micro_Transport_Protocol
     #[serde(alias = "utp_enabled")]

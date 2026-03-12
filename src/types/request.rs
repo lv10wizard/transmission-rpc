@@ -6,7 +6,7 @@ use serde_with::skip_serializing_none;
 use jsonrpc_macros::generate_semver_600_compat;
 
 use crate::json_rpc::{JsonRpcId, JsonRpcRequest};
-use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag};
+use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag, Transport};
 
 pub(crate) use session_get::*; // SessionGetArgs, __semver_600_compat_SessionGetArgs
 pub use session_get::SessionGetField;
@@ -596,11 +596,43 @@ pub struct SessionSetArgs {
     pub alt_speed_time_enabled: Option<bool>,
     pub alt_speed_time_end: Option<i32>,
     pub alt_speed_up: Option<i32>,
+
+    /// "Enable a very basic brute force protection for the RPC server. See
+    ///  [anti_brute_force_threshold] below."
+    ///
+    /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
+    ///
+    /// [anti_brute_force_threshold]: Self::anti_brute_force_threshold
+    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
+    pub anti_brute_force_enabled: Option<bool>,
+
+    /// "After this amount of failed authentication attempts is surpassed, the RPC server will deny
+    ///  any further authentication attempts until it is restarted. This is not tracked per IP but
+    ///  in total."
+    ///
+    /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
+    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
+    pub anti_brute_force_threshold: Option<i32>,
+
     pub blocklist_enabled: Option<bool>,
     pub blocklist_url: Option<String>,
+
     /// Legacy (pre-semver-6.0.0) version of `cache_size_mib`. Use this if the rpc server you are
     /// communicating with is running a Transmission version less than 4.1.0 (before semver 6.0.0).
+    ///
+    /// > ⚠ Deprecated in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?)
+    ///
+    /// [`cache_size_mib`]: Self::cache_size_mib
     pub cache_size_mb: Option<i32>,
+
+    /// Transmission 4.1.0 (`rpc_version_semver` 6.0.0) version of [`cache_size_mb`].
+    ///
+    /// > ⚠ Deprecated in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?)
+    ///
+    /// [`cache_size_mb`]: Self::cache_size_mb
+    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
+    pub cache_size_mib: Option<i32>,
+
     pub default_trackers: Option<String>,
     pub dht_enabled: Option<bool>,
     pub download_dir: Option<String>,
@@ -618,6 +650,16 @@ pub struct SessionSetArgs {
     pub peer_port: Option<u16>,
     pub pex_enabled: Option<bool>,
     pub port_forwarding_enabled: Option<bool>,
+
+    /// "List your preference of transport protocols in the order of preferred-first. Omitting the
+    ///  transport protocol from the list will disable it. *Note: Never disable TCP when you also
+    ///  disable µTP, because then your client would not be able to communicate. Disabling TCP
+    ///  might also break webseeds.*"
+    ///
+    ///  > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
+    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
+    pub preferred_transports: Option<Vec<Transport>>,
+
     pub queue_stalled_enabled: Option<bool>,
     pub queue_stalled_minutes: Option<i32>,
     pub rename_partial_files: Option<bool>,
@@ -634,6 +676,13 @@ pub struct SessionSetArgs {
     pub seed_ratio_limit: Option<f32>,
     #[serde(rename = "seedRatioLimited")]
     pub seed_ratio_limited: Option<bool>,
+
+    /// "true means sequential download is enabled by default for added torrents"
+    ///
+    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 5.4.0, `rpc-version`: 18)
+    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
+    pub sequential_download: Option<bool>,
+
     pub speed_limit_down_enabled: Option<bool>,
     pub speed_limit_down: Option<i32>,
     pub speed_limit_up_enabled: Option<bool>,

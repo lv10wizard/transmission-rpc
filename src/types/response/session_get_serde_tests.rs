@@ -3,7 +3,7 @@
 use serde_json;
 
 use crate::types::response::{SessionGet, SessionGetUnits};
-use crate::types::{AltSpeedDay, Encryption, Result, RpcResponse};
+use crate::types::{AltSpeedDay, Encryption, Result, RpcResponse, Transport};
 
 #[test]
 fn session_get_v300() -> Result<()> {
@@ -340,10 +340,7 @@ fn session_get_v411() -> Result<()> {
     assert_eq!(resp.arguments.peer_port, Some(55555));
     assert_eq!(resp.arguments.pex_enabled, Some(false));
     assert_eq!(resp.arguments.port_forwarding_enabled, Some(false));
-    let transports = ["utp", "tcp"]
-        .into_iter()
-        .map(str::to_string)
-        .collect();
+    let transports = vec![Transport::UTP, Transport::TCP];
     assert_eq!(resp.arguments.preferred_transports, Some(transports));
     assert_eq!(resp.arguments.queue_stalled_enabled, Some(true));
     assert_eq!(resp.arguments.queue_stalled_minutes, Some(30));
