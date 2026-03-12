@@ -45,12 +45,6 @@
 //!
 //! ##### Feature Flags
 //!
-//! - `hashable-request`: Enables use of request types (like [`TorrentSetArgs`]) as keys in
-//! [`HashMap`], [`HashSet`], etc.
-//!
-//! > Specifically this applies [`Eq`] and [`Hash`] to [`SessionSetArgs`] and [`TorrentSetArgs`]
-//! > by converting their float field(s) to [`OrderedFloat`].
-//!
 //! - `sync`: Enables a thread-safe version of `TransClient`.
 //! - `tor-get-serde`: Enables serde of `TorrentGetField`s.
 //!

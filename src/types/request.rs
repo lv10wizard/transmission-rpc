@@ -12,8 +12,6 @@ pub use session_get::SessionGetField;
 
 #[cfg(feature = "tor-get-serde")]
 use serde::Deserialize; 
-#[cfg(feature = "hashable-request")]
-use ordered_float::OrderedFloat;
 
 mod group_set;
 mod session_get;
@@ -564,7 +562,6 @@ pub struct GroupSetArgs {
 
 #[generate_semver_600_compat]
 #[derive(Serialize, Debug, Clone, Default, PartialEq)]
-#[cfg_attr(feature = "hashable-request", derive(Eq, Hash))]
 pub struct SessionSetArgs {
     #[serde(skip_serializing_if = "Option::is_none", rename = "alt-speed-down")]
     pub alt_speed_down: Option<i32>,
@@ -744,10 +741,6 @@ pub struct SessionSetArgs {
     pub seed_queue_size: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none", rename = "seedRatioLimit")]
-    #[cfg(feature = "hashable-request")]
-    pub seed_ratio_limit: Option<OrderedFloat<f32>>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "seedRatioLimit")]
-    #[cfg(not(feature = "hashable-request"))]
     pub seed_ratio_limit: Option<f32>,
 
     #[serde(skip_serializing_if = "Option::is_none", rename = "seedRatioLimited")]
@@ -1188,7 +1181,6 @@ impl Serialize for TrackerList {
 /// [`Trackers::id`]: super::Trackers::id
 #[generate_semver_600_compat]
 #[derive(Serialize, Debug, Clone, Default, PartialEq)]
-#[cfg_attr(feature = "hashable-request", derive(Eq, Hash))]
 #[serde(rename_all = "camelCase")]
 pub struct TorrentSetArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1236,10 +1228,6 @@ pub struct TorrentSetArgs {
     pub seed_idle_mode: Option<IdleMode>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg(feature = "hashable-request")]
-    pub seed_ratio_limit: Option<OrderedFloat<f64>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg(not(feature = "hashable-request"))]
     pub seed_ratio_limit: Option<f64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
