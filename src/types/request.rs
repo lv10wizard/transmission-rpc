@@ -1,6 +1,7 @@
 use convert_case::ccase;
 use enum_iterator::{all, Sequence};
 use serde::{Serialize, Serializer};
+use serde_with::skip_serializing_none;
 
 use jsonrpc_macros::generate_semver_600_compat;
 
@@ -584,153 +585,61 @@ pub struct GroupSetArgs {
 }
 
 #[generate_semver_600_compat]
+#[skip_serializing_none]
 #[derive(Serialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct SessionSetArgs {
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub alt_speed_down: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub alt_speed_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub alt_speed_time_begin: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub alt_speed_time_day: Option<AltSpeedDay>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub alt_speed_time_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub alt_speed_time_end: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub alt_speed_up: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub blocklist_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub blocklist_url: Option<String>,
-
     /// Legacy (pre-semver-6.0.0) version of `cache_size_mib`. Use this if the rpc server you are
     /// communicating with is running a Transmission version less than 4.1.0 (before semver 6.0.0).
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_size_mb: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub default_trackers: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub dht_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub download_dir: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub download_queue_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub download_queue_size: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub encryption: Option<Encryption>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub idle_seeding_limit_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub idle_seeding_limit: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub incomplete_dir_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub incomplete_dir: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub lpd_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub peer_limit_global: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub peer_limit_per_torrent: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub peer_port_random_on_start: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub peer_port: Option<u16>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub pex_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub port_forwarding_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub queue_stalled_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub queue_stalled_minutes: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub rename_partial_files: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub reqq: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub script_torrent_added_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub script_torrent_added_filename: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub script_torrent_done_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub script_torrent_done_filename: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub script_torrent_done_seeding_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub script_torrent_done_seeding_filename: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub seed_queue_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub seed_queue_size: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none", rename = "seedRatioLimit")]
+    #[serde(rename = "seedRatioLimit")]
     pub seed_ratio_limit: Option<f32>,
-
-    #[serde(skip_serializing_if = "Option::is_none", rename = "seedRatioLimited")]
+    #[serde(rename = "seedRatioLimited")]
     pub seed_ratio_limited: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub speed_limit_down_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub speed_limit_down: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub speed_limit_up_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub speed_limit_up: Option<i32>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub start_added_torrents: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub trash_original_torrent_files: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub utp_enabled: Option<bool>,
 }
 
