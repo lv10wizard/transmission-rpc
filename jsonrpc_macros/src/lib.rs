@@ -99,3 +99,13 @@ pub fn generate_semver_600_compat(_attr: TokenStream, item: TokenStream) -> Toke
         _ => panic!("generate_semver_600_compat only supports structs and enums."),
     }
 }
+
+#[proc_macro_attribute]
+pub fn use_compat(attr: TokenStream, item: TokenStream) -> TokenStream {
+    // TODO: parse `attr` (I think this is the argument? eg. `Encryption600Compat`)
+    // TODO- replace fields with either this-^ parsed type, falling back to generated
+    // TODO- __semver_600_compat_* type.
+    // TODO- use cases: `Args`, `Encryption`
+
+    item // TODO: DELETE
+}

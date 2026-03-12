@@ -440,6 +440,7 @@ pub enum Args {
     TorrentRenamePath(TorrentRenamePathArgs),
 }
 
+// TODO: refactor to #[use_compat] (or something)
 /// [`Args`] semver-6.0.0 compatibility helper to facilitate legacy request to JSON-RPC/snake_case
 /// request serialization.
 ///
@@ -461,7 +462,7 @@ enum ArgsCompat {
     TorrentSet(__semver_600_compat_TorrentSetArgs),
     TorrentSetLocation(__semver_600_compat_TorrentSetLocationArgs),
     TorrentRenamePath(__semver_600_compat_TorrentRenamePathArgs),
-}
+} // --- TODO
 
 impl Args {
     fn into_compat(self) -> ArgsCompat {
@@ -638,7 +639,7 @@ pub struct SessionSetArgs {
     pub download_dir: Option<String>,
     pub download_queue_enabled: Option<bool>,
     pub download_queue_size: Option<i32>,
-    pub encryption: Option<Encryption>,
+    pub encryption: Option<Encryption>, // TODO: #[use_compat(Encryption600Compat)]
     pub idle_seeding_limit_enabled: Option<bool>,
     pub idle_seeding_limit: Option<i32>,
     pub incomplete_dir_enabled: Option<bool>,
