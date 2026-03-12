@@ -195,6 +195,7 @@ fn session_get_v300() -> Result<()> {
 
 #[test]
 fn session_get_v411() -> Result<()> {
+    // TODO: change to JSON-RPC response
     let resp = serde_json::from_str::<RpcResponse<SessionGet>>(
         r#"
         {

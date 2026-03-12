@@ -3,6 +3,7 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Ident, Item, Type};
 
+// TODO: cleanup!
 /// TODO: doc
 /// TODO: mention that this #[attr] MUST be the first/top decorator (MUST be defined before/above
 /// TODO- all other eg. #[derive], #[cfg_attr], etc).
@@ -24,11 +25,9 @@ pub fn generate_semver_600_compat(_attr: TokenStream, item: TokenStream) -> Toke
     match &input {
         Item::Struct(input_struct) => {
             let token = &input_struct.struct_token; // "struct"
-            let vis = &input_struct.vis;
             let name = &input_struct.ident;
             let generics = &input_struct.generics;
             let fields = &input_struct.fields;
-            let semi_token = &input_struct.semi_token;
 
             let compat_name = format_ident!("__semver_600_compat_{}", name);
             // Extract the field names so that we can generate the `into_compat` method.
@@ -51,9 +50,10 @@ pub fn generate_semver_600_compat(_attr: TokenStream, item: TokenStream) -> Toke
                 // We don't bother with any meta macros (eg. derive, cfg_attr, etc) that exist on
                 // the legacy (original) struct because this generated compat type should be used
                 // only for serialization.
+                #[allow(non_camel_case_types)]
+                #[serde_with::skip_serializing_none] // Ordering might matter here.
                 #[derive(serde::Serialize, Debug, Clone)]
                 #[serde(rename_all = "snake_case")]
-                #[allow(non_camel_case_types)]
                 pub(crate) #token #compat_name #generics {
                     // Expand out each `field: type`.
                     #(#field_name: #field_type,)*
@@ -91,7 +91,7 @@ pub fn generate_semver_600_compat(_attr: TokenStream, item: TokenStream) -> Toke
             out.into()
         },
 
-        /*
+        /* TODO
         Item::Enum(input_enum) => {
         },
         */

@@ -11,6 +11,11 @@ use serde_repr::*;
 use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag};
 use crate::json_rpc::{JsonRpcResponse, JsonRpcResult};
 
+#[cfg(test)]
+mod session_get_serde_tests;
+#[cfg(test)]
+mod torrent_get_serde_tests;
+
 const SUCCESS: &'static str = "success";
 
 #[derive(Deserialize, Debug)]

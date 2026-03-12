@@ -209,7 +209,7 @@ mod json_rpc_test {
         let request = JsonRpcRequest::<SessionGetArgs> {
             jsonrpc: JSON_RPC_VERSION_2_0,
             method: "session_get",
-            params: &params,
+            params,
             id: id,
         };
 
