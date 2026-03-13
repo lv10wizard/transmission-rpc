@@ -1,4 +1,4 @@
-use jsonrpc_macros::generate_semver_600_compat;
+use jsonrpc_macros::{compat_replace, GenerateCompat};
 
 #[test]
 fn foo() {
@@ -23,4 +23,14 @@ fn bar() {
     struct UnitStruct;
 
     assert!(true);
+}
+
+#[test]
+fn compat_replace_struct_field() {
+    #[derive(GenerateCompat)]
+    struct Foo {
+        #[compat_name("xyz")]
+        #[compat_type("f32")]
+        abc: Option<i32>,
+    }
 }
