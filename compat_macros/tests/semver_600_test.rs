@@ -20,8 +20,11 @@ fn compat_replace_struct_field() {
     #[serde(rename_all = "snake_case")] // Are derive-helper attributes included?
     struct Foo {
         #[compat_name(xyz)]
-        #[compat_type(Option<i64>, convert_with = "Option::map")]
+        #[compat_type(type = Option<i64>, from = Option::map)]
         abc: Option<i32>,
+
+        #[compat_type(type = u16)]
+        zzz: u8,
     }
 }
 
@@ -30,11 +33,11 @@ fn compat_replace_tuple_struct() {
     #[derive(GenerateCompat, Serialize, Debug)]
     #[serde(rename_all = "kebab-case")]
     struct Bar(
-        #[compat_type(u16)]
+        #[compat_type(type = u16)]
         u8,
-        #[compat_type(i32)]
+        #[compat_type(type = i32)]
         i8,
-        #[compat_type(Option<i32>)]
+        #[compat_type(type = Option<i32>, from = Option::map)]
         Option<i8>,
     );
 }

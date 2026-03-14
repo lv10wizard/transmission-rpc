@@ -1,9 +1,15 @@
 extern crate proc_macro;
 
-use quote::{format_ident, quote};
-use syn::{DataStruct, DeriveInput, ExprPath, Fields, Ident, Token, Type};
+use quote::{format_ident, quote, quote_spanned};
+use syn::{
+    Attribute, DataStruct, DeriveInput, Expr, ExprAssign, ExprPath, Fields, Ident, Path, Meta,
+    Token, Type,
+    meta::ParseNestedMeta,
+    parse::{Parse, ParseStream},
+    punctuated::Punctuated
+};
 
-use crate::symbols::{COMPAT_PREFIX, COMPAT_NAME, COMPAT_TYPE, CONVERT_WITH};
+use crate::symbols::{COMPAT_PREFIX, COMPAT_NAME, COMPAT_TYPE, FROM, TYPE};
 
 /// Generates a semver-6.0.0 compatible struct for serialization purposes.
 pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
@@ -18,10 +24,10 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
 
     for f in data.fields.iter() {
         if let Some(id) = f.ident.as_ref() {
-            let fname = match f.attrs.iter().find(|a| a.path().is_ident(COMPAT_NAME)) {
+            let fname = match f.attrs.iter().find(|a| a.path() == COMPAT_NAME) {
                 Some(attr) => match attr.parse_args::<Ident>() {
                     Ok(compat_id) => compat_id,
-                    Err(err) => panic!("Invalid {} name: {}", COMPAT_NAME, err),
+                    Err(err) => panic!("Invalid \"{}\" name: {}", COMPAT_NAME, err),
                 },
                 None => id.clone(),
             };
@@ -34,19 +40,36 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         }
     }
 
+    // Determine the target type for each of the legacy struct's fields.
+    let mut conv: Vec<Option<Path>> = Vec::with_capacity(data.fields.len());
     let field_type: Vec<_> = data.fields
         .iter()
         .map(|f| {
-            println!("> {:#?}", f.attrs);
             match f.attrs
                 .iter()
-                .find(|a| a.path().is_ident(COMPAT_TYPE))
+                .find(|a| a.path() == COMPAT_TYPE)
             {
-                // TODO: parse #[compat_type(type, convert_with = ...)]
-                // TODO- need to parse into `CompatType`
-                Some(attr) => match attr.parse_args::<Type>() {
-                    Ok(ty) => ty,
-                    Err(err) => panic!("Invalid {} type: {}", COMPAT_TYPE, err),
+                Some(attr) => {
+                    let mut compat_type: Option<Type> = None;
+
+                    if let Err(err) = attr.parse_nested_meta(|meta| {
+                        // #[compat_type(from = Option::map)]
+                        if meta.path == FROM {
+                            conv.push(meta.value()?.parse().ok());
+
+                        // #[compat_type(type = Option<i32>)]
+                        } else if meta.path == TYPE {
+                            compat_type = Some(meta.value()?.parse::<Type>()?);
+                        }
+                        Ok(())
+                    }) {
+                        panic!("Failed to parse \"{COMPAT_TYPE}\" args: {err}");
+                    }
+
+                    match compat_type {
+                        Some(ty) => ty,
+                        None => panic!("Invalid \"{COMPAT_TYPE}\": no type specified"),
+                    }
                 },
                 None => f.ty.clone(),
             }
@@ -63,19 +86,51 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         let members = data.fields.members();
         match &data.fields {
             Fields::Named(_) => {(
+                // Struct definition.
                 quote! {
                     { #(#compat_field: #field_type),* }
                 },
-                quote! {
-                    { #(#compat_field: self.#orig_field.into()),* }
+
+                // Legacy -> compat conversion.
+                {
+                    let converted_field: Vec<_> = compat_field
+                        .into_iter()
+                        .zip(orig_field.into_iter())
+                        .enumerate()
+                        .map(|(i, (compat, orig))| {
+                            let conv = match conv.get(i) {
+                                // eg. `Option::map(self.x, Into::into)`
+                                // NOTE: Probably won't work for non- `Option::map` methods.
+                                Some(conv) => quote! {
+                                    #conv(self.#orig, Into::into)
+                                },
+                                // eg. `self.x.into()`
+                                None => quote! {
+                                    self.#orig.into()
+                                },
+                            };
+
+                            quote_spanned! {compat.span()=>
+                                #compat: #conv
+                            }
+                        })
+                        .collect();
+                    quote! {
+                        { #( #converted_field, )* }
+                    }
                 },
             )},
             Fields::Unnamed(_) => {(
+                // Struct definition.
                 quote! {
                     ( #(#field_type),* )
                 },
+                // Legacy -> compat conversion.
+                // TODO: reuse `converted_field`
                 quote! {
-                    ( #(self.#members.into()),* )
+                    (
+                        #(self.#members.into()),*
+                    )
                 },
             )},
             Fields::Unit => (proc_macro2::TokenStream::new(), proc_macro2::TokenStream::new()),
@@ -114,12 +169,3 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         }
     }
 }
-
-#[derive(Debug, Clone)]
-struct CompatType {
-    compat_type: Type,
-    comma: Option<Token![,]>,
-    conv: Option<ExprPath>,
-}
-
-// TODO: parse
