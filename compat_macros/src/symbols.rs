@@ -4,7 +4,8 @@ use syn::{Ident, Path};
 #[derive(Copy, Clone)]
 pub struct Symbol(&'static str);
 
-pub(crate) const COMPAT_PREFIX: Symbol = Symbol("__semver_600_compat_");
+pub(crate) const COMPAT_PREFIX: &'static str = "__semver_600_compat_";
+
 pub(crate) const COMPAT_NAME: Symbol = Symbol("compat_name");
 pub(crate) const COMPAT_TYPE: Symbol = Symbol("compat_type");
 pub(crate) const FROM: Symbol = Symbol("from");

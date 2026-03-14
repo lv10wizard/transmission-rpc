@@ -43,7 +43,7 @@ mod symbols;
 ///     lorem_ipsum: Option<String>, // Remains: `lorem_ipsum: Option<String>`.
 /// }
 /// ```
-#[proc_macro_derive(GenerateCompat, attributes(compat_name, compat_type))]
+#[proc_macro_derive(GenerateCompat, attributes(compat_name, compat_type))] // TODO: unify attrs
 pub fn generate_semver_600_compat(input: TokenStream) -> TokenStream {
     // REF: https://compilenrun.com/docs/language/rust/rust-advanced-features/rust-derive-macros/
     // REF: https://docs.rs/quote/latest/quote/macro.quote.html#indexing-into-a-tuple-struct

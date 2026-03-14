@@ -2,42 +2,37 @@ extern crate proc_macro;
 
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
-    Attribute, DataStruct, DeriveInput, Expr, ExprAssign, ExprPath, Fields, Ident, Path, Meta,
-    Token, Type,
-    meta::ParseNestedMeta,
-    parse::{Parse, ParseStream},
-    punctuated::Punctuated
+    DataStruct, DeriveInput, Fields, Ident, Path, Type,
+    spanned::Spanned,
 };
 
 use crate::symbols::{COMPAT_PREFIX, COMPAT_NAME, COMPAT_TYPE, FROM, TYPE};
+
+const NAMED_FIELDS_ONLY: &'static str = "GenerateCompat only supports structs with named fields.";
 
 /// Generates a semver-6.0.0 compatible struct for serialization purposes.
 pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     -> proc_macro2::TokenStream
 {
-    // Legacy struct field names mapped to its corresponding compatible struct's field name.
-    // In most cases, these will be the same but when a field is flagged with #[compat_name(...)],
-    // the generated (semver-6.0.0 compatible) struct's field name will differ. We need this
-    // mapping to generate the `into_compat` conversion helper method.
-    let mut orig_field = Vec::with_capacity(data.fields.len());
+    // Stores the compat struct's field names where the index into the Vec corresponds to the
+    // original (legacy) struct's field's name.
+    //
+    // These will only differ when a field is flagged with #[compat_name(...)].
     let mut compat_field = Vec::with_capacity(data.fields.len());
 
     for f in data.fields.iter() {
-        if let Some(id) = f.ident.as_ref() {
-            let fname = match f.attrs.iter().find(|a| a.path() == COMPAT_NAME) {
+        let id = f.ident.as_ref().expect(NAMED_FIELDS_ONLY);
+        // Push the compat struct's field name (which in most cases will be the same as the
+        // original). This will only differ for fields tagged with #[compat_name(...)].
+        compat_field.push({
+            match f.attrs.iter().find(|a| a.path() == COMPAT_NAME) {
                 Some(attr) => match attr.parse_args::<Ident>() {
                     Ok(compat_id) => compat_id,
                     Err(err) => panic!("Invalid \"{}\" name: {}", COMPAT_NAME, err),
                 },
                 None => id.clone(),
-            };
-            // Push the original (legacy) struct's field name so that we can look it up when
-            // generating the `into_compat` conversion helper method.
-            orig_field.push(id.clone());
-            // Push the compat struct's field name (which in most cases will be the same as the
-            // original). This will only differ for fields tagged with #[compat_name(...)].
-            compat_field.push(fname);
-        }
+            }
+        });
     }
 
     // Determine the target type for each of the legacy struct's fields.
@@ -75,68 +70,67 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
             }
         })
         .collect();
+
+    // Generate compat struct field definitions.
+    let field_defn = match &data.fields {
+        Fields::Named(_) => {
+            quote! {
+                { #(#compat_field: #field_type),* }
+            }
+        },
+
+        _ => panic!("{NAMED_FIELDS_ONLY}"),
+    };
+
+    // Generate `into_compat` conversions.
+    let field_conv = {
+        let converted_field: Vec<_> = data.fields
+            .iter()
+            .enumerate()
+            .map(|(i, field)| {
+                let ident = field.ident.as_ref().expect(NAMED_FIELDS_ONLY);
+                let converted = match conv.get(i) {
+                    // eg. `Option::map(self.x, Into::into)`
+                    // NOTE: Probably won't work for non- `Option::map` methods.
+                    Some(conv) => quote_spanned! {field.span()=>
+                        #conv(self.#ident, Into::into)
+                    },
+                    // eg. `self.x.into()`
+                    None => quote_spanned! {field.span()=>
+                        self.#ident.into()
+                    },
+                };
+
+                // Move each field in `self` to its serialization helper type's corresponding
+                // field, converting it if required.
+                //
+                // eg.
+                // Orig   { x: i32, y: i32 }
+                // Compat { a: i32, b: i32 }
+                //
+                // // return Compat { a: self.x, b: self.y }
+                let compat = compat_field.get(i);
+                quote_spanned! {field.span()=>
+                    #compat: #converted
+                }
+            })
+            .collect();
+
+        match &data.fields {
+            Fields::Named(f) => quote_spanned! {f.span()=>
+                { #( #converted_field, )* }
+            },
+            Fields::Unnamed(f) => quote_spanned! {f.span()=>
+                ( #( #converted_field, )* )
+            },
+            Fields::Unit => proc_macro2::TokenStream::new(),
+        }
+    };
+
     let orig_ident = &ast.ident;
     let compat_ident = format_ident!("{COMPAT_PREFIX}{}", orig_ident);
     let generics = &ast.generics;
     let semi_token = data.semi_token;
-
-    // Generate field definitions and `into_compat` conversions based on what kind of struct we're
-    // processing.
-    let (field_defn, field_conv) = {
-        let members = data.fields.members();
-        match &data.fields {
-            Fields::Named(_) => {(
-                // Struct definition.
-                quote! {
-                    { #(#compat_field: #field_type),* }
-                },
-
-                // Legacy -> compat conversion.
-                {
-                    let converted_field: Vec<_> = compat_field
-                        .into_iter()
-                        .zip(orig_field.into_iter())
-                        .enumerate()
-                        .map(|(i, (compat, orig))| {
-                            let conv = match conv.get(i) {
-                                // eg. `Option::map(self.x, Into::into)`
-                                // NOTE: Probably won't work for non- `Option::map` methods.
-                                Some(conv) => quote! {
-                                    #conv(self.#orig, Into::into)
-                                },
-                                // eg. `self.x.into()`
-                                None => quote! {
-                                    self.#orig.into()
-                                },
-                            };
-
-                            quote_spanned! {compat.span()=>
-                                #compat: #conv
-                            }
-                        })
-                        .collect();
-                    quote! {
-                        { #( #converted_field, )* }
-                    }
-                },
-            )},
-            Fields::Unnamed(_) => {(
-                // Struct definition.
-                quote! {
-                    ( #(#field_type),* )
-                },
-                // Legacy -> compat conversion.
-                // TODO: reuse `converted_field`
-                quote! {
-                    (
-                        #(self.#members.into()),*
-                    )
-                },
-            )},
-            Fields::Unit => (proc_macro2::TokenStream::new(), proc_macro2::TokenStream::new()),
-        }
-    };
-
     quote! {
         /// Semver-6.0.0 compatible serialization helper.
         #[allow(non_camel_case_types)]
@@ -149,14 +143,6 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
             /// Converts the legacy struct into its semver-6.0.0 compatible serialization helper
             /// type.
             pub fn into_compat(self) -> #compat_ident {
-                // Move each field in `self` to its serialization helper type's corresponding
-                // field.
-                //
-                // eg.
-                // Orig   { x: i32, y: i32 }
-                // Compat { a: i32, b: i32 }
-                //
-                // // return Compat { a: self.x, b: self.y }
                 #compat_ident #field_conv
             }
         }

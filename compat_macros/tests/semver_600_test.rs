@@ -13,12 +13,9 @@ use serde::Serialize;
 
 #[test]
 fn compat_replace_struct_field() {
-    let x: Option<i32> = Some(8);
-    let y: Option<i64> = Option::map(x, Into::into);
-
     #[derive(GenerateCompat, Serialize, Debug)] // Are Serialize, Debug included in `.attrs`?
     #[serde(rename_all = "snake_case")] // Are derive-helper attributes included?
-    struct Foo {
+    struct _Foo {
         #[compat_name(xyz)]
         #[compat_type(type = Option<i64>, from = Option::map)]
         abc: Option<i32>,
@@ -26,18 +23,4 @@ fn compat_replace_struct_field() {
         #[compat_type(type = u16)]
         zzz: u8,
     }
-}
-
-#[test]
-fn compat_replace_tuple_struct() {
-    #[derive(GenerateCompat, Serialize, Debug)]
-    #[serde(rename_all = "kebab-case")]
-    struct Bar(
-        #[compat_type(type = u16)]
-        u8,
-        #[compat_type(type = i32)]
-        i8,
-        #[compat_type(type = Option<i32>, from = Option::map)]
-        Option<i8>,
-    );
 }
