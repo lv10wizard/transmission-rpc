@@ -13,10 +13,6 @@ use syn::{
 /// TODO- all other eg. #[derive], #[cfg_attr], etc).
 #[proc_macro_derive(GenerateCompat, attributes(compat_name, compat_type))]
 pub fn generate_semver_600_compat(input: TokenStream) -> TokenStream {
-    /*
-    println!("----- input: \"{input}\""); // TODO: DELETE
-    */
-
     // REF: https://compilenrun.com/docs/language/rust/rust-advanced-features/rust-derive-macros/
     // REF: https://docs.rs/quote/latest/quote/macro.quote.html#indexing-into-a-tuple-struct
     // REF: https://stackoverflow.com/a/42526546
@@ -25,8 +21,7 @@ pub fn generate_semver_600_compat(input: TokenStream) -> TokenStream {
 
     match &input.data {
         Data::Struct(data) => generate_compat_struct(&input, data),
-        Data::Enum(data) => generate_compat_enum(&input, data),
-        Data::Union(data) => generate_compat_union(&input, data),
+        _ => panic!("GenerateCompat supports only structs."),
     }
     .into()
 
@@ -128,17 +123,27 @@ fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct) -> proc_macro2::
     let mut orig_field = Vec::with_capacity(data.fields.len());
     let mut compat_field = Vec::with_capacity(data.fields.len());
 
-    for f in data.fields.iter() {
-        if let Some(id) = f.ident.as_ref() {
-            let fname = match f.attrs.iter().find(|a| a.path().is_ident(COMPAT_NAME)) {
-                Some(attr) => match attr.parse_args::<Ident>() {
-                    Ok(compat_id) => compat_id,
-                    Err(err) => panic!("Invalid {} name: {}", COMPAT_NAME, err),
-                },
-                None => id.clone(),
-            };
-            orig_field.push(id);
-            compat_field.push(fname);
+    for (idx, f) in data.fields.iter().enumerate() {
+        match f.ident.as_ref() {
+            Some(id) => {
+                let fname = match f.attrs.iter().find(|a| a.path().is_ident(COMPAT_NAME)) {
+                    Some(attr) => match attr.parse_args::<Ident>() {
+                        Ok(compat_id) => compat_id,
+                        Err(err) => panic!("Invalid {} name: {}", COMPAT_NAME, err),
+                    },
+                    None => id.clone(),
+                };
+                // Push the original (legacy) struct's field name so that we can look it up when
+                // generating the `into_compat` conversion helper method.
+                orig_field.push(id.clone());
+                // Push the compat struct's field name (which in most cases will be the same as the
+                // original). This will only differ for fields tagged with #[compat_name(...)].
+                compat_field.push(fname);
+            },
+            None => {
+                // Push the index since this a tuple struct with unnamed fields.
+                orig_field.push(format_ident!("{idx}"));
+            },
         }
     }
 
@@ -169,7 +174,7 @@ fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct) -> proc_macro2::
                 { #(#compat_field: #field_type),* }
             },
             quote! {
-                { #(#compat_field: self.#orig_field),* }
+                { #(#compat_field: self.#orig_field.into()),* }
             },
         )},
         Fields::Unnamed(_) => {(
@@ -177,14 +182,14 @@ fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct) -> proc_macro2::
                 ( #(#field_type),* )
             },
             quote! {
-                ( #(self.#orig_field),* )
+                ( #(self.#orig_field.into()),* )
             },
         )},
         Fields::Unit => (proc_macro2::TokenStream::new(), proc_macro2::TokenStream::new()),
     };
 
     quote! {
-        /// Semver-6.0.0 compatible serialization helper for `#orig_ident`.
+        /// Semver-6.0.0 compatible serialization helper.
         #[allow(non_camel_case_types)]
         #[serde_with::skip_serializing_none] // I think this has appear before derive(Serialize).
         #[derive(serde::Serialize, Debug, Clone)]
@@ -192,9 +197,10 @@ fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct) -> proc_macro2::
         pub(crate) struct #compat_ident #generics #field_defn
 
         impl #orig_ident {
-            /// Converts `#orig_ident` into its semver-6.0.0 compatible serialization helper type.
+            /// Converts the legacy struct into its semver-6.0.0 compatible serialization helper
+            /// type.
             pub fn into_compat(self) -> #compat_ident {
-                // Move each field in `self` to its corresponding serialization helper type's
+                // Move each field in `self` to its serialization helper type's corresponding
                 // field.
                 //
                 // eg.
@@ -213,14 +219,4 @@ fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct) -> proc_macro2::
             }
         }
     }
-}
-
-/// Generates a semver-6.0.0 compatible enum for serialization purposes.
-fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum) -> proc_macro2::TokenStream {
-    quote! { }
-}
-
-/// Generates a semver-6.0.0 compatible union for serialization purposes.
-fn generate_compat_union(ast: &DeriveInput, data: &DataUnion) -> proc_macro2::TokenStream {
-    quote! { }
 }

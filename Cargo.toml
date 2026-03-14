@@ -18,6 +18,7 @@ sync = []
 tor-get-serde = []
 
 [dependencies]
+compat_macros = { path = "compat_macros" }
 reqwest = { version = "0.12.5", features = [
     "json",
     "rustls-tls",
@@ -27,7 +28,6 @@ serde_json = "1"
 serde_repr = "0.1.17"
 enum-iterator = "2.1.0"
 chrono = {version = "0.4.31", features = ["serde"] }
-jsonrpc_macros = { path = "jsonrpc_macros" }
 
 log = "0.4.20"
 bitflags = "2.10.0"

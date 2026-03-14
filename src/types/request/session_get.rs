@@ -1,4 +1,4 @@
-use jsonrpc_macros::generate_semver_600_compat;
+use compat_macros::GenerateCompat;
 use serde::Serialize;
 
 use super::Args;
@@ -27,7 +27,7 @@ use super::Args;
 ///
 /// [`SessionGet`]: crate::types::SessionGet
 /// [`HashSet`]: std::collections::HashSet
-#[generate_semver_600_compat]
+// TODO: #[generate_semver_600_compat]
 #[derive(Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct SessionGetArgs {
