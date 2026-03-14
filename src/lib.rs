@@ -279,7 +279,7 @@ impl TransClient {
     ///
     /// # Arguments
     ///
-    /// * `args` - An optional collection of [`SessionGetFields`] to request. Specifying either
+    /// * `args` - An optional collection of [`SessionGetField`]s to request. Specifying either
     /// `None` or an empty collection (eg. `Some(vec![])`) will request all possible session
     /// arguments. (Note that the latter behavior differs from manual rpc requests where an empty
     /// `fields` array will yield a `session-get` response with an empty arguments object).

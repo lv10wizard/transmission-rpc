@@ -25,6 +25,7 @@ use super::Args;
 /// ].into();
 /// ```
 ///
+/// [`session_get`]: crate::types::request::RpcRequest::session_get
 /// [`SessionGet`]: crate::types::SessionGet
 /// [`HashSet`]: std::collections::HashSet
 // TODO: #[generate_semver_600_compat]

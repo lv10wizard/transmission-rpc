@@ -272,7 +272,7 @@ pub struct SessionGet {
     pub rename_partial_files: Option<bool>,
     /// The number of outstanding block requests a peer is allowed to queue in the client
     ///
-    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 5.4.0, `rpc-version`: 18)
+    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
     #[serde(alias = "reqq")]
     pub reqq: Option<i32>,
     /// The minimum RPC API version supported by the RPC server. It changes when a new version of
@@ -360,7 +360,7 @@ pub struct SessionGet {
     pub seed_ratio_limited: Option<bool>,
     /// `true` means sequential download is enabled by default for added torrents
     /// 
-    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 5.4.0, `rpc-version`: 18)
+    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
     #[serde(alias = "sequential_download")]
     pub sequential_download: Option<bool>,
     /// The current [`X-Transmission-Session-Id`] value
@@ -702,6 +702,8 @@ where
 }
 
 /// Attempts to deserialize a [`base64`]-encoded string into a `Vec<u8>`.
+///
+/// [`base64`]: mod@base64
 fn from_bitfield_option<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
 where
     D: Deserializer<'de>,
@@ -796,14 +798,14 @@ pub struct File {
     /// Should be `Some(_)` if the Transmission version >= `4.1.0`, `None` if the version is less
     /// than `4.1.0`.
     ///
-    /// Added in Transmission `4.1.0` (`rpc-version-semver` 5.4.0, `rpc-version`: 18).
+    /// Added in Transmission `4.1.0` (`rpc-version-semver` 6.0.0, `rpc-version`: 18).
     #[serde(alias = "begin_piece")]
     pub begin_piece: Option<u64>,
     /// "piece index where this file ends (exclusive)"
     ///
     /// See [`begin_piece`](File::begin_piece).
     ///
-    /// Added in Transmission `4.1.0` (`rpc-version-semver` 5.4.0, `rpc-version`: 18).
+    /// Added in Transmission `4.1.0` (`rpc-version-semver` 6.0.0, `rpc-version`: 18).
     #[serde(alias = "end_piece")]
     pub end_piece: Option<u64>,
 }

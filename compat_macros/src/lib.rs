@@ -1,16 +1,48 @@
-extern crate proc_macro;
+//! Defines helper `#[derive(...)`] macros for pre- and post- Transmission 4.1.0
+//! (`rpc-version-semver` 6.0.0, `rpc-version`: 18) request serialization compatibility.
 
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
-use syn::{
-    Attribute, Data, DataEnum, DataStruct, DataUnion, DeriveInput, Fields, Ident, Item, Type,
-    parse_macro_input,
-};
+use syn::{Data, DeriveInput, parse_macro_input};
 
-// TODO: cleanup!
-/// TODO: doc
-/// TODO: mention that this #[attr] MUST be the first/top decorator (MUST be defined before/above
-/// TODO- all other eg. #[derive], #[cfg_attr], etc).
+use generate::generate_compat_struct;
+
+mod generate;
+mod symbols;
+
+/// Generates a helper struct for request serialization compatibility with Transmission 4.1.0
+/// (`rpc-version-semver` 6.0.0, `rpc-version`: 18) and later.
+///
+/// Struct field names and types can be individually (and separately) overridden with the
+/// derive-macro helper attributes:
+///
+/// * `#[compat_name(FIELD_NAME_OVERRIDE)]`: Overrides the decorated field name with
+/// `FIELD_NAME_OVERRIDE`.
+///
+/// * `#[compat_type(FIELD_TYPE_OVERRIDE)]`: Overrides the decorated field type with
+/// `FIELD_TYPE_OVERRIDE`. The target override type (`FIELD_TYPE_OVERRIDE`) must implement [`From`]
+/// (or [`Into`]) for conversion from the original type into the target type.
+///
+/// ### Example
+///
+/// ```rust
+/// use compat_macros::GenerateCompat;
+/// use serde::Serialize;
+///
+/// #[derive(GenerateCompat, Serialize, Debug)]
+/// #[serde(rename_all = "camelCase")]
+/// struct Foo {
+///     #[compat_name(xyz)]
+///     foo_bar: Option<i32>, // Becomes `xyz: Option<i32>` in the compat struct.
+///     #[compat_name(Option<i64>)]
+///     my_var: Option<i32>, // Becomes `my_var: Option<i64>` in the compat struct.
+///
+///     #[compat_name(abc_def)]
+///     #[compat_type(Option<u16>)]
+///     peer_limit: Option<u8>, // Becomes: `abc_def: Option<u16>` in the compat struct.
+///
+///     lorem_ipsum: Option<String>, // Remains: `lorem_ipsum: Option<String>`.
+/// }
+/// ```
 #[proc_macro_derive(GenerateCompat, attributes(compat_name, compat_type))]
 pub fn generate_semver_600_compat(input: TokenStream) -> TokenStream {
     // REF: https://compilenrun.com/docs/language/rust/rust-advanced-features/rust-derive-macros/
@@ -24,199 +56,9 @@ pub fn generate_semver_600_compat(input: TokenStream) -> TokenStream {
         _ => panic!("GenerateCompat supports only structs."),
     }
     .into()
-
-    /* ============ OLD
-    let input = {
-        let item = item.clone();
-        parse_macro_input!(item as Item)
-    };
-    let item = proc_macro2::TokenStream::from(item);
-    match &input {
-        Item::Struct(input_struct) => {
-            let token = &input_struct.struct_token; // "struct"
-            let name = &input_struct.ident;
-            let generics = &input_struct.generics;
-            let fields = &input_struct.fields;
-
-            let compat_name = format_ident!("__semver_600_compat_{}", name);
-            // Extract the field names so that we can generate the `into_compat` method.
-            let field_name = fields
-                .iter()
-                .map(|f| &f.ident)
-                .collect::<Vec<&Option<Ident>>>();
-            // Extract each fields' type because we specifically _DO NOT_ want attributes like
-            // #[serde(rename = "...")].
-            let field_type = fields
-                .iter()
-                .map(|f| &f.ty)
-                .collect::<Vec<&Type>>();
-
-            let out = quote! {
-                // Define the original (legacy) struct as-is.
-                #item
-
-                // Define the semver-6.0.0 compatible type.
-                // We don't bother with any meta macros (eg. derive, cfg_attr, etc) that exist on
-                // the legacy (original) struct because this generated compat type should be used
-                // only for serialization.
-                #[allow(non_camel_case_types)]
-                #[serde_with::skip_serializing_none] // Ordering might matter here.
-                #[derive(serde::Serialize, Debug, Clone)]
-                #[serde(rename_all = "snake_case")]
-                pub(crate) #token #compat_name #generics {
-                    // Expand out each `field: type`.
-                    #(#field_name: #field_type,)*
-                }
-
-                // Generate a helper method on the legacy (original) struct to convert into the
-                // semver-6.0.0 compatible struct.
-                impl #name {
-                    pub fn into_compat(self) -> #compat_name {
-                        #compat_name {
-                            // Move each `self.field` into the newly constructed compat instance's
-                            // corresponding field.
-                            //
-                            // ie:
-                            // struct Foo { a: i32, b: i32 }
-                            // struct compat_Foo { /* same as Foo */ }
-                            //
-                            // // self = Foo { ... }
-                            // compat_foo { a: self.a, b: self.b }
-                            #(#field_name: self.#field_name,)*
-                        }
-                    }
-                }
-
-                // Generate helper `from` implementations for the legacy struct -> compat struct.
-                impl From<#name> for #compat_name {
-                    fn from(value: #name) -> Self {
-                        value.into_compat()
-                    }
-                }
-            };
-            /*
-            println!("===== out:\n{out}\n\n"); // TODO: DELETE
-            */
-            out.into()
-        },
-
-        /* TODO
-        Item::Enum(input_enum) => {
-        },
-        */
-
-        _ => panic!("generate_semver_600_compat only supports structs and enums."),
-    }
-    // =========== OLD */
 }
 
-const COMPAT_PREFIX: &'static str = "__semver_600_compat_";
-const COMPAT_NAME: &'static str = "compat_name";
-const COMPAT_TYPE: &'static str = "compat_type";
-
-/// Generates a semver-6.0.0 compatible struct for serialization purposes.
-fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct) -> proc_macro2::TokenStream {
-    // Legacy struct field names mapped to its corresponding compatible struct's field name.
-    // In most cases, these will be the same but when a field is flagged with #[compat_name(...)],
-    // the generated (semver-6.0.0 compatible) struct's field name will differ. We need this
-    // mapping to generate the `into_compat` conversion helper method.
-    let mut orig_field = Vec::with_capacity(data.fields.len());
-    let mut compat_field = Vec::with_capacity(data.fields.len());
-
-    for (idx, f) in data.fields.iter().enumerate() {
-        match f.ident.as_ref() {
-            Some(id) => {
-                let fname = match f.attrs.iter().find(|a| a.path().is_ident(COMPAT_NAME)) {
-                    Some(attr) => match attr.parse_args::<Ident>() {
-                        Ok(compat_id) => compat_id,
-                        Err(err) => panic!("Invalid {} name: {}", COMPAT_NAME, err),
-                    },
-                    None => id.clone(),
-                };
-                // Push the original (legacy) struct's field name so that we can look it up when
-                // generating the `into_compat` conversion helper method.
-                orig_field.push(id.clone());
-                // Push the compat struct's field name (which in most cases will be the same as the
-                // original). This will only differ for fields tagged with #[compat_name(...)].
-                compat_field.push(fname);
-            },
-            None => {
-                // Push the index since this a tuple struct with unnamed fields.
-                orig_field.push(format_ident!("{idx}"));
-            },
-        }
-    }
-
-    let field_type: Vec<_> = data.fields
-        .iter()
-        .map(|f| {
-            match f.attrs
-                .iter()
-                .find(|a| a.path().is_ident(COMPAT_TYPE))
-            {
-                Some(attr) => match attr.parse_args::<Type>() {
-                    Ok(ty) => ty,
-                    Err(err) => panic!("Invalid {} type: {}", COMPAT_TYPE, err),
-                },
-                None => f.ty.clone(),
-            }
-        })
-        .collect();
-    let orig_ident = &ast.ident;
-    let compat_ident = format_ident!("{COMPAT_PREFIX}{}", orig_ident);
-    let generics = &ast.generics;
-
-    // Generate field definitions and `into_compat` conversions based on what kind of struct we're
-    // processing.
-    let (field_defn, field_conv) = match &data.fields {
-        Fields::Named(_) => {(
-            quote! {
-                { #(#compat_field: #field_type),* }
-            },
-            quote! {
-                { #(#compat_field: self.#orig_field.into()),* }
-            },
-        )},
-        Fields::Unnamed(_) => {(
-            quote! {
-                ( #(#field_type),* )
-            },
-            quote! {
-                ( #(self.#orig_field.into()),* )
-            },
-        )},
-        Fields::Unit => (proc_macro2::TokenStream::new(), proc_macro2::TokenStream::new()),
-    };
-
-    quote! {
-        /// Semver-6.0.0 compatible serialization helper.
-        #[allow(non_camel_case_types)]
-        #[serde_with::skip_serializing_none] // I think this has appear before derive(Serialize).
-        #[derive(serde::Serialize, Debug, Clone)]
-        #[serde(rename_all = "snake_case")]
-        pub(crate) struct #compat_ident #generics #field_defn
-
-        impl #orig_ident {
-            /// Converts the legacy struct into its semver-6.0.0 compatible serialization helper
-            /// type.
-            pub fn into_compat(self) -> #compat_ident {
-                // Move each field in `self` to its serialization helper type's corresponding
-                // field.
-                //
-                // eg.
-                // Orig   { x: i32, y: i32 }
-                // Compat { a: i32, b: i32 }
-                //
-                // // return Compat { a: self.x, b: self.y }
-                #compat_ident #field_conv
-            }
-        }
-
-        // Helper `From` implementation for the legacy struct -> semver-6.0.0 compatible struct.
-        impl From<#orig_ident> for #compat_ident {
-            fn from(value: #orig_ident) -> Self {
-                value.into_compat()
-            }
-        }
-    }
+#[proc_macro_derive(UseCompat)]
+pub fn use_semver_600_compat(input: TokenStream) -> TokenStream {
+    input
 }

@@ -685,7 +685,7 @@ pub struct SessionSetArgs {
 
     /// "true means sequential download is enabled by default for added torrents"
     ///
-    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 5.4.0, `rpc-version`: 18)
+    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
     #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
     pub sequential_download: Option<bool>,
 
@@ -1052,7 +1052,7 @@ impl Serialize for TrackerList {
 /// * [`TorrentSetArgs::seed_ratio_limit`]: Torrent-level seeding ratio.
 /// * [`TorrentSetArgs::seed_ratio_mode`]: Which [`RatioMode`] to use.
 /// * [`TorrentSetArgs::sequential_download`]: `true` to download the torrent pieces sequentially.
-///     > Added in Transmission 4.1.0 (`rpc-version-semver` 5.4.0, `rpc-version`: 18).
+///     > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18).
 /// * [`TorrentSetArgs::tracker_add`]: Add a new tracker url in its own new tier.
 ///     * *NOTE:* This documentation may be incorrect. The rpc-spec itself is unclear.
 ///     > ⚠ Deprecated in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17);
