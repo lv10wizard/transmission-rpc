@@ -1,9 +1,9 @@
 extern crate proc_macro;
 
 use quote::{format_ident, quote};
-use syn::{DataStruct, DeriveInput, Fields, Ident, Type};
+use syn::{DataStruct, DeriveInput, ExprPath, Fields, Ident, Token, Type};
 
-use crate::symbols::{COMPAT_PREFIX, COMPAT_NAME, COMPAT_TYPE};
+use crate::symbols::{COMPAT_PREFIX, COMPAT_NAME, COMPAT_TYPE, CONVERT_WITH};
 
 /// Generates a semver-6.0.0 compatible struct for serialization purposes.
 pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
@@ -37,10 +37,13 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     let field_type: Vec<_> = data.fields
         .iter()
         .map(|f| {
+            println!("> {:#?}", f.attrs);
             match f.attrs
                 .iter()
                 .find(|a| a.path().is_ident(COMPAT_TYPE))
             {
+                // TODO: parse #[compat_type(type, convert_with = ...)]
+                // TODO- need to parse into `CompatType`
                 Some(attr) => match attr.parse_args::<Type>() {
                     Ok(ty) => ty,
                     Err(err) => panic!("Invalid {} type: {}", COMPAT_TYPE, err),
@@ -111,3 +114,12 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         }
     }
 }
+
+#[derive(Debug, Clone)]
+struct CompatType {
+    compat_type: Type,
+    comma: Option<Token![,]>,
+    conv: Option<ExprPath>,
+}
+
+// TODO: parse

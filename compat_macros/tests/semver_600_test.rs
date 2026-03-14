@@ -20,7 +20,7 @@ fn compat_replace_struct_field() {
     #[serde(rename_all = "snake_case")] // Are derive-helper attributes included?
     struct Foo {
         #[compat_name(xyz)]
-        #[compat_type(Option<i64>)]
+        #[compat_type(Option<i64>, convert_with = "Option::map")]
         abc: Option<i32>,
     }
 }
