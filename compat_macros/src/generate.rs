@@ -6,7 +6,7 @@ use syn::{
     spanned::Spanned,
 };
 
-use crate::symbols::{COMPAT_PREFIX, COMPAT_NAME, COMPAT_TYPE, FROM, TYPE};
+use crate::symbols::{COMPAT_ATTR, COMPAT_PREFIX, NAME, MAP, TYPE};
 
 const NAMED_FIELDS_ONLY: &'static str = "GenerateCompat only supports structs with named fields.";
 
@@ -17,70 +17,49 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     // Stores the compat struct's field names where the index into the Vec corresponds to the
     // original (legacy) struct's field's name.
     //
-    // These will only differ when a field is flagged with #[compat_name(...)].
-    let mut compat_field = Vec::with_capacity(data.fields.len());
-
-    for f in data.fields.iter() {
-        let id = f.ident.as_ref().expect(NAMED_FIELDS_ONLY);
-        // Push the compat struct's field name (which in most cases will be the same as the
-        // original). This will only differ for fields tagged with #[compat_name(...)].
-        compat_field.push({
-            match f.attrs.iter().find(|a| a.path() == COMPAT_NAME) {
-                Some(attr) => match attr.parse_args::<Ident>() {
-                    Ok(compat_id) => compat_id,
-                    Err(err) => panic!("Invalid \"{}\" name: {}", COMPAT_NAME, err),
-                },
-                None => id.clone(),
-            }
-        });
-    }
-
-    // Determine the target type for each of the legacy struct's fields.
+    // These will only differ when a field is flagged with #[compat(...)].
+    let mut compat_ident = Vec::with_capacity(data.fields.len());
+    // Stores the target type for each of the legacy struct's fields.
+    let mut type_defn: Vec<Type> = Vec::with_capacity(data.fields.len());
+    // Stores the conversion function, if any, for each of the legacy struct's fields.
     let mut conv: Vec<Option<Path>> = Vec::with_capacity(data.fields.len());
-    let field_type: Vec<_> = data.fields
-        .iter()
-        .map(|f| {
-            match f.attrs
-                .iter()
-                .find(|a| a.path() == COMPAT_TYPE)
-            {
-                Some(attr) => {
-                    let mut compat_type: Option<Type> = None;
 
-                    if let Err(err) = attr.parse_nested_meta(|meta| {
-                        // #[compat_type(from = Option::map)]
-                        if meta.path == FROM {
-                            conv.push(meta.value()?.parse().ok());
+    for field in data.fields.iter() {
+        let mut attr_name: Option<Ident> = None;
+        let mut attr_type: Option<Type> = None;
 
-                        // #[compat_type(type = Option<i32>)]
-                        } else if meta.path == TYPE {
-                            compat_type = Some(meta.value()?.parse::<Type>()?);
-                        }
-                        Ok(())
-                    }) {
-                        panic!("Failed to parse \"{COMPAT_TYPE}\" args: {err}");
+        match field.attrs
+            .iter()
+            .find(|a| a.path() == COMPAT_ATTR)
+        {
+            Some(attr) => {
+                if let Err(err) = attr.parse_nested_meta(|meta| {
+                    // #[compat(name = foo)]
+                    if meta.path == NAME {
+                        attr_name = Some(meta.value()?.parse()?);
+
+                    // #[compat(type = Option<i32>)]
+                    } else if meta.path == TYPE {
+                        attr_type = Some(meta.value()?.parse()?);
+
+                    // #[compat(map = Option::map)]
+                    } else if meta.path == MAP {
+                        conv.push(meta.value()?.parse().ok());
                     }
+                    Ok(())
+                }) {
+                    panic!("Failed to parse #[{COMPAT_ATTR}] args: {err}");
+                }
+            },
+            None => {},
+        }
 
-                    match compat_type {
-                        Some(ty) => ty,
-                        None => panic!("Invalid \"{COMPAT_TYPE}\": no type specified"),
-                    }
-                },
-                None => f.ty.clone(),
-            }
-        })
-        .collect();
-
-    // Generate compat struct field definitions.
-    let field_defn = match &data.fields {
-        Fields::Named(_) => {
-            quote! {
-                { #(#compat_field: #field_type),* }
-            }
-        },
-
-        _ => panic!("{NAMED_FIELDS_ONLY}"),
-    };
+        compat_ident.push(attr_name
+            .or_else(|| field.ident.clone())
+            .expect(NAMED_FIELDS_ONLY)); // Only handle structs with named fields.
+        type_defn.push(attr_type
+            .unwrap_or_else(|| field.ty.clone()));
+    }
 
     // Generate `into_compat` conversions.
     let field_conv = {
@@ -109,7 +88,7 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
                 // Compat { a: i32, b: i32 }
                 //
                 // // return Compat { a: self.x, b: self.y }
-                let compat = compat_field.get(i);
+                let compat = compat_ident.get(i);
                 quote_spanned! {field.span()=>
                     #compat: #converted
                 }
@@ -127,29 +106,33 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         }
     };
 
-    let orig_ident = &ast.ident;
-    let compat_ident = format_ident!("{COMPAT_PREFIX}{}", orig_ident);
+    let orig_struct_id = &ast.ident;
+    let compat_struct_id = format_ident!("{COMPAT_PREFIX}{}", orig_struct_id);
     let generics = &ast.generics;
     let semi_token = data.semi_token;
     quote! {
         /// Semver-6.0.0 compatible serialization helper.
+        #[automatically_derived]
         #[allow(non_camel_case_types)]
         #[serde_with::skip_serializing_none] // I think this has appear before derive(Serialize).
         #[derive(serde::Serialize, Debug, Clone)]
         #[serde(rename_all = "snake_case")]
-        pub(crate) struct #compat_ident #generics #field_defn #semi_token
+        pub(crate) struct #compat_struct_id #generics {
+            #(#compat_ident: #type_defn),*
+        } #semi_token
 
-        impl #orig_ident {
+        #[automatically_derived]
+        impl #orig_struct_id {
             /// Converts the legacy struct into its semver-6.0.0 compatible serialization helper
             /// type.
-            pub fn into_compat(self) -> #compat_ident {
-                #compat_ident #field_conv
+            pub fn into_compat(self) -> #compat_struct_id {
+                #compat_struct_id #field_conv
             }
         }
 
         // Helper `From` implementation for the legacy struct -> semver-6.0.0 compatible struct.
-        impl From<#orig_ident> for #compat_ident {
-            fn from(value: #orig_ident) -> Self {
+        impl From<#orig_struct_id> for #compat_struct_id {
+            fn from(value: #orig_struct_id) -> Self {
                 value.into_compat()
             }
         }

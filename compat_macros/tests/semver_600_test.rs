@@ -16,11 +16,12 @@ fn compat_replace_struct_field() {
     #[derive(GenerateCompat, Serialize, Debug)] // Are Serialize, Debug included in `.attrs`?
     #[serde(rename_all = "snake_case")] // Are derive-helper attributes included?
     struct _Foo {
-        #[compat_name(xyz)]
-        #[compat_type(type = Option<i64>, from = Option::map)]
+        #[compat(name = xyz, type = Option<i64>, map = Option::map)]
         abc: Option<i32>,
 
-        #[compat_type(type = u16)]
+        def: String,
+
+        #[compat(type = u16)]
         zzz: u8,
     }
 }
