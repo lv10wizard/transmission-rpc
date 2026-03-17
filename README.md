@@ -48,7 +48,6 @@ https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md
 ##### Feature Flags
 
 - `sync`: Enables a thread-safe version of `TransClient`.
-- `tor-get-serde`: Enables serde of `TorrentGetField`s.
 
 ### Examples
 

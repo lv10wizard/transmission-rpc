@@ -14,8 +14,6 @@ include = ["**/*.rs", "Cargo.toml"]
 [features]
 # Enables a thread-safe version of TransClient.
 sync = []
-# Enables Serialization and Deserialization of `TorrentGetField`s.
-tor-get-serde = []
 
 [dependencies]
 compat_macros = { path = "compat_macros" }

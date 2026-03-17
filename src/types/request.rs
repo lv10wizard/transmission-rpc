@@ -1,6 +1,6 @@
 use convert_case::ccase;
 use enum_iterator::{all, Sequence};
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_with::skip_serializing_none;
 
 use compat_macros::GenerateCompat;
@@ -12,9 +12,6 @@ use super::{
 
 pub(crate) use session_get::*; // SessionGetArgs, __semver_600_compat_SessionGetArgs
 pub use session_get::SessionGetField;
-
-#[cfg(feature = "tor-get-serde")]
-use serde::Deserialize; 
 
 mod group_set;
 mod session_get;
@@ -805,9 +802,8 @@ pub struct TorrentAddArgs {
     pub sequential_download: Option<bool>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Sequence)]
-#[cfg_attr(feature = "tor-get-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "tor-get-serde", serde(rename_all = "camelCase"))]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, Sequence)]
+#[serde(rename_all = "camelCase")]
 pub enum TorrentGetField {
     ActivityDate,
     AddedDate,
@@ -828,7 +824,7 @@ pub enum TorrentGetField {
     ErrorString,
     Eta,
     EtaIdle,
-    #[cfg_attr(feature = "tor-get-serde", serde(rename = "file-count"))]
+    #[serde(rename = "file-count")]
     FileCount,
     FileStats,
     Files,
@@ -848,7 +844,7 @@ pub enum TorrentGetField {
     MaxConnectedPeers,
     MetadataPercentComplete,
     Name,
-    #[cfg_attr(feature = "tor-get-serde", serde(rename = "peer-limit"))]
+    #[serde(rename = "peer-limit")]
     PeerLimit,
     Peers,
     PeersConnected,
@@ -861,7 +857,7 @@ pub enum TorrentGetField {
     PieceCount,
     PieceSize,
     Priorities,
-    #[cfg_attr(feature = "tor-get-serde", serde(rename = "primary-mime-type"))]
+    #[serde(rename = "primary-mime-type")]
     PrimaryMimeType,
     QueuePosition,
     RateDownload,
