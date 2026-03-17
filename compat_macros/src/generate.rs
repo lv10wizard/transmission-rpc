@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
-    DataStruct, DeriveInput, Fields, Ident, Path, Type,
+    DataEnum, DataStruct, DeriveInput, Fields, Ident, Path, Type,
     spanned::Spanned,
 };
 
@@ -136,6 +136,66 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         // Helper `From` implementation for the legacy struct -> semver-6.0.0 compatible struct.
         impl From<#orig_struct_id> for #compat_struct_id {
             fn from(value: #orig_struct_id) -> Self {
+                value.into_compat()
+            }
+        }
+    }
+}
+
+/// Generates a semver-6.0.0 compatible enum for serialization purposes.
+pub(crate) fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum)
+    -> proc_macro2::TokenStream
+{
+    //
+    let (mut ser_crate, mut ser_derive)  = (format_ident!("serde"), format_ident!("Serialize"));
+    //
+    let mut var_id = Vec::with_capacity(data.variants.len());
+
+    for var in data.variants.iter() {
+        if var.discriminant.is_some() {
+            // Serialize the enum into its discriminant number representation if any variant has an
+            // explicitly assigned discriminant.
+            //
+            // eg. `enum Repr { A, B, C = 123 }`
+            (ser_crate, ser_derive) = (
+                format_ident!("serde_repr"),
+                format_ident!("Serialize_repr"),
+            );
+        }
+
+        match &var.fields {
+            Fields::Unit => var_id.push(&var.ident),
+            _ => panic!("GenerateCompat only supports enums with unit variants."),
+        }
+    }
+
+    let orig_enum_id = &ast.ident;
+    let compat_enum_id = format_ident!("{COMPAT_PREFIX}{}", orig_enum_id);
+    let generics = &ast.generics;
+    quote! {
+        /// Semver-6.0.0 compatible serialization helper.
+        #[automatically_derived]
+        #[allow(non_camel_case_types)]
+        #[derive(#ser_crate::#ser_derive, Debug, Clone)]
+        #[serde(rename_all = "snake_case")]
+        pub(crate) enum #compat_enum_id #generics {
+            #(#var_id),*
+        }
+
+        #[automatically_derived]
+        impl #orig_enum_id {
+            /// Converts the legacy enum into its semver-6.0.0 compatible serialization helper
+            /// type.
+            pub fn into_compat(self) -> #compat_enum_id {
+                match self {
+                    #(Self::#var_id => #compat_enum_id::#var_id),*
+                }
+            }
+        }
+
+        // Helper `From` implementation for the legacy enum -> semver-6.0.0 compatible enum.
+        impl From<#orig_enum_id> for #compat_enum_id {
+            fn from(value: #orig_enum_id) -> Self {
                 value.into_compat()
             }
         }

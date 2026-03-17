@@ -354,6 +354,21 @@ impl RpcRequest {
     }
 }
 
+/// Converts a `Vec<T>` into a `Vec<U>` by iterating over all of `vec`'s items and calling `func`
+/// on each.
+///
+/// The function signature was created to conform with [`Option::map`] arguments, specifically for
+/// [`GenerateCompat`] usage.
+pub(crate) fn map_vec<F, T, U>(vec: Vec<T>, func: F) -> Vec<U>
+where
+    F: Fn(T) -> U,
+    T: Into<U>,
+{
+    vec.into_iter()
+        .map(func)
+        .collect()
+}
+
 #[derive(Debug, Copy, Clone)]
 pub(crate) enum Method {
     SessionSet,

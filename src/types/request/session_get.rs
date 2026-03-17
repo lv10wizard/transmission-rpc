@@ -1,7 +1,7 @@
 use compat_macros::GenerateCompat;
 use serde::Serialize;
 
-use super::Args;
+use super::{Args, map_vec};
 
 /// Represents internal request arguments for the [`session_get`] method for json serialization
 /// purposes.
@@ -31,6 +31,7 @@ use super::Args;
 #[derive(GenerateCompat, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct SessionGetArgs {
+    //#[compat(type = Vec<__semver_600_compat_SessionGetField>, map = map_vec)]
     #[serde(skip_serializing_if = "Vec::is_empty")] // Treat empty the same as `None`.
     pub(crate) fields: Vec<SessionGetField>,
 }
@@ -52,7 +53,7 @@ impl From<SessionGetArgs> for Args {
     }
 }
 
-#[derive(Serialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(GenerateCompat, Serialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum SessionGetField {
     AltSpeedDown,
@@ -116,4 +117,12 @@ pub enum SessionGetField {
     Units,
     UtpEnabled,
     Version,
+}
+
+#[cfg(test)]
+mod serde_tests {
+    use serde_json;
+
+    use crate::types::Result;
+    use super::*;
 }

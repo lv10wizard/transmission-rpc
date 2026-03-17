@@ -4,7 +4,7 @@
 use proc_macro::TokenStream;
 use syn::{Data, DeriveInput, parse_macro_input};
 
-use generate::generate_compat_struct;
+use generate::{generate_compat_enum, generate_compat_struct};
 
 mod generate;
 mod symbols;
@@ -76,6 +76,7 @@ pub fn generate_semver_600_compat(input: TokenStream) -> TokenStream {
 
     match &input.data {
         Data::Struct(data) => generate_compat_struct(&input, data),
+        Data::Enum(data) => generate_compat_enum(&input, data),
         _ => panic!("GenerateCompat supports only structs."),
     }
     .into()
