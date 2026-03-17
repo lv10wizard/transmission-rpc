@@ -9,8 +9,10 @@ use generate::{generate_compat_enum, generate_compat_struct};
 mod generate;
 mod symbols;
 
-/// Generates a helper struct for request serialization compatibility with Transmission 4.1.0
-/// (`rpc-version-semver` 6.0.0, `rpc-version`: 18) and later.
+/// Generates a helper struct or enum for request serialization compatibility with Transmission
+/// 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18) and later.
+///
+/// Enum variant names can be overridden with `#[compat(name = ...)]`.
 ///
 /// Struct field names and types can be individually (and separately) overridden with the
 /// derive-macro helper attribute, `#[compat]`, which recognizes the following arguments:
@@ -64,6 +66,34 @@ mod symbols;
 ///     abc_def: Option<u16>, // Was: `peer_limit: Option<u8>` in the original struct.
 ///
 ///     lorem_ipsum: String, // Unchanged.
+/// }
+/// ```
+///
+/// Similarly for enums:
+///
+/// ```rust
+/// use compat_macros::GenerateCompat;
+/// use serde::Serialize;
+///
+/// #[derive(GenerateCompat, Serialize, Debug)]
+/// #[serde(rename_all = "kebab-case")]
+/// enum Bar {
+///     MyVariant, // Unchanged.
+///     AnotherVariant, // Unchanged.
+///     #[compat(name = LoremIpsum)]
+///     AThirdVariant, // Renamed to: `LoremIpsum`.
+/// }
+/// ```
+///
+/// Will generate into something like:
+///
+/// ```rust
+/// #[derive(Serialize, Debug, Clone)]
+/// #[serde(rename_all = "snake_case")]
+/// pub(crate) enum BarCompat {
+///     MyVariant, // Unchanged.
+///     AnotherVariant, // Unchanged.
+///     LoremIpsum, // Was: `AThirdVariant`.
 /// }
 /// ```
 #[proc_macro_derive(GenerateCompat, attributes(compat))]

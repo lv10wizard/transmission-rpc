@@ -1,28 +1,7 @@
 //! This file defines serde tests for legacy and json-rpc requests.
 
-use serde_json;
-
 use super::*;
 use crate::types::{JSON_RPC_VERSION_2_0, Result, Transport};
-
-/// Verifies the serialized [`RpcRequest`] matches the `expected` string.
-///
-/// `jsonrpc` controls the version of the serialized request (eg. pre-semver-6.0.0 or
-/// post-semver-6.0.0).
-fn verify(args: SessionSetArgs, jsonrpc: Option<&str>, expected: &str) -> Result<()> {
-    let mut request = RpcRequest::session_set(args, None);
-    request.jsonrpc = jsonrpc.map(str::to_string);
-    let ser_request = serde_json::to_string(&request)?;
-    println!("{}===== ser_request:\n{ser_request}\n\n",
-        match jsonrpc {
-            Some(jsonrpc) => format!("[{jsonrpc}] "),
-            None => "".to_string(),
-        });
-
-    assert_eq!(ser_request, expected);
-
-    Ok(())
-}
 
 #[test]
 fn request_session_set_legacy_alt_speed_down() -> Result<()> {
