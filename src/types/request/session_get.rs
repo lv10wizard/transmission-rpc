@@ -28,8 +28,7 @@ use super::Args;
 /// [`session_get`]: crate::types::request::RpcRequest::session_get
 /// [`SessionGet`]: crate::types::SessionGet
 /// [`HashSet`]: std::collections::HashSet
-// TODO: #[generate_semver_600_compat]
-#[derive(Serialize, Debug, Clone, PartialEq)]
+#[derive(GenerateCompat, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct SessionGetArgs {
     #[serde(skip_serializing_if = "Vec::is_empty")] // Treat empty the same as `None`.

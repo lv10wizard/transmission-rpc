@@ -90,7 +90,7 @@ impl Display for Encryption {
     }
 }
 
-/// Represents how transmission handles peer connection encryption.
+/// Semver-6.0.0 compatibility serialization helper enum for [`Encryption`].
 #[derive(Serialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 enum EncryptionCompat {

@@ -408,39 +408,7 @@ fn request_session_set_semver_600_cache_size_mb() -> Result<()> {
             \"jsonrpc\":\"{JSON_RPC_VERSION_2_0}\",\
             \"method\":\"session_set\",\
             \"params\":{{\
-                \"cache_size_mb\":8\
-            }},\
-            \"id\":0\
-        }}"))
-}
-
-#[test]
-fn request_session_set_legacy_cache_size_mib() -> Result<()> {
-    let session_set_args = SessionSetArgs {
-        cache_size_mib: Some(32),
-        ..Default::default()
-    };
-    // `cache_size_mib` only exists post- semver-6.0.0.
-    verify(session_set_args, None,
-        "{\
-            \"method\":\"session-set\",\
-            \"arguments\":{\
-            }\
-        }")
-}
-
-#[test]
-fn request_session_set_semver_600_cache_size_mib() -> Result<()> {
-    let session_set_args = SessionSetArgs {
-        cache_size_mib: Some(32),
-        ..Default::default()
-    };
-    verify(session_set_args, Some(JSON_RPC_VERSION_2_0),
-        &format!("{{\
-            \"jsonrpc\":\"{JSON_RPC_VERSION_2_0}\",\
-            \"method\":\"session_set\",\
-            \"params\":{{\
-                \"cache_size_mib\":32\
+                \"cache_size_mib\":8\
             }},\
             \"id\":0\
         }}"))

@@ -27,6 +27,7 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     for field in data.fields.iter() {
         let mut attr_name: Option<Ident> = None;
         let mut attr_type: Option<Type> = None;
+        let mut mapping: Option<Path> = None;
 
         match field.attrs
             .iter()
@@ -44,7 +45,7 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
 
                     // #[compat(map = Option::map)]
                     } else if meta.path == MAP {
-                        conv.push(meta.value()?.parse().ok());
+                        mapping = Some(meta.value()?.parse()?);
                     }
                     Ok(())
                 }) {
@@ -59,6 +60,7 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
             .expect(NAMED_FIELDS_ONLY)); // Only handle structs with named fields.
         type_defn.push(attr_type
             .unwrap_or_else(|| field.ty.clone()));
+        conv.push(mapping);
     }
 
     // Generate `into_compat` conversions.
@@ -68,7 +70,8 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
             .enumerate()
             .map(|(i, field)| {
                 let ident = field.ident.as_ref().expect(NAMED_FIELDS_ONLY);
-                let converted = match conv.get(i) {
+                const MSG: &'static str = "every field should have a `conv` item";
+                let converted = match conv.get(i).expect(MSG) {
                     // eg. `Option::map(self.x, Into::into)`
                     // NOTE: Probably won't work for non- `Option::map` methods.
                     Some(conv) => quote_spanned! {field.span()=>
