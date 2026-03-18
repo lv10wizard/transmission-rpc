@@ -31,7 +31,6 @@ log = "0.4.20"
 bitflags = "2.10.0"
 base64 = "0.22.1"
 semver = "1.0.27"
-convert_case = "0.11.0"
 serde_with = { version = "3.17.0", features = ["macros"] }
 
 [dev-dependencies]

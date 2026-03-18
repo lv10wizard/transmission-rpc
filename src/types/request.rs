@@ -1,4 +1,3 @@
-use convert_case::ccase;
 use enum_iterator::{all, Sequence};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_with::skip_serializing_none;
@@ -225,16 +224,15 @@ impl RpcRequest {
         FIELDS: IntoIterator<Item = TorrentGetField> + FromIterator<TorrentGetField>,
         IDS: IntoIterator<Item = Id>,
     {
-        let string_fields = fields
+        let fields = fields
             .unwrap_or_else(|| all::<TorrentGetField>().collect())
             .into_iter()
-            .map(|f| TorrentGetField::to_str(&f))
             .collect();
         let ids = ids.map(|ids| ids.into_iter().collect());
         RpcRequest {
             method: Method::TorrentGet,
             arguments: Some(Args::TorrentGet(TorrentGetArgs {
-                fields: Some(string_fields),
+                fields: Some(fields),
                 ids,
             })),
             tag,
@@ -367,11 +365,26 @@ impl RpcRequest {
 pub(crate) fn map_vec<F, T, U>(vec: Vec<T>, func: F) -> Vec<U>
 where
     F: Fn(T) -> U,
-    T: Into<U>,
 {
     vec.into_iter()
         .map(func)
         .collect()
+}
+
+/// Converts a `Option<Vec<T>>` into a `Option<Vec<U>>` by iterating over all of `vec`'s items and
+/// calling `func` on each.
+///
+/// The function signature was created to conform with [`Option::map`] arguments, specifically for
+/// [`GenerateCompat`] usage.
+pub(crate) fn map_option_vec<F, T, U>(vec: Option<Vec<T>>, func: F) -> Option<Vec<U>>
+where
+    F: Fn(T) -> U,
+{
+    vec.map(|vec| {
+        vec.into_iter()
+            .map(func)
+            .collect()
+    })
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -491,17 +504,7 @@ impl Args {
             Args::SessionGet(x) => ArgsCompat::SessionGet(x.into()),
             Args::SessionSet(x) => ArgsCompat::SessionSet(x.into()),
             Args::QueueMove(x) => ArgsCompat::QueueMove(x.into()),
-            Args::TorrentGet(x) => {
-                let snake_case = TorrentGetArgs {
-                    fields: x.fields
-                        .map(|fields| fields
-                            .into_iter()
-                            .map(|f| ccase!(snake, f))
-                            .collect()),
-                    ids: x.ids,
-                };
-                ArgsCompat::TorrentGet(snake_case.into())
-            },
+            Args::TorrentGet(x) => ArgsCompat::TorrentGet(x.into()),
             Args::TorrentAction(x) => ArgsCompat::TorrentAction(x.into()),
             Args::TorrentRemove(x) => ArgsCompat::TorrentRemove(x.into()),
             Args::TorrentAdd(x) => ArgsCompat::TorrentAdd(x.into()),
@@ -721,18 +724,36 @@ impl<I: IntoIterator<Item = Id>> From<I> for QueueMoveArgs {
 
 #[derive(GenerateCompat, Serialize, Debug, Clone)]
 pub struct TorrentGetArgs {
+    #[compat(type = Option<Vec<__semver_600_compat_TorrentGetField>>, map = map_option_vec)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    fields: Option<Vec<String>>,
+    fields: Option<Vec<TorrentGetField>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     ids: Option<Vec<Id>>,
 }
 
 impl Default for TorrentGetArgs {
     fn default() -> Self {
-        let all_fields = all::<TorrentGetField>().map(|it| it.to_str()).collect();
+        let all_fields = all::<TorrentGetField>().collect();
         TorrentGetArgs {
             fields: Some(all_fields),
             ids: None,
+        }
+    }
+}
+
+impl<F, I> From<(F, I)> for TorrentGetArgs
+where
+    F: IntoIterator<Item = TorrentGetField>,
+    I: IntoIterator<Item = Id>,
+{
+    fn from(args: (F, I)) -> Self {
+        let fields: Vec<_> = args.0.into_iter().collect();
+        Self {
+            fields: match fields.is_empty() {
+                true => None,
+                false => Some(fields),
+            },
+            ids: Some(args.1.into_iter().collect()),
         }
     }
 }
@@ -815,7 +836,18 @@ pub struct TorrentAddArgs {
     pub sequential_download: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, Sequence)]
+#[derive(
+    GenerateCompat,
+    Serialize,
+    Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Sequence
+)]
 #[serde(rename_all = "camelCase")]
 pub enum TorrentGetField {
     ActivityDate,
@@ -898,92 +930,6 @@ pub enum TorrentGetField {
     Wanted,
     Webseeds,
     WebseedsSendingToUs,
-}
-
-impl TorrentGetField {
-    #[must_use]
-    pub fn to_str(&self) -> String {
-        match self {
-            TorrentGetField::ActivityDate => "activityDate",
-            TorrentGetField::AddedDate => "addedDate",
-            TorrentGetField::Availability => "availability",
-            TorrentGetField::BandwidthPriority => "bandwidthPriority",
-            TorrentGetField::Comment => "comment",
-            TorrentGetField::CorruptEver => "corruptEver",
-            TorrentGetField::Creator => "creator",
-            TorrentGetField::DateCreated => "dateCreated",
-            TorrentGetField::DesiredAvailable => "desiredAvailable",
-            TorrentGetField::DoneDate => "doneDate",
-            TorrentGetField::DownloadDir => "downloadDir",
-            TorrentGetField::DownloadedEver => "downloadedEver",
-            TorrentGetField::DownloadLimit => "downloadLimit",
-            TorrentGetField::DownloadLimited => "downloadLimited",
-            TorrentGetField::EditDate => "editDate",
-            TorrentGetField::Error => "error",
-            TorrentGetField::ErrorString => "errorString",
-            TorrentGetField::Eta => "eta",
-            TorrentGetField::EtaIdle => "etaIdle",
-            TorrentGetField::FileCount => "file-count",
-            TorrentGetField::FileStats => "fileStats",
-            TorrentGetField::Files => "files",
-            TorrentGetField::Group => "group",
-            TorrentGetField::HashString => "hashString",
-            TorrentGetField::HaveUnchecked => "haveUnchecked",
-            TorrentGetField::HaveValid => "haveValid",
-            TorrentGetField::HonorsSessionLimits => "honorsSessionLimits",
-            TorrentGetField::Id => "id",
-            TorrentGetField::IsFinished => "isFinished",
-            TorrentGetField::IsPrivate => "isPrivate",
-            TorrentGetField::IsStalled => "isStalled",
-            TorrentGetField::Labels => "labels",
-            TorrentGetField::LeftUntilDone => "leftUntilDone",
-            TorrentGetField::MagnetLink => "magnetLink",
-            TorrentGetField::ManualAnnounceTime => "manualAnnounceTime",
-            TorrentGetField::MaxConnectedPeers => "maxConnectedPeers",
-            TorrentGetField::MetadataPercentComplete => "metadataPercentComplete",
-            TorrentGetField::Name => "name",
-            TorrentGetField::PeerLimit => "peer-limit",
-            TorrentGetField::Peers => "peers",
-            TorrentGetField::PeersConnected => "peersConnected",
-            TorrentGetField::PeersFrom => "peersFrom",
-            TorrentGetField::PeersGettingFromUs => "peersGettingFromUs",
-            TorrentGetField::PeersSendingToUs => "peersSendingToUs",
-            TorrentGetField::PercentComplete => "percentComplete",
-            TorrentGetField::PercentDone => "percentDone",
-            TorrentGetField::Pieces => "pieces",
-            TorrentGetField::PieceCount => "pieceCount",
-            TorrentGetField::PieceSize => "pieceSize",
-            TorrentGetField::Priorities => "priorities",
-            TorrentGetField::PrimaryMimeType => "primary-mime-type",
-            TorrentGetField::QueuePosition => "queuePosition",
-            TorrentGetField::RateDownload => "rateDownload",
-            TorrentGetField::RateUpload => "rateUpload",
-            TorrentGetField::RecheckProgress => "recheckProgress",
-            TorrentGetField::SecondsDownloading => "secondsDownloading",
-            TorrentGetField::SecondsSeeding => "secondsSeeding",
-            TorrentGetField::SeedIdleLimit => "seedIdleLimit",
-            TorrentGetField::SeedIdleMode => "seedIdleMode",
-            TorrentGetField::SeedRatioLimit => "seedRatioLimit",
-            TorrentGetField::SeedRatioMode => "seedRatioMode",
-            TorrentGetField::SequentialDownload => "sequential_download",
-            TorrentGetField::SizeWhenDone => "sizeWhenDone",
-            TorrentGetField::StartDate => "startDate",
-            TorrentGetField::Status => "status",
-            TorrentGetField::TorrentFile => "torrentFile",
-            TorrentGetField::TotalSize => "totalSize",
-            TorrentGetField::Trackers => "trackers",
-            TorrentGetField::TrackerList => "trackerList",
-            TorrentGetField::TrackerStats => "trackerStats",
-            TorrentGetField::UploadRatio => "uploadRatio",
-            TorrentGetField::UploadedEver => "uploadedEver",
-            TorrentGetField::UploadLimit => "uploadLimit",
-            TorrentGetField::UploadLimited => "uploadLimited",
-            TorrentGetField::Wanted => "wanted",
-            TorrentGetField::Webseeds => "webseeds",
-            TorrentGetField::WebseedsSendingToUs => "webseedsSendingToUs",
-        }
-        .to_string()
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
