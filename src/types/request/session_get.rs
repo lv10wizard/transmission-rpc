@@ -1,7 +1,7 @@
 use compat_macros::GenerateCompat;
 use serde::Serialize;
 
-use super::{Args, Method, RpcRequest, map_vec};
+use super::{Args, RpcRequest, map_vec};
 
 /// Represents internal request arguments for the [`session_get`] method for json serialization
 /// purposes.
@@ -64,23 +64,6 @@ where
     fn from(value: I) -> Self {
         let session_get: SessionGetArgs = value.into();
         session_get.into()
-    }
-}
-
-impl From<SessionGetArgs> for Args {
-    fn from(value: SessionGetArgs) -> Self {
-        Self::SessionGet(value)
-    }
-}
-
-impl From<SessionGetArgs> for RpcRequest {
-    fn from(value: SessionGetArgs) -> Self {
-        Self {
-            method: Method::SessionGet,
-            arguments: Some(value.into()),
-            tag: None,
-            jsonrpc: None,
-        }
     }
 }
 

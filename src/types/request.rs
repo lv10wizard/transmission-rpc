@@ -14,6 +14,7 @@ pub(crate) use session_get::*; // SessionGetArgs, __semver_600_compat_SessionGet
 pub use session_get::SessionGetField;
 
 mod group_set;
+mod into;
 mod session_get;
 mod torrent_set;
 
@@ -523,14 +524,17 @@ pub(crate) struct GroupGetArgs {
 
 impl From<Vec<String>> for GroupGetArgs {
     fn from(value: Vec<String>) -> Self {
-        Some(value).into()
+        (!value.is_empty())
+            .then_some(value)
+            .into()
     }
 }
 
-impl From<Option<Vec<String>>> for GroupGetArgs {
-    fn from(value: Option<Vec<String>>) -> Self {
+impl<I: IntoIterator<Item = String>> From<Option<I>> for GroupGetArgs {
+    fn from(value: Option<I>) -> Self {
         Self {
-            groups: value,
+            groups: value
+                .map(|val| val.into_iter().collect()),
         }
     }
 }
@@ -704,31 +708,14 @@ pub struct SessionSetArgs {
     pub utp_enabled: Option<bool>,
 }
 
-impl From<SessionSetArgs> for Args {
-    fn from(value: SessionSetArgs) -> Self {
-        Self::SessionSet(value)
-    }
-}
-
-impl From<SessionSetArgs> for RpcRequest {
-    fn from(value: SessionSetArgs) -> Self {
-        Self {
-            method: Method::SessionSet,
-            arguments: Some(value.into()),
-            tag: None,
-            jsonrpc: None,
-        }
-    }
-}
-
 #[derive(GenerateCompat, Serialize, Debug, Clone)]
 pub struct QueueMoveArgs {
     ids: Vec<Id>,
 }
 
-impl From<Vec<Id>> for QueueMoveArgs {
-    fn from(ids: Vec<Id>) -> Self {
-        Self { ids }
+impl<I: IntoIterator<Item = Id>> From<I> for QueueMoveArgs {
+    fn from(ids: I) -> Self {
+        Self { ids: ids.into_iter().collect() }
     }
 }
 
@@ -754,10 +741,17 @@ impl Default for TorrentGetArgs {
 pub struct TorrentActionArgs {
     ids: Vec<Id>,
 }
+
+impl<I: IntoIterator<Item = Id>> From<I> for TorrentActionArgs {
+    fn from(ids: I) -> Self {
+        Self { ids: ids.into_iter().collect() }
+    }
+}
+
 #[derive(GenerateCompat, Serialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct TorrentRemoveArgs {
     ids: Vec<Id>,
-    #[serde(rename = "delete-local-data")]
     delete_local_data: bool,
 }
 
