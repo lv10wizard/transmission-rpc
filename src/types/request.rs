@@ -714,6 +714,7 @@ pub struct SessionSetArgs {
     /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
     #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
     pub sequential_download: Option<bool>,
+    // TODO: sequential_download_from_piece: Option<u64>,
 
     pub speed_limit_down_enabled: Option<bool>,
     pub speed_limit_down: Option<i32>,

@@ -537,6 +537,7 @@ pub struct Torrent {
     pub availability: Option<Vec<i16>>,
     #[serde(alias = "bandwidth_priority")]
     pub bandwidth_priority: Option<Priority>,
+    // TODO: bytes_completed: Option<Vec<u64>>,
     pub comment: Option<String>,
     #[serde(alias = "corrupt_ever")]
     pub corrupt_ever: Option<u64>,
@@ -646,6 +647,7 @@ pub struct Torrent {
     pub seed_ratio_mode: Option<RatioMode>,
     #[serde(alias = "sequential_download")]
     pub sequential_download: Option<bool>,
+    // TODO: sequential_download_from_piece: u64,
     #[serde(alias = "size_when_done")]
     pub size_when_done: Option<i64>,
     #[serde(deserialize_with = "from_ts_option", default)]
@@ -677,6 +679,7 @@ pub struct Torrent {
     #[serde(deserialize_with = "from_arr_bool_option", default)]
     pub wanted: Option<Vec<bool>>,
     pub webseeds: Option<Vec<String>>,
+    // TODO: webseeds_ex: Option<Vec<WebseedsEx>>,
     #[serde(alias = "webseeds_sending_to_us")]
     pub webseeds_sending_to_us: Option<u16>,
     pub priorities: Option<Vec<Priority>>,

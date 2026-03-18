@@ -3569,7 +3569,7 @@ fn test_torrent_get_uploaded_ever_missing() -> Result<()> {
 // ----- upload_limit (uploadLimit, UploadLimit) --------------------
 
 #[test]
-fn test_torrent_get_uploaded_limit_success() -> Result<()> {
+fn test_torrent_get_upload_limit_success() -> Result<()> {
     let resp = serde_json::from_str(
         r#"
         {
@@ -3595,7 +3595,7 @@ fn test_torrent_get_uploaded_limit_success() -> Result<()> {
 }
 
 #[test]
-fn test_torrent_get_uploaded_limit_missing() -> Result<()> {
+fn test_torrent_get_upload_limit_missing() -> Result<()> {
     let resp = serde_json::from_str(torrent_get_only_id())?;
     test_torrent_get(
         resp,
@@ -3610,7 +3610,7 @@ fn test_torrent_get_uploaded_limit_missing() -> Result<()> {
 // ----- upload_limited (uploadLimited, UploadLimited) --------------------
 
 #[test]
-fn test_torrent_get_uploaded_limited_success() -> Result<()> {
+fn test_torrent_get_upload_limited_success() -> Result<()> {
     let resp = serde_json::from_str(
         r#"
         {
@@ -3636,7 +3636,7 @@ fn test_torrent_get_uploaded_limited_success() -> Result<()> {
 }
 
 #[test]
-fn test_torrent_get_uploaded_limited_missing() -> Result<()> {
+fn test_torrent_get_upload_limited_missing() -> Result<()> {
     let resp = serde_json::from_str(torrent_get_only_id())?;
     test_torrent_get(
         resp,
