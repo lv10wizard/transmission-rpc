@@ -1,3 +1,5 @@
+use std::fmt::{self, Display};
+
 use enum_iterator::all;
 use serde::{Serialize, Serializer};
 use serde_with::skip_serializing_none;
@@ -27,8 +29,6 @@ mod json_rpc_tests;
 mod session_set_serde_tests;
 #[cfg(test)]
 mod test_helper;
-#[cfg(test)]
-use test_helper::verify;
 
 /// Represents a transmission rpc method.
 #[derive(Debug)]
@@ -66,9 +66,12 @@ impl Serialize for RpcRequest {
                         // Cloning the request arguments shouldn't be too costly...
                         .clone()
                         .map(|args| args.into_compat()),
-                    // Always ask the rpc server for a response so that users can decide what they
-                    // want to do with it.
-                    id: Some(JsonRpcId::default()),
+                    id: self.tag
+                        // Try to use the provided tag, if one exists.
+                        .map(Into::into)
+                        // Always ask the rpc server for a response so that users can decide what
+                        // they want to do with it.
+                        .or_else(|| Some(JsonRpcId::default()))
                 }
                 .serialize(serializer)
             },
@@ -452,6 +455,12 @@ impl Serialize for Method {
         S: Serializer,
     {
         serializer.serialize_str(self.as_str())
+    }
+}
+
+impl Display for Method {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
 

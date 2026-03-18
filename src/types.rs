@@ -222,3 +222,9 @@ impl From<&i64> for Tag {
         Self(*value)
     }
 }
+
+impl Display for Tag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
