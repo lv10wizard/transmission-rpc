@@ -58,7 +58,8 @@ pub enum TorrentGetField {
     AddedDate,
     Availability,
     BandwidthPriority,
-    // TODO: BytesCompleted,
+    #[serde(rename = "bytes_completed")] // (?) Doesn't exist pre- semver-6.0.0
+    BytesCompleted,
     Comment,
     CorruptEver,
     Creator,
@@ -121,7 +122,8 @@ pub enum TorrentGetField {
     SeedRatioMode,
     #[serde(rename = "sequential_download")] // Doesn't exist pre- semver-6.0.0
     SequentialDownload,
-    // TODO: SequentialDownloadFromPiece,
+    #[serde(rename = "sequential_download_from_piece")] // Doesn't exist pre- semver-6.0.0
+    SequentialDownloadFromPiece,
     SizeWhenDone,
     StartDate,
     Status,
@@ -136,7 +138,8 @@ pub enum TorrentGetField {
     UploadLimited,
     Wanted,
     Webseeds,
-    // TODO: WebseedsEx,
+    #[serde(rename = "webseeds_ex")] // Doesn't exist pre- semver-6.1.0
+    WebseedsEx,
     WebseedsSendingToUs,
 }
 
@@ -253,6 +256,22 @@ mod serde_tests {
             [TorrentGetField::BandwidthPriority], [Id::Id(3)],
             Some(JSON_RPC_VERSION_2_0),
             ["bandwidth_priority"], [3])
+    }
+
+    #[test]
+    fn request_torrent_get_legacy_bytes_completed() -> Result<()> {
+        verify_fields(
+            [TorrentGetField::BytesCompleted], [Id::Id(3)],
+            None,
+            ["bytes_completed"], [3])
+    }
+
+    #[test]
+    fn request_torrent_get_semver_600_bytes_completed() -> Result<()> {
+        verify_fields(
+            [TorrentGetField::BytesCompleted], [Id::Id(3)],
+            Some(JSON_RPC_VERSION_2_0),
+            ["bytes_completed"], [3])
     }
 
     #[test]
@@ -1184,6 +1203,22 @@ mod serde_tests {
     }
 
     #[test]
+    fn request_torrent_get_legacy_sequential_download_from_piece() -> Result<()> {
+        verify_fields(
+            [TorrentGetField::SequentialDownloadFromPiece], [Id::Id(3)],
+            None,
+            ["sequential_download_from_piece"], [3])
+    }
+
+    #[test]
+    fn request_torrent_get_semver_600_sequential_download_from_piece() -> Result<()> {
+        verify_fields(
+            [TorrentGetField::SequentialDownloadFromPiece], [Id::Id(3)],
+            Some(JSON_RPC_VERSION_2_0),
+            ["sequential_download_from_piece"], [3])
+    }
+
+    #[test]
     fn request_torrent_get_legacy_size_when_done() -> Result<()> {
         verify_fields(
             [TorrentGetField::SizeWhenDone], [Id::Id(3)],
@@ -1405,6 +1440,22 @@ mod serde_tests {
             [TorrentGetField::Webseeds], [Id::Id(3)],
             Some(JSON_RPC_VERSION_2_0),
             ["webseeds"], [3])
+    }
+
+    #[test]
+    fn request_torrent_get_legacy_webseeds_ex() -> Result<()> {
+        verify_fields(
+            [TorrentGetField::WebseedsEx], [Id::Id(3)],
+            None,
+            ["webseeds_ex"], [3])
+    }
+
+    #[test]
+    fn request_torrent_get_semver_600_webseeds_ex() -> Result<()> {
+        verify_fields(
+            [TorrentGetField::WebseedsEx], [Id::Id(3)],
+            Some(JSON_RPC_VERSION_2_0),
+            ["webseeds_ex"], [3])
     }
 
     #[test]

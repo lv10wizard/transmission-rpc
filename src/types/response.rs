@@ -533,11 +533,16 @@ pub struct Torrent {
     /// "An array of `pieceCount` numbers representing the number of connected peers that have each
     /// piece, or -1 if we already have the piece ourselves."
     ///
-    /// Added in Transmission 4.0.0 (`rpc-version-semver`: 5.3.0, `rpc-version`: 17).
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver`: 5.3.0, `rpc-version`: 17).
     pub availability: Option<Vec<i16>>,
     #[serde(alias = "bandwidth_priority")]
     pub bandwidth_priority: Option<Priority>,
-    // TODO: bytes_completed: Option<Vec<u64>>,
+    /// "An array of `tr_info.filecount` numbers. Each is the completed bytes for the corresponding
+    /// file."
+    ///
+    /// > (?) Added in Transmission `4.1.0` (`rpc-version-semver` 6.0.0, `rpc-version`: 18).
+    #[serde(alias = "bytes_completed")]
+    pub bytes_completed: Option<Vec<u64>>,
     pub comment: Option<String>,
     #[serde(alias = "corrupt_ever")]
     pub corrupt_ever: Option<u64>,
@@ -647,7 +652,11 @@ pub struct Torrent {
     pub seed_ratio_mode: Option<RatioMode>,
     #[serde(alias = "sequential_download")]
     pub sequential_download: Option<bool>,
-    // TODO: sequential_download_from_piece: u64,
+    /// "download from a specific piece when sequential download is enabled"
+    ///
+    /// > Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
+    #[serde(rename = "sequential_download_from_piece")]
+    pub sequential_download_from_piece: Option<u64>,
     #[serde(alias = "size_when_done")]
     pub size_when_done: Option<i64>,
     #[serde(deserialize_with = "from_ts_option", default)]
@@ -678,8 +687,19 @@ pub struct Torrent {
     /// [`files`]: Torrent::files
     #[serde(deserialize_with = "from_arr_bool_option", default)]
     pub wanted: Option<Vec<bool>>,
+    /// A list of [webseed] urls.
+    ///
+    /// > **DEPRECATED** in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?)
+    ///
+    /// [webseed]: <https://www.bittorrent.org/beps/bep_0019.html>
     pub webseeds: Option<Vec<String>>,
-    // TODO: webseeds_ex: Option<Vec<WebseedsEx>>,
+    /// A list of [webseed] data.
+    ///
+    /// > Added in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?)
+    ///
+    /// [webseed]: <https://www.bittorrent.org/beps/bep_0019.html>
+    #[serde(rename = "webseed_ex")]
+    pub webseeds_ex: Option<Vec<WebseedsEx>>,
     #[serde(alias = "webseeds_sending_to_us")]
     pub webseeds_sending_to_us: Option<u16>,
     pub priorities: Option<Vec<Priority>>,
@@ -948,6 +968,17 @@ pub enum TrackerState {
     Waiting = 1,
     Queued = 2,
     Active = 3,
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")] // Added in semver-6.0.0.
+pub struct WebseedsEx {
+    /// The url to download from.
+    pub url: String,
+    /// Can be true even if speed is 0, e.g. slow download
+    pub is_downloading: bool,
+    /// Current download speed
+    pub download_bytes_per_second: u64,
 }
 
 #[derive(Deserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]

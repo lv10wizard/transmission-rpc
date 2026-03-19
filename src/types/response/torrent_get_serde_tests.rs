@@ -5,7 +5,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use chrono::DateTime;
 use serde_json;
 
-use crate::types::response::{TorrentStatus, TrackerState};
+use crate::types::response::{TorrentStatus, TrackerState, WebseedsEx};
 use crate::types::{
     ErrorType, Id, IdleMode, Priority, RatioMode, Result, RpcResponse, Torrent, Torrents,
 };
@@ -161,18 +161,13 @@ fn test_torrent_get_added_date_missing() -> Result<()> {
 // ----- availability (Availability) --------------------
 
 #[test]
-#[allow(unreachable_code)] // TODO: Remove when implemented
-#[ignore] // TODO: Remove when implemented
 fn test_torrent_get_availability_success() -> Result<()> {
-    todo!();
-
     let resp = serde_json::from_str(
-        // TODO: Need availability data
         r#"
         {
             "arguments": {
                 "torrents": [
-                    { "availability":[] }
+                    { "availability":[-1,0,1,2,3,10,-1] }
                 ]
             },
             "result":"success"
@@ -183,7 +178,7 @@ fn test_torrent_get_availability_success() -> Result<()> {
         resp,
         1,
         Box::new(|resp: &TorrentGetResp| {
-            assert_eq!(resp.arguments.torrents[0].availability, Some(vec![]),);
+            assert_eq!(resp.arguments.torrents[0].availability, Some(vec![-1,0,1,2,3,10,-1]));
             Ok(())
         }),
     )
@@ -205,7 +200,7 @@ fn test_torrent_get_availability_missing() -> Result<()> {
 // ----- bandwidth_priority (bandwidthPriority, BandwidthPriority) --------------------
 
 #[test]
-fn test_torrent_get_bandwidth_priority_low() -> Result<()> {
+fn test_torrent_get_bandwidth_priority() -> Result<()> {
     let resp = serde_json::from_str(
         r#"
         {
@@ -253,6 +248,59 @@ fn test_torrent_get_bandwidth_priority_missing() -> Result<()> {
         }),
     )
 }
+
+// ----- bytes_completed (BytesCompleted) --------------------
+
+#[test]
+fn test_torrent_get_bytes_completed() -> Result<()> {
+    let resp = serde_json::from_str(
+        r#"
+        {
+            "arguments": {
+                "torrents": [
+                    { "bytes_completed":[] },
+                    { "bytes_completed":[790626304] },
+                    { "bytes_completed":[1234,567890,443,8080] }
+                ]
+            },
+            "result":"success"
+        }
+        "#,
+    )?;
+    test_torrent_get(
+        resp,
+        3,
+        Box::new(|resp: &TorrentGetResp| {
+            assert_eq!(
+                resp.arguments.torrents[0].bytes_completed,
+                Some(vec![]),
+            );
+            assert_eq!(
+                resp.arguments.torrents[1].bytes_completed,
+                Some(vec![790626304]),
+            );
+            assert_eq!(
+                resp.arguments.torrents[2].bytes_completed,
+                Some(vec![1234,567890,443,8080]),
+            );
+            Ok(())
+        }),
+    )
+}
+
+#[test]
+fn test_torrent_get_bytes_completed_missing() -> Result<()> {
+    let resp = serde_json::from_str(torrent_get_only_id())?;
+    test_torrent_get(
+        resp,
+        EXPECTED_MISSING_LEN,
+        Box::new(|resp: &TorrentGetResp| {
+            assert_eq!(resp.arguments.torrents[0].bytes_completed, None);
+            Ok(())
+        }),
+    )
+}
+
 
 // ----- comment (Comment) --------------------
 
@@ -2954,8 +3002,8 @@ fn test_torrent_get_sequential_download_success() -> Result<()> {
         {
             "arguments": {
                 "torrents": [
-                    { "sequentialDownload":true },
-                    { "sequentialDownload":false }
+                    { "sequential_download":true },
+                    { "sequential_download":false }
                 ]
             },
             "result":"success"
@@ -2981,6 +3029,47 @@ fn test_torrent_get_sequential_download_missing() -> Result<()> {
         EXPECTED_MISSING_LEN,
         Box::new(|resp: &TorrentGetResp| {
             assert_eq!(resp.arguments.torrents[0].sequential_download, None);
+            Ok(())
+        }),
+    )
+}
+
+// ----- sequential_download_from_piece (SequentialDownloadFromPiece) --------------------
+
+#[test]
+fn test_torrent_get_sequential_download_from_piece_success() -> Result<()> {
+    let resp = serde_json::from_str(
+        r#"
+        {
+            "arguments": {
+                "torrents": [
+                    { "sequential_download_from_piece":234 },
+                    { "sequential_download_from_piece":9001 }
+                ]
+            },
+            "result":"success"
+        }
+        "#,
+    )?;
+    test_torrent_get(
+        resp,
+        2,
+        Box::new(|resp: &TorrentGetResp| {
+            assert_eq!(resp.arguments.torrents[0].sequential_download_from_piece, Some(234));
+            assert_eq!(resp.arguments.torrents[1].sequential_download_from_piece, Some(9001));
+            Ok(())
+        }),
+    )
+}
+
+#[test]
+fn test_torrent_get_sequential_download_from_piece_missing() -> Result<()> {
+    let resp = serde_json::from_str(torrent_get_only_id())?;
+    test_torrent_get(
+        resp,
+        EXPECTED_MISSING_LEN,
+        Box::new(|resp: &TorrentGetResp| {
+            assert_eq!(resp.arguments.torrents[0].sequential_download_from_piece, None);
             Ok(())
         }),
     )
@@ -3322,18 +3411,14 @@ fn test_torrent_get_trackers_missing() -> Result<()> {
 // ----- tracker_list (trackerList, TrackerList) --------------------
 
 #[test]
-#[allow(unreachable_code)] // TODO: Remove when implemented
-#[ignore] // TODO: Remove when implemented
 fn test_torrent_get_tracker_list_success() -> Result<()> {
-    todo!();
-
     let resp = serde_json::from_str(
-        // TODO: Need trackerList data
         r#"
         {
             "arguments": {
                 "torrents": [
-                    { "trackerList":"" }
+                    { "trackerList":"https://example.org/a\n\nhttp://example.org/b\n" },
+                    { "tracker_list":"http://bt1.archive.org:6969/announce\n\nhttp://bt2.archive.org:6969/announce\n" }
                 ]
             },
             "result":"success"
@@ -3342,9 +3427,16 @@ fn test_torrent_get_tracker_list_success() -> Result<()> {
     )?;
     test_torrent_get(
         resp,
-        1,
+        2,
         Box::new(|resp: &TorrentGetResp| {
-            assert_eq!(resp.arguments.torrents[0].tracker_list, Some("".into()));
+            assert_eq!(
+                resp.arguments.torrents[0].tracker_list,
+                Some("https://example.org/a\n\n\
+                    http://example.org/b\n".into()));
+            assert_eq!(
+                resp.arguments.torrents[1].tracker_list,
+                Some("http://bt1.archive.org:6969/announce\n\n\
+                    http://bt2.archive.org:6969/announce\n".into()));
             Ok(())
         }),
     )
@@ -3758,6 +3850,87 @@ fn test_torrent_get_webseeds_missing() -> Result<()> {
         EXPECTED_MISSING_LEN,
         Box::new(|resp: &TorrentGetResp| {
             assert_eq!(resp.arguments.torrents[0].webseeds, None);
+            Ok(())
+        }),
+    )
+}
+
+
+// ----- webseeds_ex (WebseedsEx) --------------------
+
+#[test]
+#[allow(unreachable_code)] // TODO: Remove when implemented
+#[ignore] // TODO: Remove when implemented
+fn test_torrent_get_webseeds_ex_success() -> Result<()> {
+    todo!(); // Need webseeds_ex data
+
+    let resp = serde_json::from_str(
+        r#"
+        {
+            "arguments": {
+                "torrents": [
+                    { "webseeds_ex":[] },
+                    { "webseeds_ex":[
+                        {
+                            "url":"https://example.com",
+                            "is_downloading":true,
+                            "download_bytes_per_second":0
+                        },
+                        {
+                            "url":"https://example.com/foo/lorem.png",
+                            "is_downloading":true,
+                            "download_bytes_per_second":12345
+                        },
+                        {
+                            "url":"https://example.com/foo/bar.iso",
+                            "is_downloading":false,
+                            "download_bytes_per_second":0
+                        }
+                    ] }
+                ]
+            },
+            "result":"success"
+        }
+        "#,
+    )?;
+    test_torrent_get(
+        resp,
+        2,
+        Box::new(|resp: &TorrentGetResp| {
+            assert_eq!(resp.arguments.torrents[0].webseeds_ex, Some(vec![]));
+            assert_eq!(
+                resp.arguments.torrents[1].webseeds_ex,
+                Some(vec![
+                    WebseedsEx {
+                        url: "https://example.com".into(),
+                        is_downloading: true,
+                        download_bytes_per_second: 0,
+                    },
+                    WebseedsEx {
+                        url: "https://example.com/foo/lorem.png".into(),
+                        is_downloading: true,
+                        download_bytes_per_second: 12345,
+                    },
+                    WebseedsEx {
+                        url: "https://example.com/foo/bar.iso".into(),
+                        is_downloading: false,
+                        download_bytes_per_second: 0,
+                    },
+                ])
+            );
+            Ok(())
+        }),
+    )
+}
+
+#[test]
+fn test_torrent_get_webseeds_ex_missing() -> Result<()> {
+    let resp = serde_json::from_str(torrent_get_only_id())?;
+    test_torrent_get(
+        resp,
+        EXPECTED_MISSING_LEN,
+        Box::new(|resp: &TorrentGetResp| {
+            assert_eq!(resp.arguments.torrents[0].webseeds_ex, None);
             Ok(())
         }),
     )

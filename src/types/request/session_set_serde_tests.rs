@@ -848,6 +848,28 @@ fn request_session_set_semver_600_sequential_download() -> Result<()> {
 }
 
 #[test]
+fn request_session_set_legacy_sequential_download_from_piece() -> Result<()> {
+    let session_set_args = SessionSetArgs {
+        sequential_download_from_piece: Some(321),
+        ..Default::default()
+    };
+    // `sequential_download_from_piece` only exists post- semver-6.0.0.
+    verify(session_set_args, None, "")
+}
+
+#[test]
+fn request_session_set_semver_600_sequential_download_from_piece() -> Result<()> {
+    let session_set_args = SessionSetArgs {
+        sequential_download_from_piece: Some(403),
+        ..Default::default()
+    };
+    verify(
+        session_set_args,
+        Some(JSON_RPC_VERSION_2_0),
+        "\"sequential_download_from_piece\":403")
+}
+
+#[test]
 fn request_session_set_legacy_speed_limit_down_enabled() -> Result<()> {
     let session_set_args = SessionSetArgs {
         speed_limit_down_enabled: Some(true),

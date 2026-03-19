@@ -154,7 +154,6 @@ pub struct TransClient {
     url: Url,
     auth: Option<BasicAuth>,
     session_id: Option<String>,
-    // TODO: refactor to a wrapper Client that handles both reqwest & jsonrpc clients
     client: Client,
     /// Stores the `X-Transmission-Rpc-Version` HTTP header value from the server if provided in
     /// the `409 Conflict` response. `semver` is used to flag that requests should be transformed

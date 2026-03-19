@@ -14,7 +14,7 @@ pub use self::request::{
 pub use self::response::{
     BlocklistUpdate, ErrorType, FreeSpace, GroupGet, Nothing, PortTest, RpcResponse,
     RpcResponseArgument, SessionGet, SessionStats, Torrent, TorrentAddedOrDuplicate,
-    TorrentRenamePath, TorrentStatus, Torrents, TrackerState,
+    TorrentRenamePath, TorrentStatus, Torrents, TrackerState, WebseedsEx,
 };
 
 /// [`Torrent`] field sub-type. You probably won't need to interact with this directly.
@@ -76,7 +76,7 @@ pub enum Encryption {
     ///
     /// > Renamed from "tolerated" to "allowed" in Transmission 4.1.0.
     #[serde(alias = "allowed")]
-    Tolerated, // TODO: FIXME: needs compat for pre-semver-6.0.0 (tolerated) and post- (allowed)
+    Tolerated,
 }
 
 // XXX: Is there a way to utilize the serde implementation?
