@@ -572,6 +572,12 @@ pub struct Torrent {
     pub eta: Option<i64>,
     #[serde(alias = "eta_idle")]
     pub eta_idle: Option<i64>,
+    #[serde(alias = "file-count")]
+    #[serde(alias = "file_count")]
+    pub file_count: Option<usize>,
+    pub files: Option<Vec<File>>,
+    #[serde(alias = "file_stats")]
+    pub file_stats: Option<Vec<FileStat>>,
     pub group: Option<String>,
     #[serde(alias = "hash_string")]
     pub hash_string: Option<String>,
@@ -630,6 +636,7 @@ pub struct Torrent {
     #[serde(alias = "primary-mime-type")]
     #[serde(alias = "primary_mime_type")]
     pub primary_mime_type: Option<String>,
+    pub priorities: Option<Vec<Priority>>,
     #[serde(alias = "queue_position")]
     pub queue_position: Option<usize>,
     #[serde(alias = "rate_download")]
@@ -680,7 +687,6 @@ pub struct Torrent {
     pub upload_limit: Option<u64>, // Can this be negative?
     #[serde(alias = "upload_limited")]
     pub upload_limited: Option<bool>,
-    pub files: Option<Vec<File>>,
     /// Each element represents whether the corresponding file in [`files`] will be downloaded
     /// (`true`) or not (`false`).
     ///
@@ -702,12 +708,6 @@ pub struct Torrent {
     pub webseeds_ex: Option<Vec<WebseedsEx>>,
     #[serde(alias = "webseeds_sending_to_us")]
     pub webseeds_sending_to_us: Option<u16>,
-    pub priorities: Option<Vec<Priority>>,
-    #[serde(alias = "file_stats")]
-    pub file_stats: Option<Vec<FileStat>>,
-    #[serde(alias = "file-count")]
-    #[serde(alias = "file_count")]
-    pub file_count: Option<usize>,
 }
 
 fn from_ts_option<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
@@ -882,18 +882,31 @@ pub struct Peer {
 #[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PeersFrom {
+    /// Peers found in the .resume file.
     #[serde(alias = "from_cache")]
     pub from_cache: u16,
+    /// Peers found from the [DHT].
+    ///
+    /// [DHT]: <https://wikipedia.org/wiki/Distributed_hash_table>
     #[serde(alias = "from_dht")]
     pub from_dht: u16,
+    /// Connections made to the listening port.
     #[serde(alias = "from_incoming")]
     pub from_incoming: u16,
+    /// Peers found by local announcements.
     #[serde(alias = "from_lpd")]
     pub from_lpd: u16,
+    /// Peer address provided in an [LTEP] handshake.
+    ///
+    /// [LTEP]: <https://www.bittorrent.org/beps/bep_0010.html>
     #[serde(alias = "from_ltep")]
     pub from_ltep: u16,
+    /// Peers found from [PEX].
+    ///
+    /// [PEX]: <https://wikipedia.org/wiki/Peer_exchange>
     #[serde(alias = "from_pex")]
     pub from_pex: u16,
+    /// Peers found from a tracker.
     #[serde(alias = "from_tracker")]
     pub from_tracker: u16,
 }
@@ -901,9 +914,9 @@ pub struct PeersFrom {
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackerStat {
+    pub announce: String,
     #[serde(alias = "announce_state")]
     pub announce_state: TrackerState,
-    pub announce: String,
     #[serde(alias = "download_count")]
     pub download_count: i64,
     #[serde(alias = "has_announced")]
@@ -911,7 +924,7 @@ pub struct TrackerStat {
     #[serde(alias = "has_scraped")]
     pub has_scraped: bool,
     pub host: String,
-    pub id: Id,
+    pub id: Id, // TODO: change to u32 (or maybe u64) - this is not the same as `Id`!
     #[serde(alias = "is_backup")]
     pub is_backup: bool,
     #[serde(alias = "last_announce_peer_count")]
