@@ -36,7 +36,14 @@ pub struct BasicAuth {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(untagged)]
 pub enum Id {
+    /// A unique numeric identifier of a torrent. Note that integer torrent ids are not stable
+    /// across Transmission daemon restarts. Use [torrent hashes] if you need stable ids.
+    ///
+    /// [torrent hashes]: Torrent::hash_string
     Id(i64),
+    /// A unique [SHA1] hash string identifier of a torrent.
+    ///
+    /// [SHA1]: <https://en.wikipedia.org/wiki/SHA-1>
     Hash(String),
 }
 
@@ -51,16 +58,22 @@ pub enum Priority {
 #[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(i8)]
 pub enum IdleMode {
+    /// Follow the global settings.
     Global = 0,
+    /// Override the global settings, seeding until a certain idle time.
     Single = 1,
+    /// Override the global settings, seeding regardless of activity.
     Unlimited = 2,
 }
 
 #[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(i8)]
 pub enum RatioMode {
+    /// Follow the global settings.
     Global = 0,
+    /// Override the global settings, seeding until a certain ratio.
     Single = 1,
+    /// Override the global settings, seeding regardless of ratio.
     Unlimited = 2,
 }
 
@@ -204,7 +217,7 @@ impl Display for Transport {
     }
 }
 
-/// Represents an arbitrary `tag` number used by clients to track responses. <sup>[1][2]</sup>
+/// Represents an arbitrary `tag` number used by clients to track responses. <sup>[[1]][[2]]</sup>
 ///
 /// [1]: <https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md#21-requests>
 /// [2]: <https://github.com/transmission/transmission/blob/4.0.6/libtransmission/rpcimpl.cc#L2520>
