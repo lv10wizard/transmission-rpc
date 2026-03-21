@@ -117,7 +117,7 @@ pub struct SessionGet {
     /// <https://github.com/transmission/transmission/blob/main/docs/Blocklists.md>
     #[serde(alias = "blocklist_enabled")]
     pub blocklist_enabled: Option<bool>,
-    /// Number of rules in the [blocklist].
+    /// Number of rules in the [blocklists].
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     ///
@@ -138,8 +138,8 @@ pub struct SessionGet {
     /// > 6.0.0,, `rpc-version`: 18)
     ///
     /// > ⚠ **DEPRECATED** in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?):
-    /// `cache_size_mib`. The memory cache is being removed, making this setting moot. The setting
-    /// will still be gettable and settable via RPC session_get and session_set until Transmission
+    /// The memory cache is being removed, making this setting moot. The setting will still be
+    /// gettable and settable via RPC session_get and session_set until Transmission
     /// 5.0.0 to avoid client breakage, but it will be otherwise unused in libtransmission. Clients
     ///   should stop using this key.
     #[serde(alias = "cache_size_mib")]
@@ -860,6 +860,8 @@ pub struct Torrent {
     /// How [`seed_ratio_limit`] is treated for this torrent.
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    ///
+    /// [`seed_ratio_limit`]: Self::seed_ratio_limit
     #[serde(alias = "seed_ratio_mode")]
     pub seed_ratio_mode: Option<RatioMode>,
     /// Whether the torrent's [`pieces`] are downloaded sequentially.
@@ -954,7 +956,7 @@ pub struct Torrent {
     pub webseeds_ex: Option<Vec<WebseedsEx>>,
     /// Number of [webseeds] that are sending data to us.
     ///
-    /// [webseed]: <https://www.bittorrent.org/beps/bep_0019.html>
+    /// [webseeds]: <https://www.bittorrent.org/beps/bep_0019.html>
     #[serde(alias = "webseeds_sending_to_us")]
     pub webseeds_sending_to_us: Option<u16>,
 }

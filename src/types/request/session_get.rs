@@ -82,12 +82,21 @@ pub enum SessionGetField {
     BlocklistEnabled,
     BlocklistSize,
     BlocklistUrl,
+    /// > ⚠ **DEPRECATED** in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?):
+    /// The memory cache is being removed, making this setting moot. The setting will still be
+    /// gettable and settable via RPC session_get and session_set until Transmission
+    /// 5.0.0 to avoid client breakage, but it will be otherwise unused in libtransmission. Clients
+    ///   should stop using this key.
     #[compat(name = CacheSizeMib)]
     CacheSizeMb,
     ConfigDir,
     DefaultTrackers,
     DhtEnabled,
     DownloadDir,
+    /// > ⚠ **DEPRECATED** in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17):
+    /// Use [`free_space`] instead.
+    ///
+    /// [`free_space`]: crate::TransClient::free_space
     DownloadDirFreeSpace,
     DownloadQueueEnabled,
     DownloadQueueSize,
@@ -108,8 +117,16 @@ pub enum SessionGetField {
     QueueStalledMinutes,
     RenamePartialFiles,
     Reqq,
+    /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
+    /// Use [`RpcVersionSemver`] instead.
+    ///
+    /// [`RpcVersionSemver`]: Self::RpcVersionSemver
     RpcVersionMinimum,
     RpcVersionSemver,
+    /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
+    /// Use [`RpcVersionSemver`] instead.
+    ///
+    /// [`RpcVersionSemver`]: Self::RpcVersionSemver
     RpcVersion,
     ScriptTorrentAddedEnabled,
     ScriptTorrentAddedFilename,
@@ -133,6 +150,10 @@ pub enum SessionGetField {
     StartAddedTorrents,
     TrashOriginalTorrentFiles,
     Units,
+    /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
+    /// Use [`PreferredTransports`] instead.
+    ///
+    /// [`PreferredTransports`]: Self::PreferredTransports
     UtpEnabled,
     Version,
 }

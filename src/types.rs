@@ -87,7 +87,7 @@ pub enum Encryption {
     Preferred,
     /// Prefer unencrypted peer connections.
     ///
-    /// > Renamed from "tolerated" to "allowed" in Transmission 4.1.0.
+    /// > Renamed from `tolerated` to `allowed` in Transmission 4.1.0.
     #[serde(alias = "allowed")]
     Tolerated,
 }

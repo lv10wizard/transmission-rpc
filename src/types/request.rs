@@ -623,109 +623,258 @@ pub struct GroupSetArgs {
 #[derive(GenerateCompat, Serialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct SessionSetArgs {
-    pub alt_speed_down: Option<i32>,
+    /// Max global download speed (kB/s).
+    pub alt_speed_down: Option<i32>, // TODO? u64
+    /// True means use the alt speeds.
     pub alt_speed_enabled: Option<bool>,
-    pub alt_speed_time_begin: Option<i32>,
+    /// When to turn on alt speeds (units: minutes after midnight).
+    pub alt_speed_time_begin: Option<i32>, // TODO? u32 (maybe u16? 60*24 = 1440 minutes in a day)
+    /// What day(s) to turn on alt speeds.
     pub alt_speed_time_day: Option<AltSpeedDay>,
+    /// True means the scheduled on/off times are used.
     pub alt_speed_time_enabled: Option<bool>,
-    pub alt_speed_time_end: Option<i32>,
-    pub alt_speed_up: Option<i32>,
+    /// When to turn off alt speeds (units: minutes after midnight).
+    pub alt_speed_time_end: Option<i32>, // TODO? (same type as alt_speed_time_begin)
+    /// Max global upload speed (kB/s).
+    pub alt_speed_up: Option<i32>, // TODO? u64
 
-    /// "Enable a very basic brute force protection for the RPC server. See
-    ///  [anti_brute_force_threshold] below."
+    /// Enable a very basic brute force protection for the RPC server. See
+    /// [`anti_brute_force_threshold`] below.
     ///
     /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
     ///
-    /// [anti_brute_force_threshold]: Self::anti_brute_force_threshold
+    /// [`anti_brute_force_threshold`]: Self::anti_brute_force_threshold
     #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
     pub anti_brute_force_enabled: Option<bool>,
 
-    /// "After this amount of failed authentication attempts is surpassed, the RPC server will deny
-    ///  any further authentication attempts until it is restarted. This is not tracked per IP but
-    ///  in total."
+    /// After this amount of failed authentication attempts is surpassed, the RPC server will deny
+    /// any further authentication attempts until it is restarted. This is not tracked per IP but
+    /// in total.
     ///
     /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
     #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
-    pub anti_brute_force_threshold: Option<i32>,
+    pub anti_brute_force_threshold: Option<i32>, // TODO? u64
 
+    /// True means block peers based on [`blocklist_url`]. See also: [blocklists.md].
+    ///
+    /// [`blocklist_url`]: Self::blocklist_url
+    /// [blocklists.md]:
+    /// <https://github.com/transmission/transmission/blob/main/docs/Blocklists.md>
     pub blocklist_enabled: Option<bool>,
+    /// Location of the blocklist to use. See: [blocklists.md].
+    ///
+    /// [blocklists.md]:
+    /// <https://github.com/transmission/transmission/blob/main/docs/Blocklists.md>
     pub blocklist_url: Option<String>,
 
-    /// "Number in MiB to allocate for Transmission's memory cache. The cache is used to help batch
-    ///  disk IO together, so increasing the cache size can be used to reduce the number of disk
-    ///  reads and writes. The value is the total available to the Transmission instance. Set it to
-    ///  the smallest value tolerable by the random access performance of your storage medium to
-    ///  minimize data loss in case Transmission quit unexpectedly. Setting this to 0 bypasses the
-    ///  cache, which may be useful if your filesystem already has a cache layer that aggregates
-    ///  transactions. Pieces are guaranteed to be written to filesystem if sequential download is
-    ///  enabled. Otherwise, data might still be in cache only."
+    /// Number in MiB to allocate for Transmission's memory cache. The cache is used to help batch
+    /// disk IO together, so increasing the cache size can be used to reduce the number of disk
+    /// reads and writes. The value is the total available to the Transmission instance. Set it to
+    /// the smallest value tolerable by the random access performance of your storage medium to
+    /// minimize data loss in case Transmission quit unexpectedly. Setting this to 0 bypasses the
+    /// cache, which may be useful if your filesystem already has a cache layer that aggregates
+    /// transactions. Pieces are guaranteed to be written to filesystem if sequential download is
+    /// enabled. Otherwise, data might still be in cache only.
     ///
-    /// > ⚠ Deprecated in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?)
+    /// > ⚠ **DEPRECATED** in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?):
+    /// The memory cache is being removed, making this setting moot. The setting will still be
+    /// gettable and settable via RPC `session_get` and `session_set` until Transmission 5.0.0 to
+    /// avoid client breakage, but it will be otherwise unused in libtransmission. Clients should
+    /// stop using this key.
     #[compat(name = cache_size_mib)]
     pub cache_size_mb: Option<i32>,
 
+    /// Announce URLs, one per line, and a blank line between [tiers].
+    ///
+    /// eg. `"http://bt1.archive.org:6969/announce\n\nhttp://bt2.archive.org:6969/announce\n"`
+    /// 
+    /// [tiers]: <https://www.bittorrent.org/beps/bep_0012.html>
     pub default_trackers: Option<String>,
+    /// True means allow [Distrubted Hash Table] in public torrents.
+    ///
+    /// [Distrubted Hash Table]: <https://wikipedia.org/wiki/Distributed_hash_table>
     pub dht_enabled: Option<bool>,
+    /// Default path to download torrents.
     pub download_dir: Option<String>,
+    /// If true, limit how many torrents can be downloaded at once.
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
     pub download_queue_enabled: Option<bool>,
-    pub download_queue_size: Option<i32>,
+    /// Max number of torrents to download at once (see [`download_queue_enabled`])
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    ///
+    /// [`download_queue_enabled`]: Self::download_queue_enabled
+    pub download_queue_size: Option<i32>, // TODO? u64
+    /// Encryption preference. Encryption may help get around some ISP filtering, but at the cost
+    /// of slightly higher CPU use.
     #[compat(type = Option<EncryptionCompat>, map = Option::map)]
     pub encryption: Option<Encryption>,
+    /// Torrents we're seeding will be stopped if they're idle for this long.
+    ///
+    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
+    pub idle_seeding_limit: Option<i32>, // TODO? u64
+    /// True if the [seeding inactivity limit] is honored by default.
+    ///
+    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
+    ///
+    /// [seeding inactivity limit]: Self::idle_seeding_limit
     pub idle_seeding_limit_enabled: Option<bool>,
-    pub idle_seeding_limit: Option<i32>,
-    pub incomplete_dir_enabled: Option<bool>,
+    /// Path for incomplete torrents, when enabled.
     pub incomplete_dir: Option<String>,
+    /// True means keep torrents in [`incomplete_dir`] until done.
+    ///
+    /// [`incomplete_dir`]: Self::incomplete_dir
+    pub incomplete_dir_enabled: Option<bool>,
+    /// True means allow [Local Peer Discovery] in public torrents.
+    ///
+    /// [Local Peer Discovery]: <https://en.wikipedia.org/wiki/Local_Peer_Discovery>
     pub lpd_enabled: Option<bool>,
-    pub peer_limit_global: Option<i32>,
-    pub peer_limit_per_torrent: Option<i32>,
+    /// Maximum global number of peers.
+    pub peer_limit_global: Option<i32>, // TODO? u64? u32? u16?
+    /// Maximum number of peers per torrent.
+    pub peer_limit_per_torrent: Option<i32>, // TODO? u64? u32? u16?
+    /// True means pick a random peer port on launch.
     pub peer_port_random_on_start: Option<bool>,
+    /// The daemon's port number.
     pub peer_port: Option<u16>,
+    /// True means allow [Peer Exchange] in public torrents.
+    ///
+    /// [Peer Exchange]: <https://wikipedia.org/wiki/Peer_exchange>
     pub pex_enabled: Option<bool>,
+    /// True means ask upstream router to forward the configured peer port to transmission using
+    /// [UPnP] or [NAT-PMP].
+    ///
+    /// [UPnP]: <https://en.wikipedia.org/wiki/Universal_Plug_and_Play>
+    /// [NAT-PMP]: <https://en.wikipedia.org/wiki/NAT_Port_Mapping_Protocol>
     pub port_forwarding_enabled: Option<bool>,
 
-    /// "List your preference of transport protocols in the order of preferred-first. Omitting the
-    ///  transport protocol from the list will disable it. *Note: Never disable TCP when you also
-    ///  disable µTP, because then your client would not be able to communicate. Disabling TCP
-    ///  might also break webseeds.*"
+    /// List your preference of transport protocols in the order of preferred-first. Omitting the
+    /// transport protocol from the list will disable it. *Note: Never disable TCP when you also
+    /// disable µTP, because then your client would not be able to communicate. Disabling TCP might
+    /// also break webseeds.*
     ///
     ///  > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
     #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
     pub preferred_transports: Option<Vec<Transport>>,
 
+    /// Whether or not to consider [idle torrents as stalled].
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    ///
+    /// [idle torrents as stalled]: Self::queue_stalled_minutes
     pub queue_stalled_enabled: Option<bool>,
-    pub queue_stalled_minutes: Option<i32>,
+    /// Torrents that are idle for N minuets aren't counted toward [`seed_queue_size`] or
+    /// [`download_queue_size`].
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    ///
+    /// [`seed_queue_size`]: Self::seed_queue_size
+    /// [`download_queue_size`]: Self::download_queue_size
+    pub queue_stalled_minutes: Option<i32>, // TODO? u64
+    /// True means append `.part` to incomplete files.
+    ///
+    /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
     pub rename_partial_files: Option<bool>,
-    pub reqq: Option<i32>,
+    /// The number of outstanding block requests a peer is allowed to queue in the client. The
+    /// higher this number, the higher the max possible upload speed towards each peer.
+    ///
+    /// > (?) Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18) [in
+    /// [transmission:62240393e]]
+    ///
+    /// [transmission:62240393e]:
+    /// <https://github.com/transmission/transmission/commit/62240393ed056099a6a2ee60d778ac19928ef451>
+    pub reqq: Option<i32>, // TODO? u64
+    /// Run a script when a torrent is added to Transmission. See: [scripts.md].
+    ///
+    /// [scripts.md]: <https://github.com/transmission/transmission/blob/main/docs/Scripts.md>
     pub script_torrent_added_enabled: Option<bool>,
+    /// Path to script.
     pub script_torrent_added_filename: Option<String>,
+    /// Run a script when a torrent is done downloading. See: [scripts.md].
+    ///
+    /// [scripts.md]: <https://github.com/transmission/transmission/blob/main/docs/Scripts.md>
     pub script_torrent_done_enabled: Option<bool>,
+    /// Path to script.
     pub script_torrent_done_filename: Option<String>,
+    /// Run a script when a torrent is done seeding. See: [scripts.md].
+    ///
+    /// > (?) Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17) [in
+    /// [transmission:9f9b6cdaa]]
+    ///
+    /// [scripts.md]: <https://github.com/transmission/transmission/blob/main/docs/Scripts.md>
+    /// [transmission:9f9b6cdaa]:
+    /// <https://github.com/transmission/transmission/commit/9f9b6cdaa2e02727ee62b0f63a34d297e2246650>
     pub script_torrent_done_seeding_enabled: Option<bool>,
+    /// Path to script.
+    ///
+    /// > (?) Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17) [in
+    /// [transmission:9f9b6cdaa]]
+    ///
+    /// [transmission:9f9b6cdaa]:
+    /// <https://github.com/transmission/transmission/commit/9f9b6cdaa2e02727ee62b0f63a34d297e2246650>
     pub script_torrent_done_seeding_filename: Option<String>,
+    /// When true, Transmission will only seed [`seed_queue_size`] non-stalled torrents at once.
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    ///
+    /// [`seed_queue_size`]: Self::seed_queue_size
     pub seed_queue_enabled: Option<bool>,
-    pub seed_queue_size: Option<i32>,
+    /// Max number of torrents to uploaded at once (see [`seed_queue_enabled`]).
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    ///
+    /// [`seed_queue_enabled`]: Self::seed_queue_enabled
+    pub seed_queue_size: Option<i32>, // TODO? u64
+    /// The default seed ratio for torrents to use.
     #[serde(rename = "seedRatioLimit")]
     pub seed_ratio_limit: Option<f32>,
+    /// True if [`seed_ratio_limit`] is honored by default.
+    ///
+    /// [`seed_ratio_limit`]: Self::seed_ratio_limit
     #[serde(rename = "seedRatioLimited")]
     pub seed_ratio_limited: Option<bool>,
 
-    /// "true means sequential download is enabled by default for added torrents"
+    /// True means sequential download is enabled by default for added torrents.
     ///
     /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
     #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
     pub sequential_download: Option<bool>,
-    /// "download from a specific piece when sequential download is enabled"
+    /// Download from a specific piece when [sequential download] is enabled.
     ///
     /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
+    ///
+    /// [sequential download]: Self::sequential_download
     #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
     pub sequential_download_from_piece: Option<u64>,
 
+    /// Max global download speed (kB/s).
+    pub speed_limit_down: Option<i32>, // TODO? u64
+    /// Whether [`speed_limit_down`] is respected.
+    ///
+    /// [`speed_limit_down`]: Self::speed_limit_down
     pub speed_limit_down_enabled: Option<bool>,
-    pub speed_limit_down: Option<i32>,
-    pub speed_limit_up_enabled: Option<bool>,
+    /// Max global upload speed (kB/s).
     pub speed_limit_up: Option<i32>,
+    /// Whether [`speed_limit_up`] is respected.
+    ///
+    /// [`speed_limit_up`]: Self::speed_limit_up
+    pub speed_limit_up_enabled: Option<bool>,
+    /// Start torrents as soon as they are added.
+    ///
+    /// > Added in Transmission 2.00 (`rpc-version-semver` 3.3.0, `rpc-version`: 9)
     pub start_added_torrents: Option<bool>,
+    /// Delete torrents added from the watch directory.
+    ///
+    /// > Added in Transmission 2.00 (`rpc-version-semver` 3.3.0, `rpc-version`: 9)
     pub trash_original_torrent_files: Option<bool>,
+    /// True means allow [uTP].
+    ///
+    /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
+    /// Use [`preferred_transports`] instead.
+    ///
+    /// [uTP]: <https://wikipedia.org/wiki/Micro_Transport_Protocol>
+    /// [`preferred_transports`]: Self::preferred_transports
     pub utp_enabled: Option<bool>,
 }
 
