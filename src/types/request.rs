@@ -995,18 +995,6 @@ impl TorrentAction {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
-pub struct TrackerList(pub Vec<String>);
-
-impl Serialize for TrackerList {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.0.join("\n").serialize(serializer)
-    }
-}
-
 #[cfg(test)]
 mod serde_tests {
     use crate::types::{JSON_RPC_VERSION_2_0, Result};

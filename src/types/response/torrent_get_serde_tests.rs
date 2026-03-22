@@ -4,6 +4,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use chrono::DateTime;
 use serde_json;
+use url::Url;
 
 use crate::types::response::{TorrentStatus, TrackerState, WebseedsEx};
 use crate::types::{
@@ -3824,12 +3825,16 @@ fn test_torrent_get_tracker_list_success() -> Result<()> {
         |resp| {
             assert_eq!(
                 resp.arguments.torrents[0].tracker_list,
-                Some("https://example.org/a\n\n\
-                    http://example.org/b\n".into()));
+                Some(vec![
+                    vec![Url::parse("https://example.org/a")?],
+                    vec![Url::parse("http://example.org/b")?],
+                ].into()));
             assert_eq!(
                 resp.arguments.torrents[1].tracker_list,
-                Some("http://bt1.archive.org:6969/announce\n\n\
-                    http://bt2.archive.org:6969/announce\n".into()));
+                Some(vec![
+                    vec![Url::parse("http://bt1.archive.org:6969/announce")?],
+                    vec![Url::parse("http://bt2.archive.org:6969/announce")?],
+                ].into()));
             Ok(())
         },
     )

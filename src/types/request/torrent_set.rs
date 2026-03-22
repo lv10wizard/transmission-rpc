@@ -1,9 +1,7 @@
 use compat_macros::GenerateCompat;
 use serde::Serialize;
 
-use crate::types::{Id, IdleMode, Priority, RatioMode};
-
-use super::TrackerList;
+use crate::types::{Id, IdleMode, Priority, RatioMode, TrackerList};
 
 /// Defines request arguments for the [`torrent_set`] method.
 ///
@@ -84,7 +82,7 @@ use super::TrackerList;
 /// ```
 ///
 /// [`torrent_set`]: crate::TransClient::torrent_set
-/// [`Trackers::id`]: super::Trackers::id
+/// [`Trackers::id`]: crate::types::Trackers::id
 #[derive(GenerateCompat, Serialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TorrentSetArgs {
@@ -372,6 +370,8 @@ mod tests {
 
 #[cfg(test)]
 mod serde_tests {
+    use url::Url;
+
     use crate::types::{JSON_RPC_VERSION_2_0, Result, request::test_helper::verify};
     use super::*;
 
@@ -676,30 +676,39 @@ mod serde_tests {
         verify(args, Some(JSON_RPC_VERSION_2_0), "\"tracker_add\":[]")
     }
 
-    /* TODO: tracker_list tests
     #[test]
     fn request_torrent_set_legacy_tracker_list() -> Result<()> {
         let args = TorrentSetArgs::new()
-            // FIXME: tiers, trailing '\n'
-            .tracker_list(TrackerList(vec![
-                "https://a.example.org:1111/foo".into(),
-                "https://b.example.org:6012/bar".into(),
-            ]));
+            .tracker_list(vec![
+                vec![Url::parse("http://bt1.archive.org:6969/announce")?],
+                vec![Url::parse("http://bt2.archive.org:6969/announce")?],
+            ].into());
         verify(args, None, 
             "\"trackerList\":\"\
-                \"https://a.example.org:1111/foo\"\n\
-                \"https://b.example.org:6012/bar\"\n\
+                http://bt1.archive.org:6969/announce\\n\
+                \\n\
+                http://bt2.archive.org:6969/announce\\n\
             \"")
     }
 
     #[test]
     fn request_torrent_set_semver_600_tracker_list() -> Result<()> {
         let args = TorrentSetArgs::new()
-            // FIXME: tiers, trailing '\n'
-            .tracker_list(TrackerList(vec![]));
-        verify(args, Some(JSON_RPC_VERSION_2_0), "\"tracker_list\":\"\n\"")
+            .tracker_list(vec![
+                vec![
+                    Url::parse("https://foo.example.com:1001")?,
+                    Url::parse("https://bar.example.com:1002")?,
+                ],
+                vec![Url::parse("http://backup.example.com/announce")?],
+            ].into());
+        verify(args, Some(JSON_RPC_VERSION_2_0),
+            "\"tracker_list\":\"\
+                https://foo.example.com:1001/\\n\
+                https://bar.example.com:1002/\\n\
+                \\n\
+                http://backup.example.com/announce\\n\
+            \"")
     }
-    */
 
     /* TODO: tracker_remove tests
     #[test]

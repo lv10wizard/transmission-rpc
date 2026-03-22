@@ -8,7 +8,9 @@ use serde::de::{Deserializer, Error as _};
 use serde_json::Value;
 use serde_repr::*;
 
-use super::{AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag, Transport};
+use super::{
+    AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag, TrackerList, Transport,
+};
 use crate::json_rpc::{JsonRpcResponse, JsonRpcResult};
 
 #[cfg(test)]
@@ -916,7 +918,7 @@ pub struct Torrent {
     ///
     /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
     #[serde(alias = "tracker_list")]
-    pub tracker_list: Option<String>,
+    pub tracker_list: Option<TrackerList>,
     /// Array of the torrent's tracker data. This information is a superset of [`trackers`].
     ///
     /// [`trackers`]: Self::trackers

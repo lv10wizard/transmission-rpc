@@ -8,7 +8,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 pub(crate) use self::request::{RpcRequest, SessionGetArgs};
 pub use self::request::{
     ArgumentFields, GroupSetArgs, SessionGetField, SessionSetArgs, TorrentAction, TorrentAddArgs,
-    TorrentGetField, TorrentRenamePathArgs, TorrentSetArgs, TrackerList,
+    TorrentGetField, TorrentRenamePathArgs, TorrentSetArgs,
 };
 
 pub use self::response::{
@@ -20,8 +20,11 @@ pub use self::response::{
 /// [`Torrent`] field sub-type. You probably won't need to interact with this directly.
 pub use self::response::{File, FileStat, Peer, PeersFrom, TrackerStat, Trackers};
 
+pub use self::tracker::{TrackerList, TrackerTier};
+
 mod request;
 mod response;
+mod tracker;
 
 pub(crate) const JSON_RPC_VERSION_2_0: &'static str = "2.0";
 
