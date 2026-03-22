@@ -84,6 +84,10 @@ impl TorrentSetArgs {
         self.sequential_download = Some(sequential_download);
         self
     }
+    pub fn sequential_download_from_piece(mut self, piece: u64) -> Self {
+        self.sequential_download_from_piece = Some(piece);
+        self
+    }
     pub fn tracker_add(mut self, tracker_add: Vec<String>) -> Self {
         self.tracker_add = Some(tracker_add);
         self

@@ -1141,6 +1141,13 @@ pub struct TorrentSetArgs {
     pub seed_ratio_mode: Option<RatioMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sequential_download: Option<bool>,
+    /// Download from a specific piece when [sequential download] is enabled.
+    ///
+    /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
+    ///
+    /// [sequential download]: Self::sequential_download
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sequential_download_from_piece: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tracker_add: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
