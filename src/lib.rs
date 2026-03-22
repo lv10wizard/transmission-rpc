@@ -104,7 +104,6 @@
 //!
 //! [`HashMap`]: std::collections::HashMap
 //! [`HashSet`]: std::collections::HashSet
-//! [`OrderedFloat`]: https://docs.rs/ordered-float/latest/ordered_float/struct.OrderedFloat.html
 
 #[macro_use]
 extern crate log;

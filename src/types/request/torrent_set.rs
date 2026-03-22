@@ -73,7 +73,6 @@ impl TorrentSetArgs {
         self
     }
     pub fn seed_ratio_limit(mut self, seed_ratio_limit: f64) -> Self {
-        // Coerce into OrderedFloat if hashable-request is enabled.
         self.seed_ratio_limit = Some(seed_ratio_limit.into());
         self
     }
