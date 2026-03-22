@@ -37,6 +37,7 @@ where
 
         // JSON-RPC (post- semver-6.0.0) request.
         Some(version) => {
+            // semver 6.0.0+ strings should be snake_case.
             let method = method
                 .as_str()
                 .replace("-", "_");

@@ -301,7 +301,7 @@ impl RpcRequest {
     pub fn torrent_set_location<I>(
         ids: I,
         location: String,
-        move_from: Option<bool>,
+        move_from: Option<bool>, // TODO: refactor! Option<_> -> bool
         tag: Option<Tag>,
     ) -> RpcRequest
     where
@@ -535,6 +535,7 @@ pub struct FreeSpaceArgs {
 
 #[derive(GenerateCompat, Serialize, Debug, Clone)]
 pub(crate) struct GroupGetArgs {
+    #[serde(skip_serializing_if = "Option::is_none")]
     groups: Option<Vec<String>>,
 }
 
@@ -912,7 +913,7 @@ pub struct TorrentSetLocationArgs {
     ids: Vec<Id>,
     location: String,
     #[serde(skip_serializing_if = "Option::is_none", rename = "move")]
-    move_from: Option<bool>,
+    move_from: Option<bool>, // TODO: refactor! Option<_> -> bool
 }
 
 #[derive(GenerateCompat, Serialize, Debug, Clone)]
@@ -1153,4 +1154,216 @@ pub struct TorrentSetArgs {
     pub upload_limit: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub upload_limited: Option<bool>,
+}
+
+#[cfg(test)]
+mod serde_tests {
+    use crate::types::{JSON_RPC_VERSION_2_0, Result};
+    use super::{*, test_helper::verify};
+
+    #[test]
+    fn request_free_space_legacy() -> Result<()> {
+        let args = FreeSpaceArgs { path: "/downloads".into() };
+        verify(args, None, "\"path\":\"/downloads\"")
+    }
+
+    #[test]
+    fn request_free_space_semver_600() -> Result<()> {
+        let args = FreeSpaceArgs { path: "/foo/bar".into() };
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"path\":\"/foo/bar\"")
+    }
+
+    #[test]
+    fn request_queue_move_top_legacy() -> Result<()> {
+        let req = RpcRequest::queue_move_top([Id::Id(123)], None);
+        verify(req, None, "\"ids\":[123]")
+    }
+
+    #[test]
+    fn request_queue_move_top_semver_600() -> Result<()> {
+        let req = RpcRequest::queue_move_top([Id::Id(654)], None);
+        verify(req, Some(JSON_RPC_VERSION_2_0), "\"ids\":[654]")
+    }
+
+    #[test]
+    fn request_queue_move_up_legacy() -> Result<()> {
+        let req = RpcRequest::queue_move_up([Id::Id(123)], None);
+        verify(req, None, "\"ids\":[123]")
+    }
+
+    #[test]
+    fn request_queue_move_up_semver_600() -> Result<()> {
+        let req = RpcRequest::queue_move_up([Id::Id(654)], None);
+        verify(req, Some(JSON_RPC_VERSION_2_0), "\"ids\":[654]")
+    }
+
+    #[test]
+    fn request_queue_move_down_legacy() -> Result<()> {
+        let req = RpcRequest::queue_move_down([Id::Id(123)], None);
+        verify(req, None, "\"ids\":[123]")
+    }
+
+    #[test]
+    fn request_queue_move_down_semver_600() -> Result<()> {
+        let req = RpcRequest::queue_move_down([Id::Id(654)], None);
+        verify(req, Some(JSON_RPC_VERSION_2_0), "\"ids\":[654]")
+    }
+
+    #[test]
+    fn request_queue_move_bottom_legacy() -> Result<()> {
+        let req = RpcRequest::queue_move_bottom([Id::Id(123)], None);
+        verify(req, None, "\"ids\":[123]")
+    }
+
+    #[test]
+    fn request_queue_move_bottom_semver_600() -> Result<()> {
+        let req = RpcRequest::queue_move_bottom([Id::Id(654)], None);
+        verify(req, Some(JSON_RPC_VERSION_2_0), "\"ids\":[654]")
+    }
+
+    #[test]
+    fn request_torrent_remove_legacy() -> Result<()> {
+        let req = RpcRequest::torrent_remove([Id::Id(2)], true, None);
+        verify(req, None,
+            "\"ids\":[2],\
+            \"delete-local-data\":true")
+    }
+
+    #[test]
+    fn request_torrent_remove_semver_600() -> Result<()> {
+        let req = RpcRequest::torrent_remove([Id::Id(13)], false, None);
+        verify(req, Some(JSON_RPC_VERSION_2_0), 
+            "\"ids\":[13],\
+            \"delete_local_data\":false")
+    }
+
+    #[test]
+    fn request_torrent_action_start_legacy() -> Result<()> {
+        let req = RpcRequest::torrent_action(TorrentAction::Start, [Id::Id(6)], None);
+        verify(req, None, "\"ids\":[6]")
+    }
+
+    #[test]
+    fn request_torrent_action_start_semver_600() -> Result<()> {
+        let req = RpcRequest::torrent_action(TorrentAction::Start, [Id::Id(111)], None);
+        verify(req, Some(JSON_RPC_VERSION_2_0), "\"ids\":[111]")
+    }
+
+    #[test]
+    fn request_torrent_action_stop_legacy() -> Result<()> {
+        let req = RpcRequest::torrent_action(TorrentAction::Stop, [Id::Id(7)], None);
+        verify(req, None, "\"ids\":[7]")
+    }
+
+    #[test]
+    fn request_torrent_action_stop_semver_600() -> Result<()> {
+        let req = RpcRequest::torrent_action(TorrentAction::Stop, [Id::Id(222)], None);
+        verify(req, Some(JSON_RPC_VERSION_2_0), "\"ids\":[222]")
+    }
+
+    #[test]
+    fn request_torrent_action_start_now_legacy() -> Result<()> {
+        let req = RpcRequest::torrent_action(TorrentAction::StartNow, [Id::Id(8)], None);
+        verify(req, None, "\"ids\":[8]")
+    }
+
+    #[test]
+    fn request_torrent_action_start_now_semver_600() -> Result<()> {
+        let req = RpcRequest::torrent_action(TorrentAction::StartNow, [Id::Id(333)], None);
+        verify(req, Some(JSON_RPC_VERSION_2_0), "\"ids\":[333]")
+    }
+
+    #[test]
+    fn request_torrent_action_verify_legacy() -> Result<()> {
+        let req = RpcRequest::torrent_action(TorrentAction::Verify, [Id::Id(9)], None);
+        verify(req, None, "\"ids\":[9]")
+    }
+
+    #[test]
+    fn request_torrent_action_verify_semver_600() -> Result<()> {
+        let req = RpcRequest::torrent_action(TorrentAction::Verify, [Id::Id(444)], None);
+        verify(req, Some(JSON_RPC_VERSION_2_0), "\"ids\":[444]")
+    }
+
+    #[test]
+    fn request_torrent_action_reannounce_legacy() -> Result<()> {
+        let req = RpcRequest::torrent_action(TorrentAction::Reannounce, [Id::Id(10)], None);
+        verify(req, None, "\"ids\":[10]")
+    }
+
+    #[test]
+    fn request_torrent_action_reannounce_semver_600() -> Result<()> {
+        let req = RpcRequest::torrent_action(TorrentAction::Reannounce, [Id::Id(555)], None);
+        verify(req, Some(JSON_RPC_VERSION_2_0), "\"ids\":[555]")
+    }
+
+    #[test]
+    fn request_torrent_set_location_legacy() -> Result<()> {
+        let req = RpcRequest::torrent_set_location(
+            [Id::Id(105)],
+            "/complete".into(),
+            Some(false),
+            None);
+        verify(req, None,
+            "\"ids\":[105],\
+            \"location\":\"/complete\",\
+            \"move\":false")
+    }
+
+    #[test]
+    fn request_torrent_set_location_semver_600() -> Result<()> {
+        let req = RpcRequest::torrent_set_location(
+            [Id::Id(205)],
+            "/iso".into(),
+            Some(true),
+            None);
+        verify(req, Some(JSON_RPC_VERSION_2_0),
+            "\"ids\":[205],\
+            \"location\":\"/iso\",\
+            \"move\":true")
+    }
+
+    #[test]
+    fn request_torrent_rename_path_legacy() -> Result<()> {
+        let req = RpcRequest::torrent_rename_path(
+            [Id::Id(313)],
+            "/downloads/debian-13.3.0-amd64-netinst.iso".into(),
+            "foo.bar.iso".into(),
+            None);
+        verify(req, None,
+            "\"ids\":[313],\
+            \"path\":\"/downloads/debian-13.3.0-amd64-netinst.iso\",\
+            \"name\":\"foo.bar.iso\"")
+    }
+
+    #[test]
+    fn request_torrent_rename_path_semver_600() -> Result<()> {
+        let req = RpcRequest::torrent_rename_path(
+            [Id::Id(315)],
+            "/downloads/cachyos-desktop-linux.iso".into(),
+            "cachyos-desktop-linux-260101.iso".into(),
+            None);
+        verify(req, Some(JSON_RPC_VERSION_2_0),
+            "\"ids\":[315],\
+            \"path\":\"/downloads/cachyos-desktop-linux.iso\",\
+            \"name\":\"cachyos-desktop-linux-260101.iso\"")
+    }
+
+    #[test]
+    fn request_group_get_legacy() -> Result<()> {
+        let args = GroupGetArgs { groups: None };
+        verify(args, None, "")?;
+
+        let args = GroupGetArgs { groups: Some(vec!["slow".into(), "fast".into()]) };
+        verify(args, None, "\"groups\":[\"slow\",\"fast\"]")
+    }
+
+    #[test]
+    fn request_group_get_semver_600() -> Result<()> {
+        let args = GroupGetArgs { groups: None };
+        verify(args, Some(JSON_RPC_VERSION_2_0), "")?;
+
+        let args = GroupGetArgs { groups: Some(vec!["foo".into(), "bar".into()]) };
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"groups\":[\"foo\",\"bar\"]")
+    }
 }

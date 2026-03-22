@@ -91,6 +91,8 @@ pub enum TorrentGetField {
     Labels,
     LeftUntilDone,
     MagnetLink,
+    /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
+    /// "it never worked".
     ManualAnnounceTime,
     MaxConnectedPeers,
     MetadataPercentComplete,
@@ -137,6 +139,10 @@ pub enum TorrentGetField {
     UploadLimit,
     UploadLimited,
     Wanted,
+    /// > ⚠ **DEPRECATED** in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?):
+    /// Use [`WebseedsEx`] instead.
+    ///
+    /// [`WebseedsEx`]: Self::WebseedsEx
     Webseeds,
     #[serde(rename = "webseeds_ex")] // Doesn't exist pre- semver-6.1.0
     WebseedsEx,
