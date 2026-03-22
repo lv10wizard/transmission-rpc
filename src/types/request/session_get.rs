@@ -148,6 +148,11 @@ pub enum SessionGetField {
     SpeedLimitUpEnabled,
     SpeedLimitUp,
     StartAddedTorrents,
+    /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
+    /// Use [`RpcVersionSemver`] instead.
+    ///
+    /// [`RpcVersionSemver`]: Self::RpcVersionSemver
+    TcpEnabled,
     TrashOriginalTorrentFiles,
     Units,
     /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
@@ -919,6 +924,16 @@ mod serde_tests {
             [SessionGetField::StartAddedTorrents],
             Some(JSON_RPC_VERSION_2_0),
             ["start_added_torrents"])
+    }
+
+    #[test]
+    fn request_session_get_legacy_tcp_enabled() -> Result<()> {
+        verify_fields([SessionGetField::TcpEnabled], None, ["tcp-enabled"])
+    }
+
+    #[test]
+    fn request_session_get_semver_600_tcp_enabled() -> Result<()> {
+        verify_fields([SessionGetField::TcpEnabled], Some(JSON_RPC_VERSION_2_0), ["tcp_enabled"])
     }
 
     #[test]

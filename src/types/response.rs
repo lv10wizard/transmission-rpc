@@ -393,10 +393,15 @@ pub struct SessionGet {
     pub start_added_torrents: Option<bool>,
     /// `true` means allow [TCP].
     ///
+    /// > (?) Added in Transmission 4.0.0 (`rpc-version-semver`: 5.3.0, `rpc-version`: 17) [in
+    /// [transmission:fa8b6a5e0]].
+    ///
     /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
     /// `tcp_enabled`. Use `preferred_transports` instead.
     ///
     /// [TCP]: https://en.wikipedia.org/wiki/Transmission_Control_Protocol
+    /// [transmission:fa8b6a5e0]:
+    /// <https://github.com/transmission/transmission/commit/fa8b6a5e0aa22fe2f798b7c6dcc9c32dbac63dca>
     #[serde(alias = "tcp_enabled")]
     pub tcp_enabled: Option<bool>,
     /// `true` means the `.torrent` file of added torrents will be deleted.
