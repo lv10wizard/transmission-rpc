@@ -301,7 +301,7 @@ impl RpcRequest {
     pub fn torrent_set_location<I>(
         ids: I,
         location: String,
-        move_from: Option<bool>, // TODO: refactor! Option<_> -> bool
+        move_from: bool,
         tag: Option<Tag>,
     ) -> RpcRequest
     where
@@ -313,7 +313,7 @@ impl RpcRequest {
             arguments: Some(Args::TorrentSetLocation(TorrentSetLocationArgs {
                 ids,
                 location,
-                move_from,
+                r#move: move_from,
             })),
             tag,
             jsonrpc: None,
@@ -912,8 +912,7 @@ pub struct TorrentRemoveArgs {
 pub struct TorrentSetLocationArgs {
     ids: Vec<Id>,
     location: String,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "move")]
-    move_from: Option<bool>, // TODO: refactor! Option<_> -> bool
+    r#move: bool,
 }
 
 #[derive(GenerateCompat, Serialize, Debug, Clone)]
@@ -1302,7 +1301,7 @@ mod serde_tests {
         let req = RpcRequest::torrent_set_location(
             [Id::Id(105)],
             "/complete".into(),
-            Some(false),
+            false,
             None);
         verify(req, None,
             "\"ids\":[105],\
@@ -1315,7 +1314,7 @@ mod serde_tests {
         let req = RpcRequest::torrent_set_location(
             [Id::Id(205)],
             "/iso".into(),
-            Some(true),
+            true,
             None);
         verify(req, Some(JSON_RPC_VERSION_2_0),
             "\"ids\":[205],\

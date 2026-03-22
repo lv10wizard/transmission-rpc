@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
         .torrent_set_location(
             vec![Id::Id(1)],
             String::from("/new/location"),
-            Option::from(false),
+            false,
         )
         .await?;
     println!("Set-location result: {:?}", &res.is_ok());
@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
         .torrent_set_location_tagged(
             vec![Id::Id(1)],
             String::from("/new/location"),
-            Option::from(false),
+            false,
             tag,
         )
         .await?;

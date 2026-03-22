@@ -1043,7 +1043,7 @@ impl SharableTransClient {
     ///         .torrent_set_location(
     ///             vec![Id::Id(1)],
     ///             String::from("/new/location"),
-    ///             Option::from(false),
+    ///             false,
     ///         )
     ///         .await?;
     ///     assert_eq!(res.tag, None);
@@ -1056,7 +1056,7 @@ impl SharableTransClient {
         &self,
         ids: I,
         location: String,
-        move_from: Option<bool>,
+        move_from: bool,
     ) -> Result<RpcResponse<Nothing>>
     where
         I: IntoIterator<Item = Id>,
