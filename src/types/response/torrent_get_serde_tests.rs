@@ -3765,13 +3765,13 @@ fn test_torrent_get_trackers_success() -> Result<()> {
                 .expect("trackers should exist");
             assert_eq!(first.len(), 2);
             assert_eq!(first[0].id, 0);
-            assert_eq!(first[0].announce, "https://example.com:1024/announce");
-            assert_eq!(first[0].scrape, "https://example.com:1024/scrape");
+            assert_eq!(first[0].announce, Url::parse("https://example.com:1024/announce")?);
+            assert_eq!(first[0].scrape, Url::parse("https://example.com:1024/scrape")?);
             assert_eq!(first[0].sitename, "");
             assert_eq!(first[0].tier, 0);
             assert_eq!(first[1].id, 1);
-            assert_eq!(first[1].announce, "https://example.com:2048/announce");
-            assert_eq!(first[1].scrape, "https://example.com:2048/scrape");
+            assert_eq!(first[1].announce, Url::parse("https://example.com:2048/announce")?);
+            assert_eq!(first[1].scrape, Url::parse("https://example.com:2048/scrape")?);
             assert_eq!(first[1].sitename, "");
             assert_eq!(first[1].tier, 0);
             let second = resp.arguments.torrents[1]
@@ -3780,8 +3780,8 @@ fn test_torrent_get_trackers_success() -> Result<()> {
                 .expect("trackers should exist");
             assert_eq!(second.len(), 1);
             assert_eq!(second[0].id, 44023);
-            assert_eq!(second[0].announce, "https://example.com:4096/announce");
-            assert_eq!(second[0].scrape, "https://example.com:4096/scrape");
+            assert_eq!(second[0].announce, Url::parse("https://example.com:4096/announce")?);
+            assert_eq!(second[0].scrape, Url::parse("https://example.com:4096/scrape")?);
             assert_eq!(second[0].sitename, "example");
             assert_eq!(second[0].tier, 0);
             Ok(())
@@ -3889,7 +3889,7 @@ fn test_torrent_get_tracker_stats_success() -> Result<()> {
                                 "nextAnnounceTime":1723618230,
                                 "nextScrapeTime":0,
                                 "scrapeState":2,
-                                "scrape":"",
+                                "scrape":"https://example.com:8080",
                                 "seederCount":77,
                                 "tier":0
                             }
@@ -3946,7 +3946,7 @@ fn test_torrent_get_tracker_stats_success() -> Result<()> {
             assert_eq!(first.len(), 1);
             assert_eq!(
                 first[0].announce,
-                "https://example.com/announce".to_string()
+                Url::parse("https://example.com/announce")?
             );
             assert!(matches!(first[0].announce_state, TrackerState::Waiting));
             assert_eq!(first[0].download_count, 245);
@@ -3986,7 +3986,7 @@ fn test_torrent_get_tracker_stats_success() -> Result<()> {
             );
             assert_eq!(first[0].next_scrape_time, DateTime::UNIX_EPOCH);
             assert!(matches!(first[0].scrape_state, TrackerState::Queued));
-            assert_eq!(first[0].scrape, "".to_string());
+            assert_eq!(first[0].scrape, Url::parse("https://example.com:8080")?);
             assert_eq!(first[0].seeder_count, 77);
             assert_eq!(first[0].sitename, "".to_string());
             assert_eq!(first[0].tier, 0);
@@ -3998,7 +3998,7 @@ fn test_torrent_get_tracker_stats_success() -> Result<()> {
             assert_eq!(second.len(), 1);
             assert_eq!(
                 second[0].announce,
-                "http://example.org/foo/announce".to_string()
+                Url::parse("http://example.org/foo/announce")?
             );
             assert!(matches!(second[0].announce_state, TrackerState::Inactive));
             assert_eq!(second[0].download_count, 24);
@@ -4035,7 +4035,7 @@ fn test_torrent_get_tracker_stats_success() -> Result<()> {
             );
             assert_eq!(second[0].next_scrape_time, DateTime::UNIX_EPOCH);
             assert!(matches!(second[0].scrape_state, TrackerState::Inactive));
-            assert_eq!(second[0].scrape, "http://example.org/scrape".to_string());
+            assert_eq!(second[0].scrape, Url::parse("http://example.org/scrape")?);
             assert_eq!(second[0].seeder_count, 5);
             assert_eq!(second[0].sitename, "example".to_string());
             assert_eq!(second[0].tier, 1);
@@ -4077,7 +4077,7 @@ fn test_torrent_get_tracker_stats_semver_530_compat() -> Result<()> {
                                 "nextAnnounceTime":1723618230,
                                 "nextScrapeTime":0,
                                 "scrapeState":2,
-                                "scrape":"",
+                                "scrape":"https://example.com/scrape",
                                 "seederCount":77,
                                 "tier":0
                             }
@@ -4106,7 +4106,7 @@ fn test_torrent_get_tracker_stats_semver_530_compat() -> Result<()> {
 
             assert_eq!(
                 first[0].announce,
-                "https://example.com/announce".to_string()
+                Url::parse("https://example.com/announce")?
             );
             assert!(matches!(first[0].announce_state, TrackerState::Waiting));
             assert_eq!(first[0].download_count, 245);
@@ -4145,7 +4145,7 @@ fn test_torrent_get_tracker_stats_semver_530_compat() -> Result<()> {
             );
             assert_eq!(first[0].next_scrape_time, DateTime::UNIX_EPOCH);
             assert!(matches!(first[0].scrape_state, TrackerState::Queued));
-            assert_eq!(first[0].scrape, "".to_string());
+            assert_eq!(first[0].scrape, Url::parse("https://example.com/scrape")?);
             assert_eq!(first[0].seeder_count, 77);
             assert_eq!(first[0].tier, 0);
             Ok(())

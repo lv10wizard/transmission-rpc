@@ -7,6 +7,7 @@ use serde::Deserialize;
 use serde::de::{Deserializer, Error as _};
 use serde_json::Value;
 use serde_repr::*;
+use url::Url;
 
 use super::{
     AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag, TrackerId, TrackerList,
@@ -1057,9 +1058,9 @@ pub struct Tracker {
     /// Unique transmission-generated ID for use in libtransmission API.
     pub id: TrackerId,
     /// The tracker's full announce URL.
-    pub announce: String,
+    pub announce: Url,
     /// The tracker's full scrape URL.
-    pub scrape: String,
+    pub scrape: Url,
     /// The tracker site's name. Uses the first label before the [public suffix] in the announce
     /// URL's host. e.g. `https://www.example.co.uk/announce/`'s sitename is `example`.
     ///
@@ -1266,7 +1267,7 @@ pub struct PeersFrom {
 #[serde(rename_all = "camelCase")]
 pub struct TrackerStat {
     /// The tracker's full announce URL.
-    pub announce: String,
+    pub announce: Url,
     /// Whether we're announcing, waiting to announce, etc.
     #[serde(alias = "announce_state")]
     pub announce_state: TrackerState,
@@ -1372,7 +1373,7 @@ pub struct TrackerStat {
     #[serde(alias = "scrape_state")]
     pub scrape_state: TrackerState,
     /// The tracker's full scrape URL.
-    pub scrape: String,
+    pub scrape: Url,
     /// Number of seeders the tracker knows of, or -1 if unknown.
     #[serde(alias = "seeder_count")]
     pub seeder_count: i64,
