@@ -195,7 +195,7 @@ pub struct TorrentSetArgs {
     ///
     /// [`tracker_list`]: Self::tracker_list
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tracker_add: Option<Vec<String>>,
+    pub tracker_add: Option<Vec<Url>>,
     /// String of announce URLs, one per line, and a blank line between tiers.
     ///
     /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
@@ -340,14 +340,12 @@ impl TorrentSetArgs {
         self.sequential_download_from_piece = Some(piece);
         self
     }
-    pub fn tracker_add<I, S>(mut self, tracker_add: I) -> Self
+    pub fn tracker_add<I>(mut self, tracker_add: I) -> Self
     where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>,
+        I: IntoIterator<Item = Url>,
     {
         let tracker_add = tracker_add
             .into_iter()
-            .map(|s| s.as_ref().to_string())
             .collect();
         self.tracker_add = Some(tracker_add);
         self
@@ -772,8 +770,8 @@ mod serde_tests {
     fn request_torrent_set_legacy_tracker_add() -> Result<()> {
         let args = TorrentSetArgs::new()
             .tracker_add(vec![
-                "https://example.com:6969/a",
-                "https://example.com:2001/a",
+                Url::parse("https://example.com:6969/a")?,
+                Url::parse("https://example.com:2001/a")?,
             ]);
         verify(args, None, 
             "\"trackerAdd\":[\
@@ -785,7 +783,9 @@ mod serde_tests {
     #[test]
     fn request_torrent_set_semver_600_tracker_add() -> Result<()> {
         let args = TorrentSetArgs::new()
-            .tracker_add(["http://bt.example.com:1234/announce"]);
+            .tracker_add([
+                Url::parse("http://bt.example.com:1234/announce")?,
+            ]);
         verify(args, Some(JSON_RPC_VERSION_2_0),
             "\"tracker_add\":[\"http://bt.example.com:1234/announce\"]")
     }
