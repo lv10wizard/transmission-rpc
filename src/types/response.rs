@@ -919,6 +919,17 @@ pub struct TrackerStat {
     pub announce_state: TrackerState,
     #[serde(alias = "download_count")]
     pub download_count: i64,
+    /// Number of downloaders ([BEP-21]) the tracker knows of, or -1 if unknown.
+    ///
+    /// This does not include partial seeds (peers that are incomplete and are no longer
+    /// downloading in multi-file torrents).
+    ///
+    /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
+    ///
+    /// [BEP-21]: <https://www.bittorrent.org/beps/bep_0021.html>
+    #[serde(alias = "downloader_count", default = "missing_downloader_count")]
+    pub downloader_count: i64, // TODO? Option<_> differentiate between unknown and unimplemented?
+    /// True iff we've announced to this tracker during this session.
     #[serde(alias = "has_announced")]
     pub has_announced: bool,
     #[serde(alias = "has_scraped")]
@@ -972,6 +983,10 @@ pub struct TrackerStat {
     #[serde(default)]
     pub sitename: String,
     pub tier: usize,
+}
+
+fn missing_downloader_count() -> i64 {
+    -1
 }
 
 #[derive(Deserialize_repr, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

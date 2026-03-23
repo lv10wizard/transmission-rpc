@@ -3778,6 +3778,7 @@ fn test_torrent_get_tracker_stats_success() -> Result<()> {
                                 "announce":"https://example.com/announce",
                                 "announceState":1,
                                 "downloadCount":245,
+                                "downloader_count":-1,
                                 "hasAnnounced":true,
                                 "hasScraped":true,
                                 "host":"https://example.com:8080",
@@ -3810,6 +3811,7 @@ fn test_torrent_get_tracker_stats_success() -> Result<()> {
                                 "announce":"http://example.org/foo/announce",
                                 "announce_state":0,
                                 "download_count":24,
+                                "downloader_count":7,
                                 "has_announced":false,
                                 "has_scraped":false,
                                 "host":"http://example.org:8080",
@@ -3858,6 +3860,7 @@ fn test_torrent_get_tracker_stats_success() -> Result<()> {
             );
             assert!(matches!(first[0].announce_state, TrackerState::Waiting));
             assert_eq!(first[0].download_count, 245);
+            assert_eq!(first[0].downloader_count, -1);
             assert_eq!(first[0].has_announced, true);
             assert_eq!(first[0].has_scraped, true);
             assert_eq!(first[0].host, "https://example.com:8080");
@@ -3909,6 +3912,7 @@ fn test_torrent_get_tracker_stats_success() -> Result<()> {
             );
             assert!(matches!(second[0].announce_state, TrackerState::Inactive));
             assert_eq!(second[0].download_count, 24);
+            assert_eq!(second[0].downloader_count, 7);
             assert_eq!(second[0].has_announced, false);
             assert_eq!(second[0].has_scraped, false);
             assert_eq!(second[0].host, "http://example.org:8080");
@@ -3945,6 +3949,115 @@ fn test_torrent_get_tracker_stats_success() -> Result<()> {
             assert_eq!(second[0].seeder_count, 5);
             assert_eq!(second[0].sitename, "example".to_string());
             assert_eq!(second[0].tier, 1);
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn test_torrent_get_tracker_stats_semver_530_compat() -> Result<()> {
+    let resp = serde_json::from_str(
+        r#"
+        {
+            "arguments": {
+                "torrents": [
+                    {
+                        "trackerStats": [
+                            {
+                                "announce":"https://example.com/announce",
+                                "announceState":1,
+                                "downloadCount":245,
+                                "hasAnnounced":true,
+                                "hasScraped":true,
+                                "host":"https://example.com:8080",
+                                "id":0,
+                                "isBackup":false,
+                                "lastAnnouncePeerCount":86,
+                                "lastAnnounceResult":"Success",
+                                "lastAnnounceStartTime":1723614865,
+                                "lastAnnounceSucceeded":true,
+                                "lastAnnounceTime":1723614865,
+                                "lastAnnounceTimedOut":false,
+                                "lastScrapeResult":"Could not connect to tracker",
+                                "lastScrapeStartTime":0,
+                                "lastScrapeSucceeded":false,
+                                "lastScrapeTime":1723614865,
+                                "lastScrapeTimedOut":false,
+                                "leecherCount":9,
+                                "nextAnnounceTime":1723618230,
+                                "nextScrapeTime":0,
+                                "scrapeState":2,
+                                "scrape":"",
+                                "seederCount":77,
+                                "tier":0
+                            }
+                        ]
+                    }
+                ]
+            },
+            "result":"success"
+        }
+        "#,
+    )?;
+    test_torrent_get(
+        resp,
+        1,
+        |resp| {
+            let first = resp.arguments.torrents[0]
+                .tracker_stats
+                .as_ref()
+                .expect("tracker_stats should exist");
+            assert_eq!(first.len(), 1);
+
+            // Verify the Torrent deserialized okay even if the response json is missing fields
+            // from semver-5.3.0 and later.
+            assert_eq!(first[0].downloader_count, -1); // Added in semver-6.0.0
+            assert_eq!(first[0].sitename, "".to_string()); // Added in semver-5.3.0
+
+            assert_eq!(
+                first[0].announce,
+                "https://example.com/announce".to_string()
+            );
+            assert!(matches!(first[0].announce_state, TrackerState::Waiting));
+            assert_eq!(first[0].download_count, 245);
+            assert_eq!(first[0].has_announced, true);
+            assert_eq!(first[0].has_scraped, true);
+            assert_eq!(first[0].host, "https://example.com:8080");
+            assert!(matches!(first[0].id, Id::Id(0)));
+            assert_eq!(first[0].is_backup, false);
+            assert_eq!(first[0].last_announce_peer_count, 86);
+            assert_eq!(first[0].last_announce_result, "Success".to_string());
+            assert_eq!(
+                first[0].last_announce_start_time,
+                DateTime::parse_from_rfc3339("2024-08-14T05:54:25Z")?.to_utc(),
+            );
+            assert_eq!(first[0].last_announce_succeeded, true);
+            assert_eq!(
+                first[0].last_announce_time,
+                DateTime::parse_from_rfc3339("2024-08-14T05:54:25Z")?.to_utc(),
+            );
+            assert_eq!(first[0].last_announce_timed_out, false);
+            assert_eq!(
+                first[0].last_scrape_result,
+                "Could not connect to tracker".to_string()
+            );
+            assert_eq!(first[0].last_scrape_start_time, DateTime::UNIX_EPOCH);
+            assert_eq!(first[0].last_scrape_succeeded, false);
+            assert_eq!(
+                first[0].last_scrape_time,
+                DateTime::parse_from_rfc3339("2024-08-14T05:54:25Z")?.to_utc(),
+            );
+            assert_eq!(first[0].last_scrape_timed_out, false);
+            assert_eq!(first[0].leecher_count, 9);
+            assert_eq!(
+                first[0].next_announce_time,
+                DateTime::parse_from_rfc3339("2024-08-14T06:50:30Z")?.to_utc(),
+            );
+            assert_eq!(first[0].next_scrape_time, DateTime::UNIX_EPOCH);
+            assert!(matches!(first[0].scrape_state, TrackerState::Queued));
+            assert_eq!(first[0].scrape, "".to_string());
+            assert_eq!(first[0].seeder_count, 77);
+            assert_eq!(first[0].tier, 0);
             Ok(())
         },
     )
