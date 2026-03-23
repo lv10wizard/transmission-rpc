@@ -2145,6 +2145,8 @@ fn test_torrent_get_peers_success() -> Result<()> {
                             },
                             {
                                 "address":"2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+                                "bytes_to_client":12345,
+                                "bytes_to_peer":6,
                                 "client_is_choked":false,
                                 "client_is_interested":true,
                                 "client_name":"qBittorrent 4.6.5",
@@ -2154,6 +2156,7 @@ fn test_torrent_get_peers_success() -> Result<()> {
                                 "is_incoming":true,
                                 "is_uploading_to":false,
                                 "is_utp":true,
+                                "peer_id":"IoxddjPhaC1vb0toOUdUTGhvbzc=",
                                 "peer_is_choked":true,
                                 "peer_is_interested":false,
                                 "port":36667,
@@ -2185,6 +2188,8 @@ fn test_torrent_get_peers_success() -> Result<()> {
                 .expect("peers should exist");
             assert_eq!(second.len(), 2);
             assert_eq!(second[0].address, IpAddr::V4(Ipv4Addr::new(10, 0, 0, 100)));
+            assert_eq!(second[0].bytes_to_client, 0);
+            assert_eq!(second[0].bytes_to_peer, 0);
             assert_eq!(second[0].client_name, "µTorrent 3.5.5".to_string());
             assert_eq!(second[0].client_is_choked, false);
             assert_eq!(second[0].client_is_interested, true);
@@ -2194,16 +2199,20 @@ fn test_torrent_get_peers_success() -> Result<()> {
             assert_eq!(second[0].is_incoming, true);
             assert_eq!(second[0].is_uploading_to, true);
             assert_eq!(second[0].is_utp, false);
+            assert_eq!(second[0].peer_id, "".to_string());
             assert_eq!(second[0].peer_is_choked, false);
             assert_eq!(second[0].peer_is_interested, true);
             assert_eq!(second[0].port, 55555);
             assert_eq!(second[0].progress, 0.2641);
             assert_eq!(second[0].rate_to_client, 0);
             assert_eq!(second[0].rate_to_peer, 385000);
+
             assert_eq!(
                 second[1].address,
                 IpAddr::V6(Ipv6Addr::new(8193, 3512, 34211, 0, 0, 35374, 880, 29492))
             );
+            assert_eq!(second[1].bytes_to_client, 12345);
+            assert_eq!(second[1].bytes_to_peer, 6);
             assert_eq!(second[1].client_name, "qBittorrent 4.6.5".to_string());
             assert_eq!(second[1].client_is_choked, false);
             assert_eq!(second[1].client_is_interested, true);
@@ -2213,12 +2222,88 @@ fn test_torrent_get_peers_success() -> Result<()> {
             assert_eq!(second[1].is_incoming, true);
             assert_eq!(second[1].is_uploading_to, false);
             assert_eq!(second[1].is_utp, true);
+            assert_eq!(second[1].peer_id, "IoxddjPhaC1vb0toOUdUTGhvbzc=".to_string());
             assert_eq!(second[1].peer_is_choked, true);
             assert_eq!(second[1].peer_is_interested, false);
             assert_eq!(second[1].port, 36667);
             assert_eq!(second[1].progress, 1.);
             assert_eq!(second[1].rate_to_client, 8000);
             assert_eq!(second[1].rate_to_peer, 0);
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn test_torrent_get_peers_semver_600_compat() -> Result<()> {
+    let resp = serde_json::from_str(
+        r#"
+        {
+            "arguments": {
+                "torrents": [ 
+                    {
+                        "peers":[
+                            {
+                                "address":"2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+                                "client_is_choked":false,
+                                "client_is_interested":true,
+                                "client_name":"qBittorrent 4.6.5",
+                                "flag_str":"TDI",
+                                "is_downloading_from":true,
+                                "is_encrypted":false,
+                                "is_incoming":true,
+                                "is_uploading_to":false,
+                                "is_utp":true,
+                                "peer_is_choked":true,
+                                "peer_is_interested":false,
+                                "port":36667,
+                                "progress":1,
+                                "rate_to_client":8000,
+                                "rate_to_peer":0
+                            }
+                        ]
+                    }
+                ]
+            },
+            "result":"success"
+        }
+        "#,
+    )?;
+    test_torrent_get(
+        resp,
+        1,
+        |resp| {
+            let first = resp.arguments.torrents[0]
+                .peers
+                .as_ref()
+                .expect("peers should exist");
+            assert_eq!(first.len(), 1);
+
+            // Verify the Torrent deserialized okay even if the response json is missing fields
+            // from semver-6.0.0 and later.
+            assert_eq!(first[0].bytes_to_client, 0);
+            assert_eq!(first[0].bytes_to_peer, 0);
+            assert_eq!(first[0].peer_id, "".to_string());
+
+            assert_eq!(
+                first[0].address,
+                IpAddr::V6(Ipv6Addr::new(8193, 3512, 34211, 0, 0, 35374, 880, 29492))
+            );
+            assert_eq!(first[0].client_name, "qBittorrent 4.6.5".to_string());
+            assert_eq!(first[0].client_is_choked, false);
+            assert_eq!(first[0].client_is_interested, true);
+            assert_eq!(first[0].flag_str, "TDI".to_string());
+            assert_eq!(first[0].is_downloading_from, true);
+            assert_eq!(first[0].is_encrypted, false);
+            assert_eq!(first[0].is_incoming, true);
+            assert_eq!(first[0].is_uploading_to, false);
+            assert_eq!(first[0].is_utp, true);
+            assert_eq!(first[0].peer_is_choked, true);
+            assert_eq!(first[0].peer_is_interested, false);
+            assert_eq!(first[0].port, 36667);
+            assert_eq!(first[0].progress, 1.);
+            assert_eq!(first[0].rate_to_client, 8000);
+            assert_eq!(first[0].rate_to_peer, 0);
             Ok(())
         },
     )

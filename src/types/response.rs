@@ -1108,6 +1108,24 @@ pub struct Peer {
     // FIXME? serde doesn't like simplified ipv6 addresses
     // FIXME? (does transmission emit simplified ipv6? eg. "::1")
     pub address: IpAddr,
+    /// The number of bytes the peer has sent to us.
+    ///
+    /// > (?) Added in Transmission 4.1.0 (` rpc_version_semver ` 6.0.0, `rpc_version`: 18) [in
+    /// [transmission:a2d2097b9]]
+    ///
+    /// [transmission:a2d2097b9]:
+    /// <https://github.com/transmission/transmission/commit/a2d2097b9f381ed887107207ec62b72c5be2f902>
+    #[serde(default, alias = "bytes_to_client")]
+    pub bytes_to_client: u64,
+    /// The number of bytes we have sent to the peer.
+    ///
+    /// > (?) Added in Transmission 4.1.0 (` rpc_version_semver ` 6.0.0, `rpc_version`: 18) [in
+    /// [transmission:a2d2097b9]]
+    ///
+    /// [transmission:a2d2097b9]:
+    /// <https://github.com/transmission/transmission/commit/a2d2097b9f381ed887107207ec62b72c5be2f902>
+    #[serde(default, alias = "bytes_to_peer")]
+    pub bytes_to_peer: u64,
     /// Whether or not the peer is choking<sup>[[1]]</sup> us.
     ///
     /// [1]: <https://www.bittorrent.org/beps/bep_0003.html#peer-protocol>
@@ -1165,6 +1183,18 @@ pub struct Peer {
     #[serde(alias = "isUTP")]
     #[serde(alias = "is_utp")]
     pub is_utp: bool,
+    /// A string of length 20 which this downloader uses as its id. Each downloader generates its
+    /// own id at random at the start of a new download. This value will also almost certainly have
+    /// to be escaped.<sup>[[1]]</sup>
+    ///
+    /// > (?) Added in Transmission 4.1.0 (` rpc_version_semver ` 6.0.0, `rpc_version`: 18) [in
+    /// [transmission:5db90f9ed]]
+    ///
+    /// [1]: <https://www.bittorrent.org/beps/bep_0003.html#trackers>
+    /// [transmission:5db90f9ed]:
+    /// <https://github.com/transmission/transmission/commit/5db90f9ed952edfc645d2503a3c0d69c26ef72db>
+    #[serde(default, alias = "peer_id")]
+    pub peer_id: String,
     /// Whether or not we've choked this peer.
     #[serde(alias = "peer_is_choked")]
     pub peer_is_choked: bool,
