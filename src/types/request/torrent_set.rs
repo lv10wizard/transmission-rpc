@@ -25,7 +25,8 @@ use crate::types::{Id, IdleMode, Priority, RatioMode, Result, TrackerId, Tracker
 /// * [`TorrentSetArgs::group`]: The name of the torrents' bandwidth group.
 ///     > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17).
 /// * [`TorrentSetArgs::honors_session_limits`]: `true` to honor the session's upload limits.
-/// * [`TorrentSetArgs::labels`]: A `Vec` of `String` labels to set on the torrent(s).
+/// * [`TorrentSetArgs::labels`]: Any collection implementing [`IntoIterator`] of `String` (eg.
+/// `Vec<String>` or `[String]`) labels to set on the torrent(s).
 ///     > Added in Transmission 3.00 (`rpc-version-semver` 5.2.0, `rpc-version`: 16).
 /// * [`TorrentSetArgs::location`]: The new location of the torrents' content.
 /// * [`TorrentSetArgs::peer_limit`]: Maximum number of peers.
@@ -40,23 +41,23 @@ use crate::types::{Id, IdleMode, Priority, RatioMode, Result, TrackerId, Tracker
 /// * [`TorrentSetArgs::seed_ratio_mode`]: Which [`RatioMode`] to use.
 /// * [`TorrentSetArgs::sequential_download`]: `true` to download the torrent pieces sequentially.
 ///     > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18).
-/// * [`TorrentSetArgs::tracker_add`]: Add a new tracker url in its own new tier.
+/// * [`TorrentSetArgs::tracker_add`]: Add a new tracker url in a new tier.
 ///     * *NOTE:* This documentation may be incorrect. The rpc-spec itself is unclear.
 ///     > ⚠ Deprecated in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17);
-///     > prefer `tracker_list` if possible.
+///     > prefer [`tracker_list`] if possible.
 /// * [`TorrentSetArgs::tracker_list`]: `TrackerList` of announce urls with an empty element
 /// between [tiers](https://www.bittorrent.org/beps/bep_0012.html).
 ///     > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17).
-/// * [`TorrentSetArgs::tracker_remove`]: [`Trackers::id`] of trackers to remove.
+/// * [`TorrentSetArgs::tracker_remove`]: [`Tracker::id`] of trackers to remove.
 ///     * *NOTE:* This documentation may be incorrect. The rpc-spec itself is unclear.
 ///     > ⚠ Deprecated in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17);
-///     > prefer `tracker_list` if possible.
-/// * [`TorrentSetArgs::tracker_replace`]: Pairs of <[`Trackers::id`]/new announce urls>.
+///     > prefer [`tracker_list`] if possible.
+/// * [`TorrentSetArgs::tracker_replace`]: Pairs of <[`Tracker::id`]/new announce urls>.
 ///     * *NOTE:* This documentation may be incorrect. The rpc-spec itself is unclear.
 ///     * See: transmission/transmission
 ///     [#3226](https://github.com/transmission/transmission/issues/3226#issuecomment-1411899883).
 ///     > ⚠ Deprecated in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17);
-///     > prefer `tracker_list` if possible.
+///     > prefer [`tracker_list`] if possible.
 /// * [`TorrentSetArgs::upload_limit`]: Maximum upload speed (`KBps`).
 /// * [`TorrentSetArgs::upload_limited`]: `true` to honor `upload_limit`.
 ///
@@ -83,7 +84,8 @@ use crate::types::{Id, IdleMode, Priority, RatioMode, Result, TrackerId, Tracker
 /// ```
 ///
 /// [`torrent_set`]: crate::TransClient::torrent_set
-/// [`Trackers::id`]: crate::types::Trackers::id
+/// [`tracker_list`]: TorrentSetArgs::tracker_list
+/// [`Tracker::id`]: crate::types::Tracker::id
 #[derive(GenerateCompat, Serialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TorrentSetArgs {
@@ -247,12 +249,18 @@ impl TorrentSetArgs {
         self.download_limited = Some(download_limited);
         self
     }
-    pub fn files_wanted(mut self, files_wanted: Vec<usize>) -> Self {
-        self.files_wanted = Some(files_wanted);
+    pub fn files_wanted<I>(mut self, files_wanted: I) -> Self
+    where
+        I: IntoIterator<Item = usize>,
+    {
+        self.files_wanted = Some(files_wanted.into_iter().collect());
         self
     }
-    pub fn files_unwanted(mut self, files_unwanted: Vec<usize>) -> Self {
-        self.files_unwanted = Some(files_unwanted);
+    pub fn files_unwanted<I>(mut self, files_unwanted: I) -> Self
+    where
+        I: IntoIterator<Item = usize>,
+    {
+        self.files_unwanted = Some(files_unwanted.into_iter().collect());
         self
     }
     pub fn group(mut self, group: String) -> Self {
@@ -263,7 +271,15 @@ impl TorrentSetArgs {
         self.honors_session_limits = Some(honors_session_limits);
         self
     }
-    pub fn labels(mut self, labels: Vec<String>) -> Self {
+    pub fn labels<I, S>(mut self, labels: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let labels = labels
+            .into_iter()
+            .map(|s| s.as_ref().to_string())
+            .collect();
         self.labels = Some(labels);
         self
     }
@@ -275,16 +291,25 @@ impl TorrentSetArgs {
         self.peer_limit = Some(peer_limit);
         self
     }
-    pub fn priority_high(mut self, priority_high: Vec<usize>) -> Self {
-        self.priority_high = Some(priority_high);
+    pub fn priority_high<I>(mut self, priority_high: I) -> Self
+    where
+        I: IntoIterator<Item = usize>,
+    {
+        self.priority_high = Some(priority_high.into_iter().collect());
         self
     }
-    pub fn priority_low(mut self, priority_low: Vec<usize>) -> Self {
-        self.priority_low = Some(priority_low);
+    pub fn priority_low<I>(mut self, priority_low: I) -> Self
+    where
+        I: IntoIterator<Item = usize>,
+    {
+        self.priority_low = Some(priority_low.into_iter().collect());
         self
     }
-    pub fn priority_normal(mut self, priority_normal: Vec<usize>) -> Self {
-        self.priority_normal = Some(priority_normal);
+    pub fn priority_normal<I>(mut self, priority_normal: I) -> Self
+    where
+        I: IntoIterator<Item = usize>,
+    {
+        self.priority_normal = Some(priority_normal.into_iter().collect());
         self
     }
     pub fn queue_position(mut self, queue_position: usize) -> Self {
@@ -315,7 +340,15 @@ impl TorrentSetArgs {
         self.sequential_download_from_piece = Some(piece);
         self
     }
-    pub fn tracker_add(mut self, tracker_add: Vec<String>) -> Self {
+    pub fn tracker_add<I, S>(mut self, tracker_add: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let tracker_add = tracker_add
+            .into_iter()
+            .map(|s| s.as_ref().to_string())
+            .collect();
         self.tracker_add = Some(tracker_add);
         self
     }
@@ -556,14 +589,14 @@ mod serde_tests {
     #[test]
     fn request_torrent_set_legacy_labels() -> Result<()> {
         let args = TorrentSetArgs::new()
-            .labels(vec![]);
-        verify(args, None, "\"labels\":[]")
+            .labels(["Lorem"]);
+        verify(args, None, "\"labels\":[\"Lorem\"]")
     }
 
     #[test]
     fn request_torrent_set_semver_600_labels() -> Result<()> {
         let args = TorrentSetArgs::new()
-            .labels(vec!["foo".into(), "bar".into()]);
+            .labels(["foo", "bar"]);
         verify(args, Some(JSON_RPC_VERSION_2_0), "\"labels\":[\"foo\",\"bar\"]")
     }
 
@@ -739,8 +772,8 @@ mod serde_tests {
     fn request_torrent_set_legacy_tracker_add() -> Result<()> {
         let args = TorrentSetArgs::new()
             .tracker_add(vec![
-                "https://example.com:6969/a".into(),
-                "https://example.com:2001/a".into(),
+                "https://example.com:6969/a",
+                "https://example.com:2001/a",
             ]);
         verify(args, None, 
             "\"trackerAdd\":[\
@@ -752,8 +785,9 @@ mod serde_tests {
     #[test]
     fn request_torrent_set_semver_600_tracker_add() -> Result<()> {
         let args = TorrentSetArgs::new()
-            .tracker_add(vec![]);
-        verify(args, Some(JSON_RPC_VERSION_2_0), "\"tracker_add\":[]")
+            .tracker_add(["http://bt.example.com:1234/announce"]);
+        verify(args, Some(JSON_RPC_VERSION_2_0),
+            "\"tracker_add\":[\"http://bt.example.com:1234/announce\"]")
     }
 
     #[test]
