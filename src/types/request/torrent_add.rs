@@ -76,6 +76,11 @@ use crate::types::Priority;
 #[derive(GenerateCompat, Serialize, Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub struct TorrentAddArgs {
+    /// The torrent's bandwidth priority.
+    ///
+    /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "bandwidthPriority")]
+    pub bandwidth_priority: Option<Priority>,
     /// A string of one or more [cookies]. These are passed to the request when [`filename`] is a
     /// url.
     ///
@@ -116,11 +121,6 @@ pub struct TorrentAddArgs {
     /// Maximum number of peers.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub peer_limit: Option<u16>,
-    /// The torrent's bandwidth priority.
-    ///
-    /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
-    #[serde(skip_serializing_if = "Option::is_none", rename = "bandwidthPriority")]
-    pub bandwidth_priority: Option<Priority>,
     /// List of indices of files to be downloaded.
     ///
     /// To ignore some files, put their indices in [`files_unwanted`], otherwise they will still be
@@ -145,14 +145,14 @@ pub struct TorrentAddArgs {
     /// Whether to download torrent pieces sequentially.
     ///
     /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
     pub sequential_download: Option<bool>,
     /// Download from a specific piece when [`sequential_download`] is enabled (`true`).
     ///
     /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
     ///
     /// [`sequential_download`]: Self::sequential_download
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
     pub sequential_download_from_piece: Option<u64>,
 }
 
@@ -166,6 +166,14 @@ impl TorrentAddArgs {
     /// Returns whether the [`TorrentAddArgs`] includes the required fields to add the torrent.
     pub fn is_valid(&self) -> bool {
         self.filename.is_some() || self.metainfo.is_some()
+    }
+
+    /// Fluently set the bandwidth priority of the [`TorrentAddArgs`] by consuming the
+    /// [`TorrentAddArgs`] instance, modifying its `bandwidth_priority` field, and returning the
+    /// instance.
+    pub fn bandwidth_priority(mut self, bandwidth_priority: Priority) -> Self {
+        self.bandwidth_priority = Some(bandwidth_priority);
+        self
     }
 
     /// Fluently set the cookies of the [`TorrentAddArgs`] by consuming the [`TorrentAddArgs`]
@@ -201,7 +209,7 @@ impl TorrentAddArgs {
     ///
     /// [`metainfo`]: Self::metainfo
     pub fn filename<S: AsRef<str>>(mut self, filename: S) -> Self {
-        self.download_dir = Some(filename.as_ref().to_string());
+        self.filename = Some(filename.as_ref().to_string());
         self
     }
 
@@ -250,14 +258,6 @@ impl TorrentAddArgs {
     /// instance, modifying its `peer_limit` field, and returning the instance.
     pub fn peer_limit(mut self, peer_limit: u16) -> Self {
         self.peer_limit = Some(peer_limit);
-        self
-    }
-
-    /// Fluently set the bandwidth priority of the [`TorrentAddArgs`] by consuming the
-    /// [`TorrentAddArgs`] instance, modifying its `bandwidth_priority` field, and returning the
-    /// instance.
-    pub fn bandwidth_priority(mut self, bandwidth_priority: Priority) -> Self {
-        self.bandwidth_priority = Some(bandwidth_priority);
         self
     }
 
@@ -352,13 +352,437 @@ impl TorrentAddArgs {
 }
 
 #[cfg(test)]
-mod setter_tests {
-    #[allow(unused_imports)]
+mod misc_tests {
     use super::*;
+
+    #[test]
+    fn torrent_add_args_new_is_valid_false() {
+        let args = TorrentAddArgs::new();
+
+        assert_eq!(args.is_valid(), false);
+    }
+
+    #[test]
+    fn torrent_add_args_default_is_valid_false() {
+        let args = TorrentAddArgs::default();
+
+        assert_eq!(args.is_valid(), false);
+    }
+
+    #[test]
+    fn torrent_add_args_filename_is_valid_true() {
+        let args = TorrentAddArgs {
+            filename: Some("/foo/bar/baz/".into()),
+            ..Default::default()
+        };
+
+        assert_eq!(args.is_valid(), true);
+    }
+
+    #[test]
+    fn torrent_add_args_metainfo_is_valid_true() {
+        let args = TorrentAddArgs {
+            metainfo: Some("foobar==".into()),
+            ..Default::default()
+        };
+
+        assert_eq!(args.is_valid(), true);
+    }
+
+    #[test]
+    fn torrent_add_args_filename_and_metainfo_is_valid_true() {
+        let args = TorrentAddArgs {
+            filename: Some("/foo/bar/baz/".into()),
+            metainfo: Some("foobar==".into()),
+            ..Default::default()
+        };
+
+        assert_eq!(args.is_valid(), true);
+    }
+}
+
+#[cfg(test)]
+mod setter_tests {
+    use super::*;
+
+    #[test]
+    fn torrent_add_args_bandwidth_priority() {
+        assert_eq!(
+            TorrentAddArgs::new().bandwidth_priority(Priority::Low),
+            TorrentAddArgs {
+                bandwidth_priority: Some(Priority::Low),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_cookies() {
+        assert_eq!(
+            TorrentAddArgs::new().cookies("foo=bar; abc=def;"),
+            TorrentAddArgs {
+                cookies: Some("foo=bar; abc=def;".into()),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_download_dir() {
+        assert_eq!(
+            TorrentAddArgs::new().download_dir("/lorem/ipsum"),
+            TorrentAddArgs {
+                download_dir: Some("/lorem/ipsum".into()),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_filename() {
+        assert_eq!(
+            TorrentAddArgs::new().filename("/lorem/ipsum/foo.torrent"),
+            TorrentAddArgs {
+                filename: Some("/lorem/ipsum/foo.torrent".into()),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_labels() {
+        assert_eq!(
+            TorrentAddArgs::new().labels(["foo", "bar"]),
+            TorrentAddArgs {
+                labels: Some(vec!["foo".to_owned(), "bar".to_string()]),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_metainfo() {
+        assert_eq!(
+            TorrentAddArgs::new().metainfo("abcdef="),
+            TorrentAddArgs {
+                metainfo: Some("abcdef=".into()),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_paused() {
+        assert_eq!(
+            TorrentAddArgs::new().paused(true),
+            TorrentAddArgs {
+                paused: Some(true),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_peer_limit() {
+        assert_eq!(
+            TorrentAddArgs::new().peer_limit(15),
+            TorrentAddArgs {
+                peer_limit: Some(15),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_files_wanted() {
+        assert_eq!(
+            TorrentAddArgs::new().files_wanted([1, 4, 8, 15]),
+            TorrentAddArgs {
+                files_wanted: Some(vec![1, 4, 8, 15]),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_files_unwanted() {
+        assert_eq!(
+            TorrentAddArgs::new().files_unwanted([123, 124, 603]),
+            TorrentAddArgs {
+                files_unwanted: Some(vec![123, 124, 603]),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_priority_high() {
+        assert_eq!(
+            TorrentAddArgs::new().priority_high([6]),
+            TorrentAddArgs {
+                priority_high: Some(vec![6]),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_priority_low() {
+        assert_eq!(
+            TorrentAddArgs::new().priority_low([6, 7]),
+            TorrentAddArgs {
+                priority_low: Some(vec![6, 7]),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_priority_normal() {
+        assert_eq!(
+            TorrentAddArgs::new().priority_normal([6, 7, 10]),
+            TorrentAddArgs {
+                priority_normal: Some(vec![6, 7, 10]),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_sequential_download() {
+        assert_eq!(
+            TorrentAddArgs::new().sequential_download(true),
+            TorrentAddArgs {
+                sequential_download: Some(true),
+                ..Default::default()
+            }
+        )
+    }
+
+    #[test]
+    fn torrent_add_args_sequential_download_from_piece() {
+        assert_eq!(
+            TorrentAddArgs::new().sequential_download_from_piece(6006),
+            TorrentAddArgs {
+                sequential_download_from_piece: Some(6006),
+                ..Default::default()
+            }
+        )
+    }
 }
 
 #[cfg(test)]
 mod serde_tests {
-    #[allow(unused_imports)]
+    use crate::types::{JSON_RPC_VERSION_2_0, Result, request::test_helper::verify};
     use super::*;
+
+    #[test]
+    fn torrent_add_args_legacy_bandwidth_priority() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .bandwidth_priority(Priority::High);
+        verify(args, None, "\"bandwidthPriority\":1")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_bandwidth_priority() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .bandwidth_priority(Priority::Normal);
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"bandwidth_priority\":0")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_cookies() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .cookies("abc=123");
+        verify(args, None, "\"cookies\":\"abc=123\"")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_cookies() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .cookies("foo=bar; token=123456;");
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"cookies\":\"foo=bar; token=123456;\"")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_download_dir() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .download_dir("/home/user/downloads");
+        verify(args, None, "\"download-dir\":\"/home/user/downloads\"")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_download_dir() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .download_dir("/tmp");
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"download_dir\":\"/tmp\"")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_filename() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .filename("magnet:?xt=urn:btih:1234567890&dn=foo.iso");
+        verify(args, None, "\"filename\":\"magnet:?xt=urn:btih:1234567890&dn=foo.iso\"")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_filename() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .filename("/tmp/test.iso.torrent");
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"filename\":\"/tmp/test.iso.torrent\"")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_labels() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .labels(["test", "DELETE"]);
+        verify(args, None, "\"labels\":[\"test\",\"DELETE\"]")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_labels() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .labels(vec!["foo", "bar", "123"]);
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"labels\":[\"foo\",\"bar\",\"123\"]")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_metainfo() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .metainfo("fOoB/Ar+/");
+        verify(args, None, "\"metainfo\":\"fOoB/Ar+/\"")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_metainfo() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .metainfo("L+/oR3m+/Ip5UM//");
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"metainfo\":\"L+/oR3m+/Ip5UM//\"")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_paused() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .paused(false);
+        verify(args, None, "\"paused\":false")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_paused() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .paused(true);
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"paused\":true")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_peer_limit() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .peer_limit(4);
+        verify(args, None, "\"peer-limit\":4")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_peer_limit() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .peer_limit(69);
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"peer_limit\":69")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_files_wanted() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .files_wanted([1, 2, 3]);
+        verify(args, None, "\"files-wanted\":[1,2,3]")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_files_wanted() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .files_wanted([606, 1002, 15392]);
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"files_wanted\":[606,1002,15392]")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_files_unwanted() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .files_unwanted([6, 7, 8]);
+        verify(args, None, "\"files-unwanted\":[6,7,8]")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_files_unwanted() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .files_unwanted([42, 420]);
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"files_unwanted\":[42,420]")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_priority_high() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .priority_high([5, 55, 100]);
+        verify(args, None, "\"priority-high\":[5,55,100]")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_priority_high() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .priority_high([33]);
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"priority_high\":[33]")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_priority_low() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .priority_low([10, 12, 20]);
+        verify(args, None, "\"priority-low\":[10,12,20]")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_priority_low() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .priority_low([2, 5]);
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"priority_low\":[2,5]")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_priority_normal() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .priority_normal([100, 101, 110]);
+        verify(args, None, "\"priority-normal\":[100,101,110]")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_priority_normal() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .priority_normal([20, 51]);
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"priority_normal\":[20,51]")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_sequential_download() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .sequential_download(true);
+        verify(args, None, "")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_sequential_download() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .sequential_download(false);
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"sequential_download\":false")
+    }
+
+    #[test]
+    fn torrent_add_args_legacy_sequential_download_from_piece() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .sequential_download_from_piece(39);
+        verify(args, None, "")
+    }
+
+    #[test]
+    fn torrent_add_args_semver_600_sequential_download_from_piece() -> Result<()> {
+        let args = TorrentAddArgs::default()
+            .sequential_download_from_piece(40);
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"sequential_download_from_piece\":40")
+    }
 }
