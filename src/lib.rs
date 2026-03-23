@@ -134,6 +134,7 @@ const MAX_RETRIES: usize = 5;
 enum TransError {
     MaxRetriesReached,
     NoSessionIdReceived,
+    TorrentAddInvalid,
     UnhandledJsonRpcVersion(String),
 }
 
@@ -142,6 +143,9 @@ impl std::fmt::Display for TransError {
         match self {
             TransError::MaxRetriesReached => write!(f, "Max retries reached!"),
             TransError::NoSessionIdReceived => write!(f, "No session id received!"),
+            TransError::TorrentAddInvalid => {
+                write!(f, "torrent-add MUST include either `filename` or `metainfo`")
+            },
             TransError::UnhandledJsonRpcVersion(v) => write!(f, "Unhandled JSON-RPC version: {v}"),
         }
     }
@@ -1334,10 +1338,9 @@ impl TransClient {
         &mut self,
         add: TorrentAddArgs,
     ) -> Result<RpcResponse<TorrentAddedOrDuplicate>> {
-        assert!(
-            add.metainfo.is_some() || add.filename.is_some(),
-            "Metainfo or Filename should be provided"
-        );
+        if !add.is_valid() {
+            return Err(TransError::TorrentAddInvalid.into());
+        }
         self.call(RpcRequest::torrent_add(add, None)).await
     }
 
@@ -1347,10 +1350,9 @@ impl TransClient {
         add: TorrentAddArgs,
         tag: Tag,
     ) -> Result<RpcResponse<TorrentAddedOrDuplicate>> {
-        assert!(
-            add.metainfo.is_some() || add.filename.is_some(),
-            "Metainfo or Filename should be provided"
-        );
+        if !add.is_valid() {
+            return Err(TransError::TorrentAddInvalid.into());
+        }
         self.call(RpcRequest::torrent_add(add, Some(tag))).await
     }
 

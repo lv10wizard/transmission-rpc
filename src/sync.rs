@@ -1208,10 +1208,9 @@ impl SharableTransClient {
         &self,
         add: TorrentAddArgs,
     ) -> Result<RpcResponse<TorrentAddedOrDuplicate>> {
-        assert!(
-            !(add.metainfo.is_none() && add.filename.is_none()),
-            "Metainfo or Filename should be provided"
-        );
+        if !add.is_valid() {
+            return Err(TransError::TorrentAddInvalid.into());
+        }
         self.call(RpcRequest::torrent_add(add, None)).await
     }
 
@@ -1221,10 +1220,9 @@ impl SharableTransClient {
         add: TorrentAddArgs,
         tag: Tag,
     ) -> Result<RpcResponse<TorrentAddedOrDuplicate>> {
-        assert!(
-            add.metainfo.is_some() || add.filename.is_some(),
-            "Metainfo or Filename should be provided"
-        );
+        if !add.is_valid() {
+            return Err(TransError::TorrentAddInvalid.into());
+        }
         self.call(RpcRequest::torrent_add(add, Some(tag))).await
     }
 

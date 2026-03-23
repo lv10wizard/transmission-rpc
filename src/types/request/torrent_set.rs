@@ -14,7 +14,7 @@ use crate::types::{Id, IdleMode, Priority, RatioMode, Result, TrackerId, Tracker
 ///
 /// # Setters
 ///
-/// These methods are fluent setters, returning a new [`TorrentSetArgs`] instance modifying only
+/// These methods are fluent setters, returning the [`TorrentSetArgs`] instance modifying only
 /// the corresponding field while leaving all other fields untouched.
 ///
 /// * [`TorrentSetArgs::bandwidth_priority`]: The torrents' bandwidth [`Priority`].
