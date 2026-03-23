@@ -7,19 +7,22 @@ use serde_with::skip_serializing_none;
 use compat_macros::GenerateCompat;
 
 use crate::json_rpc::{JsonRpcId, JsonRpcRequest};
-use super::{AltSpeedDay, Encryption, EncryptionCompat, Id, Priority, Tag, Transport};
+use super::{AltSpeedDay, Encryption, EncryptionCompat, Id, Tag, Transport};
 
 pub(crate) use session_get::*; // SessionGetArgs, __semver_600_compat_SessionGetArgs
+pub(crate) use torrent_add::*; // TorrentAddArgs, __semver_600_compat_TorrentAddArgs
 pub(crate) use torrent_get::*; // TorrentGetArgs, __semver_600_compat_TorrentGetArgs
 pub(crate) use torrent_set::*; // TorrentSetArgs, __semver_600_compat_TorrentSetArgs
 
 pub use session_get::SessionGetField;
+pub use torrent_add::TorrentAddArgs;
 pub use torrent_get::TorrentGetField;
 pub use torrent_set::{TorrentSetArgs, TrackerReplaceArgs, TrackerReplacePair};
 
 mod group_set;
 mod into;
 mod session_get;
+mod torrent_add;
 mod torrent_get;
 mod torrent_set;
 
@@ -920,51 +923,6 @@ pub struct TorrentRenamePathArgs {
     ids: Vec<Id>,
     path: String,
     name: String,
-}
-
-#[derive(GenerateCompat, Serialize, Debug, Clone, Default, PartialEq, Eq, Hash)]
-pub struct TorrentAddArgs {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cookies: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "download-dir")]
-    pub download_dir: Option<String>,
-    /// Either "filename" OR "metainfo" MUST be included
-    /// semi-optional
-    /// filename or URL of the .torrent file
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub filename: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub labels: Option<Vec<String>>,
-    /// semi-optional
-    /// base64-encoded .torrent content
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub metainfo: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub paused: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "peer-limit")]
-    pub peer_limit: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "bandwidthPriority")]
-    pub bandwidth_priority: Option<Priority>,
-    /// list of indices of files to be downloaded
-    /// to ignore some files, put their indices in files_unwanted, otherwise
-    /// they will still be downloaded
-    #[serde(skip_serializing_if = "Option::is_none", rename = "files-wanted")]
-    pub files_wanted: Option<Vec<i32>>,
-    /// list of indices of files not to download
-    #[serde(skip_serializing_if = "Option::is_none", rename = "files-unwanted")]
-    pub files_unwanted: Option<Vec<i32>>,
-    /// list of indices of files to be downloaded with high priority
-    #[serde(skip_serializing_if = "Option::is_none", rename = "priority-high")]
-    pub priority_high: Option<Vec<i32>>,
-    /// list of indices of files to be downloaded with low priority
-    #[serde(skip_serializing_if = "Option::is_none", rename = "priority-low")]
-    pub priority_low: Option<Vec<i32>>,
-    /// list of indices of files to be downloaded with normal priority
-    #[serde(skip_serializing_if = "Option::is_none", rename = "priority-normal")]
-    pub priority_normal: Option<Vec<i32>>,
-    /// whether to download torrent pieces sequentially
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sequential_download: Option<bool>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
