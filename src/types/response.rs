@@ -9,7 +9,8 @@ use serde_json::Value;
 use serde_repr::*;
 
 use super::{
-    AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag, TrackerList, Transport,
+    AltSpeedDay, Encryption, Id, IdleMode, Priority, RatioMode, Tag, TrackerId, TrackerList,
+    Transport,
 };
 use crate::json_rpc::{JsonRpcResponse, JsonRpcResult};
 
@@ -911,7 +912,7 @@ pub struct Torrent {
     /// Array of the torrent's tracker data. This information is a subset of [`tracker_stats`].
     ///
     /// [`tracker_stats`]: Self::tracker_stats
-    pub trackers: Option<Vec<Trackers>>,
+    pub trackers: Option<Vec<Tracker>>,
     /// String of announce URLs, one per line, and a blank line between tiers.
     ///
     /// eg. `"http://bt1.archive.org:6969/announce\n\nhttp://bt2.archive.org:6969/announce\n"`
@@ -1052,9 +1053,9 @@ pub struct Torrents<T> {
 impl RpcResponseArgument for Torrents<Torrent> {}
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
-pub struct Trackers {
+pub struct Tracker {
     /// Unique transmission-generated ID for use in libtransmission API.
-    pub id: i32, // TODO? u32
+    pub id: TrackerId,
     /// The tracker's full announce URL.
     pub announce: String,
     /// The tracker's full scrape URL.
@@ -1291,7 +1292,7 @@ pub struct TrackerStat {
     /// Uniquely-identifying tracker name (`${host}:${port}`)
     pub host: String,
     /// Unique transmission-generated ID for use in libtransmission API.
-    pub id: Id, // TODO: change to u32 (or maybe u64) - this is not the same as `Id`!
+    pub id: TrackerId,
     /// Only one tracker per tier is used; the others are kept as backups.
     #[serde(alias = "is_backup")]
     pub is_backup: bool,

@@ -1,7 +1,7 @@
 use compat_macros::GenerateCompat;
 use serde::Serialize;
 
-use crate::types::{Id, IdleMode, Priority, RatioMode, TrackerList};
+use crate::types::{Id, IdleMode, Priority, RatioMode, TrackerId, TrackerList};
 
 /// Defines request arguments for the [`torrent_set`] method.
 ///
@@ -207,7 +207,7 @@ pub struct TorrentSetArgs {
     ///
     /// [`tracker_list`]: Self::tracker_list
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tracker_remove: Option<Vec<String>>,
+    pub tracker_remove: Option<Vec<TrackerId>>,
     /// Pairs of <trackerId/new announce URLs>.
     ///
     /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
@@ -322,7 +322,7 @@ impl TorrentSetArgs {
         self.tracker_list = Some(tracker_list);
         self
     }
-    pub fn tracker_remove(mut self, tracker_remove: Vec<String>) -> Self {
+    pub fn tracker_remove(mut self, tracker_remove: Vec<TrackerId>) -> Self {
         self.tracker_remove = Some(tracker_remove);
         self
     }

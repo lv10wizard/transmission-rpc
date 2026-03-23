@@ -8,7 +8,7 @@ use url::Url;
 
 use crate::types::response::{TorrentStatus, TrackerState, WebseedsEx};
 use crate::types::{
-    ErrorType, Id, IdleMode, Priority, RatioMode, Result, RpcResponse, Torrent, Torrents,
+    ErrorType, IdleMode, Priority, RatioMode, Result, RpcResponse, Torrent, Torrents,
 };
 
 type TorrentGetResp = RpcResponse<Torrents<Torrent>>;
@@ -3713,7 +3713,7 @@ fn test_torrent_get_total_size_missing() -> Result<()> {
     )
 }
 
-// ----- trackers (Trackers) --------------------
+// ----- trackers (Tracker) --------------------
 
 #[test]
 fn test_torrent_get_trackers_success() -> Result<()> {
@@ -3742,7 +3742,7 @@ fn test_torrent_get_trackers_success() -> Result<()> {
                         "trackers": [
                             {
                                 "announce":"https://example.com:4096/announce",
-                                "id":0,
+                                "id":44023,
                                 "scrape":"https://example.com:4096/scrape",
                                 "sitename":"example",
                                 "tier":0
@@ -3779,7 +3779,7 @@ fn test_torrent_get_trackers_success() -> Result<()> {
                 .as_ref()
                 .expect("trackers should exist");
             assert_eq!(second.len(), 1);
-            assert_eq!(second[0].id, 0);
+            assert_eq!(second[0].id, 44023);
             assert_eq!(second[0].announce, "https://example.com:4096/announce");
             assert_eq!(second[0].scrape, "https://example.com:4096/scrape");
             assert_eq!(second[0].sitename, "example");
@@ -3954,7 +3954,7 @@ fn test_torrent_get_tracker_stats_success() -> Result<()> {
             assert_eq!(first[0].has_announced, true);
             assert_eq!(first[0].has_scraped, true);
             assert_eq!(first[0].host, "https://example.com:8080");
-            assert!(matches!(first[0].id, Id::Id(0)));
+            assert!(matches!(first[0].id, 0));
             assert_eq!(first[0].is_backup, false);
             assert_eq!(first[0].last_announce_peer_count, 86);
             assert_eq!(first[0].last_announce_result, "Success".to_string());
@@ -4006,7 +4006,7 @@ fn test_torrent_get_tracker_stats_success() -> Result<()> {
             assert_eq!(second[0].has_announced, false);
             assert_eq!(second[0].has_scraped, false);
             assert_eq!(second[0].host, "http://example.org:8080");
-            assert!(matches!(second[0].id, Id::Id(666)));
+            assert!(matches!(second[0].id, 666));
             assert_eq!(second[0].is_backup, true);
             assert_eq!(second[0].last_announce_peer_count, 9999);
             assert_eq!(second[0].last_announce_result, "IPv4 connection failed".to_string());
@@ -4113,7 +4113,7 @@ fn test_torrent_get_tracker_stats_semver_530_compat() -> Result<()> {
             assert_eq!(first[0].has_announced, true);
             assert_eq!(first[0].has_scraped, true);
             assert_eq!(first[0].host, "https://example.com:8080");
-            assert!(matches!(first[0].id, Id::Id(0)));
+            assert!(matches!(first[0].id, 0));
             assert_eq!(first[0].is_backup, false);
             assert_eq!(first[0].last_announce_peer_count, 86);
             assert_eq!(first[0].last_announce_result, "Success".to_string());
