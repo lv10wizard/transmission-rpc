@@ -15,7 +15,7 @@ pub(crate) use torrent_set::*; // TorrentSetArgs, __semver_600_compat_TorrentSet
 
 pub use session_get::SessionGetField;
 pub use torrent_get::TorrentGetField;
-pub use torrent_set::TorrentSetArgs;
+pub use torrent_set::{TorrentSetArgs, TrackerReplaceArgs, TrackerReplacePair};
 
 mod group_set;
 mod into;

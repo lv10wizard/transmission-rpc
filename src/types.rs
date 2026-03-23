@@ -8,7 +8,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 pub(crate) use self::request::{RpcRequest, SessionGetArgs};
 pub use self::request::{
     ArgumentFields, GroupSetArgs, SessionGetField, SessionSetArgs, TorrentAction, TorrentAddArgs,
-    TorrentGetField, TorrentRenamePathArgs, TorrentSetArgs,
+    TorrentGetField, TorrentRenamePathArgs, TorrentSetArgs, TrackerReplaceArgs, TrackerReplacePair,
 };
 
 pub use self::response::{

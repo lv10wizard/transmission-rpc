@@ -1,7 +1,8 @@
 use compat_macros::GenerateCompat;
-use serde::Serialize;
+use serde::{Serialize, ser::SerializeSeq};
+use url::Url;
 
-use crate::types::{Id, IdleMode, Priority, RatioMode, TrackerId, TrackerList};
+use crate::types::{Id, IdleMode, Priority, RatioMode, Result, TrackerId, TrackerList};
 
 /// Defines request arguments for the [`torrent_set`] method.
 ///
@@ -217,7 +218,7 @@ pub struct TorrentSetArgs {
     ///
     /// [`tracker_list`]: Self::tracker_list
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tracker_replace: Option<Vec<String>>,
+    pub tracker_replace: Option<TrackerReplaceArgs>,
     /// Maximum upload speed (KBps).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub upload_limit: Option<usize>,
@@ -326,8 +327,8 @@ impl TorrentSetArgs {
         self.tracker_remove = Some(tracker_remove);
         self
     }
-    pub fn tracker_replace(mut self, tracker_replace: Vec<String>) -> Self {
-        self.tracker_replace = Some(tracker_replace);
+    pub fn tracker_replace<I: Into<TrackerReplaceArgs>>(mut self, tracker_replace: I) -> Self {
+        self.tracker_replace = Some(tracker_replace.into());
         self
     }
     pub fn upload_limit(mut self, upload_limit: usize) -> Self {
@@ -337,6 +338,82 @@ impl TorrentSetArgs {
     pub fn upload_limited(mut self, upload_limited: bool) -> Self {
         self.upload_limited = Some(upload_limited);
         self
+    }
+}
+
+/// Represents [`TorrentSetArgs::tracker_replace`] arguments. This type exists to facilitate
+/// serializing a JSON array of multiple types, ie. `[int, str, int, str, ...]`.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct TrackerReplaceArgs(pub Vec<TrackerReplacePair>);
+
+impl TrackerReplaceArgs {
+    /// Takes any collection of [`TrackerReplacePair`]-convertable types (eg. `Vec<(u32, Url)>`).
+    pub fn new<I, P>(pairs: I) -> Self
+    where
+        I: IntoIterator<Item = P>,
+        P: Into<TrackerReplacePair>,
+    {
+        Self(pairs.into_iter().map(Into::into).collect())
+    }
+}
+
+impl<I, P> From<I> for TrackerReplaceArgs
+where
+    I: IntoIterator<Item = P>,
+    P: Into<TrackerReplacePair>,
+{
+    fn from(value: I) -> Self {
+        Self::new(value)
+    }
+}
+
+impl Serialize for TrackerReplaceArgs {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+        for pair in self.0.iter() {
+            seq.serialize_element(&pair.id)?;
+            seq.serialize_element(&pair.new_announce)?;
+        }
+        seq.end()
+    }
+}
+
+/// Represents and encodes a pair of (`id`, `new_announce`) tracker replace arguments for
+/// serialization purposes.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrackerReplacePair {
+    pub id: u32,
+    pub new_announce: Url,
+}
+
+impl TrackerReplacePair {
+    /// Fallibly tries to construct a new tracker-replace pair from the `id` and any [`str`]-like
+    /// type (like [`String`] or `&str`).
+    ///
+    /// This constructor may fail if `new_announce` cannot be parsed into a [`Url`] (see:
+    /// [`Url::parse`]).
+    pub fn try_new<S: AsRef<str>>(id: u32, new_announce: S) -> Result<Self> {
+        Ok(Self {
+            id,
+            new_announce: Url::parse(new_announce.as_ref())?,
+        })
+    }
+
+    /// Constructs a new tracker-replace pair.
+    pub fn new(id: u32, new_announce: Url) -> Self {
+        Self { id, new_announce }
+    }
+}
+
+impl From<(u32, Url)> for TrackerReplacePair {
+    fn from(value: (u32, Url)) -> Self {
+        Self {
+            id: value.0,
+            new_announce: value.1,
+        }
     }
 }
 
@@ -372,7 +449,7 @@ mod tests {
 mod serde_tests {
     use url::Url;
 
-    use crate::types::{JSON_RPC_VERSION_2_0, Result, request::test_helper::verify};
+    use crate::types::{JSON_RPC_VERSION_2_0, request::test_helper::verify};
     use super::*;
 
     #[test]
@@ -710,6 +787,24 @@ mod serde_tests {
             \"")
     }
 
+    #[test]
+    fn tracker_replace_args_serialize() -> Result<()> {
+        let args: TrackerReplaceArgs = [
+            (123, Url::parse("http://foo.example.com/bar")?),
+            (3343, Url::parse("http://lorem.example.com/ipsum")?),
+            (600123, Url::parse("https://bt1.example.com:8080/announce")?),
+        ].into();
+        let serialized = serde_json::to_string(&args)?;
+        println!("> {serialized}");
+
+        assert_eq!(serialized, "[\
+            123,\"http://foo.example.com/bar\",\
+            3343,\"http://lorem.example.com/ipsum\",\
+            600123,\"https://bt1.example.com:8080/announce\"\
+        ]");
+        Ok(())
+    }
+
     /* TODO: tracker_remove tests
     #[test]
     fn request_torrent_set_legacy_tracker_remove() -> Result<()> {
@@ -730,23 +825,37 @@ mod serde_tests {
     }
     */
 
-    /* TODO: tracker_replace tests
     #[test]
     fn request_torrent_set_legacy_tracker_replace() -> Result<()> {
         let args = TorrentSetArgs::new()
-            .tracker_replace(todo!());
+            .tracker_replace([
+                (45023, Url::parse("https://announce.example.com:1234")?),
+                (45044, Url::parse("https://announce.example.com:2345")?),
+                (45072, Url::parse("https://foo.example.com:3456/bar")?),
+            ]);
         verify(args, None, 
-            "\"trackerReplace\":\"\
-            \"")
+            "\"trackerReplace\":[\
+                45023,\"https://announce.example.com:1234/\",\
+                45044,\"https://announce.example.com:2345/\",\
+                45072,\"https://foo.example.com:3456/bar\"\
+            ]")
     }
 
     #[test]
     fn request_torrent_set_semver_600_tracker_replace() -> Result<()> {
         let args = TorrentSetArgs::new()
-            .tracker_replace(todo!());
-        verify(args, Some(JSON_RPC_VERSION_2_0), "\"tracker_replace\":\"\n\"")
+            .tracker_replace([
+                (1111, Url::parse("https://foo.bar.example.com:6060")?),
+                (22222, Url::parse("https://a.example.com/b/c")?),
+                (3333333, Url::parse("https://test.example.com:8881")?),
+            ]);
+        verify(args, Some(JSON_RPC_VERSION_2_0),
+            "\"tracker_replace\":[\
+                1111,\"https://foo.bar.example.com:6060/\",\
+                22222,\"https://a.example.com/b/c\",\
+                3333333,\"https://test.example.com:8881/\"\
+            ]")
     }
-    */
 
     #[test]
     fn request_torrent_set_legacy_upload_limit() -> Result<()> {
