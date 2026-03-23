@@ -323,8 +323,11 @@ impl TorrentSetArgs {
         self.tracker_list = Some(tracker_list);
         self
     }
-    pub fn tracker_remove(mut self, tracker_remove: Vec<TrackerId>) -> Self {
-        self.tracker_remove = Some(tracker_remove);
+    pub fn tracker_remove<I>(mut self, tracker_remove: I) -> Self
+    where
+        I: IntoIterator<Item = TrackerId>,
+    {
+        self.tracker_remove = Some(tracker_remove.into_iter().collect());
         self
     }
     pub fn tracker_replace<I: Into<TrackerReplaceArgs>>(mut self, tracker_replace: I) -> Self {
@@ -805,25 +808,21 @@ mod serde_tests {
         Ok(())
     }
 
-    /* TODO: tracker_remove tests
     #[test]
     fn request_torrent_set_legacy_tracker_remove() -> Result<()> {
         let args = TorrentSetArgs::new()
-            .tracker_remove(todo!());
+            .tracker_remove([123, 321, 82213, 82215]);
         verify(args, None, 
-            "\"trackerRemove\":\"\
-                \"https://a.example.org:1111/foo\"\n\
-                \"https://b.example.org:6012/bar\"\n\
-            \"")
+            "\"trackerRemove\":[123,321,82213,82215]")
     }
 
     #[test]
     fn request_torrent_set_semver_600_tracker_remove() -> Result<()> {
         let args = TorrentSetArgs::new()
-            .tracker_remove(todo!());
-        verify(args, Some(JSON_RPC_VERSION_2_0), "\"tracker_remove\":\"\n\"")
+            .tracker_remove([4, 5, 6]);
+        verify(args, Some(JSON_RPC_VERSION_2_0),
+            "\"tracker_remove\":[4,5,6]")
     }
-    */
 
     #[test]
     fn request_torrent_set_legacy_tracker_replace() -> Result<()> {
