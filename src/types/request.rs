@@ -9,11 +9,13 @@ use compat_macros::GenerateCompat;
 use crate::json_rpc::{JsonRpcId, JsonRpcRequest};
 use super::{AltSpeedDay, Encryption, EncryptionCompat, Id, Tag, Transport};
 
+pub(crate) use group_set::*; // GroupSetArgs, __semver_600_compat_GroupSetArgs
 pub(crate) use session_get::*; // SessionGetArgs, __semver_600_compat_SessionGetArgs
 pub(crate) use torrent_add::*; // TorrentAddArgs, __semver_600_compat_TorrentAddArgs
 pub(crate) use torrent_get::*; // TorrentGetArgs, __semver_600_compat_TorrentGetArgs
 pub(crate) use torrent_set::*; // TorrentSetArgs, __semver_600_compat_TorrentSetArgs
 
+pub use group_set::GroupSetArgs;
 pub use session_get::SessionGetField;
 pub use torrent_add::TorrentAddArgs;
 pub use torrent_get::TorrentGetField;
@@ -557,70 +559,6 @@ impl<I: IntoIterator<Item = String>> From<Option<I>> for GroupGetArgs {
                 .map(|val| val.into_iter().collect()),
         }
     }
-}
-
-/// Defines request arguments for the [`group_set`] method.
-///
-/// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17).
-///
-/// # Constructor
-///
-/// * [`GroupSetArgs::new`] creates an empty `GroupSetArgs` object with the given group name.
-///
-/// # Setters
-///
-/// The following methods are fluent setters, returning a new `GroupSetArgs` instance modifying
-/// only the corresponding field while leaving all other fields untouched.
-///
-/// * [`GroupSetArgs::honors_session_limits`]: Whether the session's upload limits are honored.
-/// * [`GroupSetArgs::speed_limit_down_enabled`]: Whether the bandwidth group limits download
-/// speed.
-/// * [`GroupSetArgs::speed_limit_down`]: Maximum download speed (`KBps`).
-/// * [`GroupSetArgs::speed_limit_up_enabled`]: Whether the bandwidth group limits upload speed.
-/// * [`GroupSetArgs::speed_limit_up`]: Maximum upload speed (`KBps`).
-///
-/// # Examples
-///
-/// With fluent setters:
-/// ```
-/// use transmission_rpc::types::GroupSetArgs;
-///
-/// let args = GroupSetArgs()::new("my-bandwidth-group".to_owned())
-///                .honors_session_limits(false)
-///                .speed_limit_up_enabled(true)
-///                .speed_limit_up(500);
-/// ```
-///
-/// Directly setting struct fields:
-/// ```
-/// use transmission_rpc::types::GroupSetArgs;
-///
-/// let mut args = GroupSetArgs()::new("my-bandwidth-group".to_owned());
-/// args.honors_session_limits = Some(false);
-/// args.speed_limit_up_enabled = Some(true);
-/// args.speed_limit_up = Some(500);
-/// ```
-///
-/// [`group_set`]: crate::TransClient::group_set
-#[derive(GenerateCompat, Serialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-pub struct GroupSetArgs {
-    #[serde(skip_serializing_if = "Option::is_none", rename = "honorsSessionLimits")]
-    pub honors_session_limits: Option<bool>,
-
-    pub name: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub speed_limit_down_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub speed_limit_down: Option<u64>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub speed_limit_up_enabled: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub speed_limit_up: Option<u64>,
 }
 
 #[skip_serializing_none]
