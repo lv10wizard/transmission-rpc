@@ -7,8 +7,9 @@ use super::{Id, map_option_vec};
 
 #[skip_serializing_none]
 #[derive(GenerateCompat, Serialize, Debug, Clone)]
+#[compat(placeholder = P)]
 pub struct TorrentGetArgs {
-    #[compat(type = Option<Vec<__semver_600_compat_TorrentGetField>>, map = map_option_vec)]
+    #[compat(type = Option<Vec<P>>, map = map_option_vec)]
     pub(crate) fields: Option<Vec<TorrentGetField>>,
     pub(crate) ids: Option<Vec<Id>>,
 }

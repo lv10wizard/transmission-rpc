@@ -7,8 +7,9 @@ pub struct Symbol(&'static str);
 pub(crate) const COMPAT_PREFIX: &'static str = "__semver_600_compat_";
 
 pub(crate) const COMPAT_ATTR: Symbol = Symbol("compat");
-pub(crate) const NAME: Symbol = Symbol("name");
+pub(crate) const PLACEHOLDER: Symbol = Symbol("placeholder");
 pub(crate) const MAP: Symbol = Symbol("map");
+pub(crate) const NAME: Symbol = Symbol("name");
 pub(crate) const TYPE: Symbol = Symbol("type");
 
 impl PartialEq<Symbol> for Ident {

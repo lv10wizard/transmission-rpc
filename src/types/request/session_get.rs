@@ -30,8 +30,9 @@ use super::{Args, RpcRequest, map_vec};
 /// [`HashSet`]: std::collections::HashSet
 #[derive(GenerateCompat, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
+#[compat(placeholder = P)]
 pub(crate) struct SessionGetArgs {
-    #[compat(type = Vec<__semver_600_compat_SessionGetField>, map = map_vec)]
+    #[compat(type = Vec<P>, map = map_vec)]
     #[serde(skip_serializing_if = "Vec::is_empty")] // Treat empty the same as `None`.
     pub(crate) fields: Vec<SessionGetField>,
 }

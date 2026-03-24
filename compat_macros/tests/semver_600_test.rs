@@ -24,4 +24,27 @@ fn compat_replace_struct_field() {
         #[compat(type = u16)]
         zzz: u8,
     }
+
+    #[derive(GenerateCompat)]
+    #[compat(placeholder = PLACEHOLDER)]
+    struct _Bar {
+        #[compat(type = Option<PLACEHOLDER>, map = Option::map)]
+        foo: Option<_Foo>,
+    }
+}
+
+#[test]
+fn compat_replace_enum_unit() {
+    #[derive(GenerateCompat, Serialize)]
+    #[serde(untagged)]
+    #[compat(placeholder = P)]
+    enum _Lorem {
+        #[compat(type = P)]
+        A(_Ipsum),
+    }
+
+    #[derive(GenerateCompat, Serialize)]
+    enum _Ipsum {
+        B,
+    }
 }
