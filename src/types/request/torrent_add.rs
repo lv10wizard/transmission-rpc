@@ -89,6 +89,7 @@ pub struct TorrentAddArgs {
     /// `name1=content1; name2=content2;` etc. See [libcurl documentation] for more information.
     ///
     /// [cookies]: <https://en.wikipedia.org/wiki/HTTP_cookie>
+    /// [`filename`]: Self::filename
     /// [libcurl documentation]: <https://curl.se/rfc/cookie_spec.html>
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cookies: Option<String>,
