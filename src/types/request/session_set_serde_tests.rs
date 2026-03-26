@@ -1,7 +1,7 @@
 //! This file defines serde tests for legacy and json-rpc requests.
 
 use super::{*, test_helper::verify};
-use crate::types::{JSON_RPC_VERSION_2_0, Result, Transport};
+use crate::types::{JSON_RPC_VERSION_2_0, MinutesAfterMidnight, Result, Transport};
 
 #[test]
 fn request_session_set_legacy_alt_speed_down() -> Result<()> {
@@ -42,7 +42,7 @@ fn request_session_set_semver_600_alt_speed_enabled() -> Result<()> {
 #[test]
 fn request_session_set_legacy_alt_speed_time_begin() -> Result<()> {
     let session_set_args = SessionSetArgs {
-        alt_speed_time_begin: Some(123),
+        alt_speed_time_begin: Some(MinutesAfterMidnight(123)),
         ..Default::default()
     };
     verify(session_set_args, None, "\"alt-speed-time-begin\":123")
@@ -51,10 +51,19 @@ fn request_session_set_legacy_alt_speed_time_begin() -> Result<()> {
 #[test]
 fn request_session_set_semver_600_alt_speed_time_begin() -> Result<()> {
     let session_set_args = SessionSetArgs {
-        alt_speed_time_begin: Some(123),
+        alt_speed_time_begin: Some(MinutesAfterMidnight(123)),
         ..Default::default()
     };
     verify(session_set_args, Some(JSON_RPC_VERSION_2_0), "\"alt_speed_time_begin\":123")
+}
+
+#[test]
+fn request_session_set_alt_speed_time_begin_clamp() -> Result<()> {
+    let session_set_args = SessionSetArgs {
+        alt_speed_time_begin: Some(MinutesAfterMidnight(60 * 24 + 111)),
+        ..Default::default()
+    };
+    verify(session_set_args, Some(JSON_RPC_VERSION_2_0), "\"alt_speed_time_begin\":111")
 }
 
 #[test]
@@ -102,7 +111,7 @@ fn request_session_set_semver_600_alt_speed_time_enabled() -> Result<()> {
 #[test]
 fn request_session_set_legacy_alt_speed_time_end() -> Result<()> {
     let session_set_args = SessionSetArgs {
-        alt_speed_time_end: Some(666),
+        alt_speed_time_end: Some(MinutesAfterMidnight(666)),
         ..Default::default()
     };
     verify(session_set_args, None, "\"alt-speed-time-end\":666")
@@ -111,10 +120,19 @@ fn request_session_set_legacy_alt_speed_time_end() -> Result<()> {
 #[test]
 fn request_session_set_semver_600_alt_speed_time_end() -> Result<()> {
     let session_set_args = SessionSetArgs {
-        alt_speed_time_end: Some(666),
+        alt_speed_time_end: Some(MinutesAfterMidnight(666)),
         ..Default::default()
     };
     verify(session_set_args, Some(JSON_RPC_VERSION_2_0), "\"alt_speed_time_end\":666")
+}
+
+#[test]
+fn request_session_set_alt_speed_time_end_clamp() -> Result<()> {
+    let session_set_args = SessionSetArgs {
+        alt_speed_time_begin: Some(MinutesAfterMidnight(60 * 24 + 222)),
+        ..Default::default()
+    };
+    verify(session_set_args, Some(JSON_RPC_VERSION_2_0), "\"alt_speed_time_begin\":222")
 }
 
 #[test]

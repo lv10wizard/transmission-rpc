@@ -222,6 +222,38 @@ impl Display for Transport {
     }
 }
 
+/// Serialization helper [`SessionSetArgs`] [`alt_speed_time_begin`] and [`alt_speed_time_end`]
+/// type to clamp the number of minutes to within a single day.
+///
+/// [`alt_speed_time_begin`]: SessionSetArgs::alt_speed_time_begin
+/// [`alt_speed_time_end`]: SessionSetArgs::alt_speed_time_end
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct MinutesAfterMidnight(pub u64);
+
+impl MinutesAfterMidnight {
+    const MINUTES_PER_DAY: u64 = 60 * 24;
+
+    /// Clamps the number of minutes into a single day.
+    fn clamp(&self) -> u64 {
+        self.0 % Self::MINUTES_PER_DAY
+    }
+}
+
+impl Serialize for MinutesAfterMidnight {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer
+    {
+        serializer.serialize_u64(self.clamp())
+    }
+}
+
+impl Display for MinutesAfterMidnight {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} minutes after midnight", self.clamp())
+    }
+}
+
 /// Represents an arbitrary `tag` number used by clients to track responses. <sup>[[1]][[2]]</sup>
 ///
 /// [1]: <https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md#21-requests>
