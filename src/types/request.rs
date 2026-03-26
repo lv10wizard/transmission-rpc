@@ -64,12 +64,11 @@ impl Serialize for RpcRequest {
                     jsonrpc: jsonrpc,
                     // All method names were converted to snake_case in Transmission 4.1.0 (when
                     // the RPC server switched to the JSON-RPC 2.0 protocol).
-                    method: &self.method
-                        .as_str()
-                        .replace("-", "_"),
-                    params: self.arguments
+                    method: self.method.into_compat(),
+                    params: self.arguments.as_ref()
                         // Cloning the request arguments shouldn't be too costly...
-                        .clone()
+                        // Not ideal, but maybe this gets optimized away anyway?
+                        .cloned()
                         .map(|args| args.into_compat()),
                     id: self.tag
                         // Try to use the provided tag, if one exists.
@@ -296,7 +295,7 @@ impl RpcRequest {
     {
         let ids = ids.into_iter().collect();
         RpcRequest {
-            method: Method::TorrentAction(action),
+            method: action.into(),
             arguments: Some(Args::TorrentAction(TorrentActionArgs { ids })),
             tag,
             jsonrpc: None,
@@ -399,7 +398,8 @@ where
     })
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(GenerateCompat, Serialize, Debug, Copy, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub(crate) enum Method {
     BlocklistUpdate,
     FreeSpace,
@@ -414,58 +414,36 @@ pub(crate) enum Method {
     SessionGet,
     SessionSet,
     SessionStats,
-    TorrentAction(TorrentAction),
     TorrentAdd,
     TorrentGet,
+    TorrentReannounce,
     TorrentRemove,
     TorrentRenamePath,
     TorrentSet,
     TorrentSetLocation,
+    TorrentStart,
+    TorrentStartNow,
+    TorrentStop,
+    TorrentVerify,
 }
 
-impl Method {
-    fn as_str(&self) -> &'static str {
-        use Method as M;
-
-        match self {
-            M::SessionSet => "session-set",
-            M::SessionGet => "session-get",
-            M::SessionStats => "session-stats",
-            M::SessionClose => "session-close",
-            M::BlocklistUpdate => "blocklist-update",
-            M::FreeSpace => "free-space",
-            M::GroupGet => "group-get",
-            M::GroupSet => "group-set",
-            M::PortTest => "port-test",
-            M::TorrentGet => "torrent-get",
-            M::TorrentSet => "torrent-set",
-            M::TorrentRemove => "torrent-remove",
-            M::TorrentAdd => "torrent-add",
-            M::TorrentAction(action) => action.as_str(),
-            M::TorrentSetLocation => "torrent-set-location",
-            M::TorrentRenamePath => "torrent-rename-path",
-            M::QueueMoveUp => "queue-move-up",
-            M::QueueMoveDown => "queue-move-down",
-            M::QueueMoveTop => "queue-move-top",
-            M::QueueMoveBottom => "queue-move-bottom",
+impl From<TorrentAction> for Method {
+    fn from(action: TorrentAction) -> Self {
+        match action {
+            TorrentAction::Start => Method::TorrentStart,
+            TorrentAction::StartNow => Method::TorrentStartNow,
+            TorrentAction::Stop => Method::TorrentStop,
+            TorrentAction::Verify => Method::TorrentVerify,
+            TorrentAction::Reannounce => Method::TorrentReannounce,
         }
-    }
-}
-
-// Manually implement [Serialize] for [Method] because serde doesn't support flattening of
-// tuple struct variant of enums, [Method::TorrentAction(_)] in this case.
-impl Serialize for Method {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.as_str())
     }
 }
 
 impl Display for Method {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
+        let as_str = serde_json::to_string(self)
+            .map_err(|_| fmt::Error)?;
+        write!(f, "{as_str}")
     }
 }
 
@@ -578,28 +556,33 @@ pub struct TorrentRenamePathArgs {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TorrentAction {
     Start,
-    Stop,
     StartNow,
+    Stop,
     Verify,
     Reannounce,
 }
 
+impl Display for TorrentAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // NOTE: This will only emit pre- semver-6.0.0 names.
+        write!(f, "{}", match self {
+            Self::Start => "torrent-start",
+            Self::StartNow => "torrent-start-now",
+            Self::Stop => "torrent-stop",
+            Self::Verify => "torrent-verify",
+            Self::Reannounce => "torrent-reannounce",
+        })
+    }
+}
+
 impl TorrentAction {
+    /// This is an alias for [`ToString::to_string`].
+    ///
+    /// This method exists so that application code written prior to [`TorrentAction`] implementing
+    /// [`Display`] does not break.
     #[must_use]
     pub fn to_str(&self) -> String {
-        self.as_str().to_string()
-    }
-
-    fn as_str(&self) -> &'static str {
-        use TorrentAction as A;
-
-        match self {
-            A::Start => "torrent-start",
-            A::Stop => "torrent-stop",
-            A::StartNow => "torrent-start-now",
-            A::Verify => "torrent-verify",
-            A::Reannounce => "torrent-reannounce",
-        }
+        self.to_string()
     }
 }
 
@@ -812,5 +795,297 @@ mod serde_tests {
 
         let args = GroupGetArgs { groups: Some(vec!["foo".into(), "bar".into()]) };
         verify(args, Some(JSON_RPC_VERSION_2_0), "\"groups\":[\"foo\",\"bar\"]")
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    fn serialize_method_legacy(method: Method) -> Result<String> {
+        serde_json::to_string(&method)
+            .map_err(Into::into)
+    }
+
+    fn serialize_method_semver_600(method: Method) -> Result<String> {
+        serde_json::to_string(&method.into_compat())
+            .map_err(Into::into)
+    }
+
+    #[test]
+    fn request_method_legacy_blocklist_update() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::BlocklistUpdate)?, "\"blocklist-update\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_blocklist_update() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::BlocklistUpdate)?, "\"blocklist_update\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_free_space() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::FreeSpace)?, "\"free-space\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_free_space() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::FreeSpace)?, "\"free_space\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_group_get() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::GroupGet)?, "\"group-get\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_group_get() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::GroupGet)?, "\"group_get\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_group_set() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::GroupSet)?, "\"group-set\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_group_set() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::GroupSet)?, "\"group_set\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_queue_move_bottom() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::QueueMoveBottom)?, "\"queue-move-bottom\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_queue_move_bottom() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::QueueMoveBottom)?, "\"queue_move_bottom\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_queue_move_down() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::QueueMoveDown)?, "\"queue-move-down\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_queue_move_down() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::QueueMoveDown)?, "\"queue_move_down\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_queue_move_top() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::QueueMoveTop)?, "\"queue-move-top\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_queue_move_top() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::QueueMoveTop)?, "\"queue_move_top\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_queue_move_up() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::QueueMoveUp)?, "\"queue-move-up\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_queue_move_up() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::QueueMoveUp)?, "\"queue_move_up\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_session_close() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::SessionClose)?, "\"session-close\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_session_close() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::SessionClose)?, "\"session_close\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_session_get() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::SessionGet)?, "\"session-get\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_session_get() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::SessionGet)?, "\"session_get\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_session_set() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::SessionSet)?, "\"session-set\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_session_set() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::SessionSet)?, "\"session_set\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_session_stats() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::SessionStats)?, "\"session-stats\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_session_stats() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::SessionStats)?, "\"session_stats\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_torrent_add() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::TorrentAdd)?, "\"torrent-add\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_torrent_add() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::TorrentAdd)?, "\"torrent_add\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_torrent_get() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::TorrentGet)?, "\"torrent-get\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_torrent_get() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::TorrentGet)?, "\"torrent_get\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_torrent_reannounce() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::TorrentReannounce)?, "\"torrent-reannounce\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_torrent_reannounce() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::TorrentReannounce)?,
+            "\"torrent_reannounce\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_torrent_remove() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::TorrentRemove)?, "\"torrent-remove\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_torrent_remove() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::TorrentRemove)?, "\"torrent_remove\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_torrent_rename_path() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::TorrentRenamePath)?, "\"torrent-rename-path\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_torrent_rename_path() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::TorrentRenamePath)?,
+            "\"torrent_rename_path\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_torrent_set() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::TorrentSet)?, "\"torrent-set\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_torrent_set() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::TorrentSet)?, "\"torrent_set\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_torrent_set_location() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::TorrentSetLocation)?,
+            "\"torrent-set-location\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_torrent_set_location() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::TorrentSetLocation)?,
+            "\"torrent_set_location\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_torrent_start() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::TorrentStart)?, "\"torrent-start\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_torrent_start() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::TorrentStart)?, "\"torrent_start\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_torrent_start_now() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::TorrentStartNow)?, "\"torrent-start-now\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_torrent_start_now() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::TorrentStartNow)?, "\"torrent_start_now\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_torrent_stop() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::TorrentStop)?, "\"torrent-stop\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_torrent_stop() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::TorrentStop)?, "\"torrent_stop\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_torrent_verify() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::TorrentVerify)?, "\"torrent-verify\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_torrent_verify() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::TorrentVerify)?, "\"torrent_verify\"");
+        Ok(())
     }
 }

@@ -265,6 +265,17 @@ pub(crate) fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum)
             }
         }
 
+        // This Display impl for enums is specifically to facilitate testing Method serialization.
+        #[automatically_derived]
+        #[cfg(test)]
+        impl std::fmt::Display for #compat_enum_id {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let as_str = serde_json::to_string(self)
+                    .map_err(|_| std::fmt::Error)?;
+                write!(f, "{as_str}")
+            }
+        }
+
         // Helper `From` implementation for the legacy enum -> semver-6.0.0 compatible enum.
         impl From<#orig_enum_id> for #compat_enum_id {
             fn from(value: #orig_enum_id) -> Self {

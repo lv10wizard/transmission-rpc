@@ -23,12 +23,12 @@ where
             None => "".to_string(),
         });
 
-    let method = request.method;
     let expected = match jsonrpc {
         // Legacy request.
         None => {
+            let method = &request.method;
             format!("{{\
-                \"method\":\"{method}\",\
+                \"method\":{method},\
                 \"arguments\":{{\
                     {expected_args}\
                 }}\
@@ -38,13 +38,10 @@ where
         // JSON-RPC (post- semver-6.0.0) request.
         Some(version) => {
             // semver 6.0.0+ strings should be snake_case.
-            let method = method
-                .as_str()
-                .replace("-", "_");
-
+            let method = request.method.into_compat();
             format!("{{\
                 \"jsonrpc\":\"{version}\",\
-                \"method\":\"{method}\",\
+                \"method\":{method},\
                 \"params\":{{\
                     {expected_args}\
                 }},\

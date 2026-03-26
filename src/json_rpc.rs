@@ -7,21 +7,25 @@ use crate::types::{RpcResponseArgument, Tag};
 
 /// Represents a [JSON-RPC] request.
 ///
+/// The `M` and `P` generic arguments are to facilitate [`RpcRequest`] pre- and post- semver-6.0.0
+/// compatibility.
+///
 /// [JSON-RPC]: <https://www.jsonrpc.org/specification>
+/// [`RpcRequest`]: crate::types::RpcRequest
 #[derive(Serialize, Debug)]
-pub(crate) struct JsonRpcRequest<'a, T> {
+pub(crate) struct JsonRpcRequest<'a, M, P> {
     /// "A String specifying the version of the JSON-RPC protocol. MUST be exactly "2.0".
     pub(crate) jsonrpc: &'a str,
 
     /// "A String containing the name of the method to be invoked. Method names that begin with the
     ///  word rpc followed by a period character (U+002E or ASCII 46) are reserved for rpc-internal
     ///  methods and extensions and MUST NOT be used for anything else."
-    pub(crate) method: &'a str,
+    pub(crate) method: M,
 
     /// "A Structured value that holds the parameter values to be used during the invocation of the
     ///  method. This member MAY be omitted."
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) params: Option<T>,
+    pub(crate) params: Option<P>,
 
     /// "An identifier established by the Client that MUST contain a String, Number, or NULL value
     ///  if included. If it is not included it is assumed to be a notification."
@@ -199,6 +203,7 @@ mod json_rpc_test {
     use super::*;
     use crate::types::{
         JSON_RPC_VERSION_2_0, Nothing, Result, SessionGet, SessionGetArgs, SessionGetField,
+        request::Method,
     };
 
     #[test]
@@ -206,9 +211,9 @@ mod json_rpc_test {
         let params: Option<SessionGetArgs> = Some([SessionGetField::Version].into());
         let id: Option<JsonRpcId> = Some(912313.into());
 
-        let request = JsonRpcRequest::<SessionGetArgs> {
+        let request = JsonRpcRequest {
             jsonrpc: JSON_RPC_VERSION_2_0,
-            method: "session_get",
+            method: Method::SessionGet.into_compat(),
             params,
             id: id,
         };

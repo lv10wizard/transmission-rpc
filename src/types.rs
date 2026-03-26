@@ -22,7 +22,7 @@ pub use self::response::{File, FileStat, Peer, PeersFrom, Tracker, TrackerStat};
 
 pub use self::tracker::{TrackerList, TrackerTier};
 
-mod request;
+pub(crate) mod request;
 mod response;
 mod tracker;
 
