@@ -1,0 +1,802 @@
+use serde::Deserialize;
+
+use crate::types::{AltSpeedDay, Encryption, Transport};
+
+#[derive(Deserialize, Default, Debug, Clone, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub struct SessionGet {
+    /// Max global download speed (kB/s).
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    #[serde(alias = "alt_speed_down")]
+    pub alt_speed_down: Option<i32>,
+    /// `true` means use the alt speeds (ie, turtle mode).
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    #[serde(alias = "alt_speed_enabled")]
+    pub alt_speed_enabled: Option<bool>,
+    /// When to turn on alt speeds (units: minutes after midnight).
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    #[serde(alias = "alt_speed_time_begin")]
+    pub alt_speed_time_begin: Option<i32>,
+    /// What day(s) to turn on alt speeds (ie. turtle mode).
+    #[serde(alias = "alt_speed_time_day")]
+    pub alt_speed_time_day: Option<AltSpeedDay>,
+    /// `true` means the scheduled on/off times are used.
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    #[serde(alias = "alt_speed_time_enabled")]
+    pub alt_speed_time_enabled: Option<bool>,
+    /// when to turn off alt speeds (units: minutes after midnight).
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    #[serde(alias = "alt_speed_time_end")]
+    pub alt_speed_time_end: Option<i32>,
+    /// Max global upload speed (kB/s).
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    #[serde(alias = "alt_speed_up")]
+    pub alt_speed_up: Option<i32>,
+    /// `true` means to enable a basic brute force protection for RPC server..
+    ///
+    /// > Added in Transmission ???
+    #[serde(alias = "anti_brute_force_enabled")]
+    pub anti_brute_force_enabled: Option<bool>,
+    /// Basic brute force protection threshold in an unknown unit.
+    ///
+    /// > Added in Transmission ??? [NOT DOCUMENTED IN RPC-SPEC]
+    #[serde(alias = "anti_brute_force_threshold")]
+    pub anti_brute_force_threshold: Option<i32>,
+    /// `true` means block peers based on the configured blocklist (see: [blocklists.md]).
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    ///
+    /// [blocklists.md]:
+    /// <https://github.com/transmission/transmission/blob/main/docs/Blocklists.md>
+    #[serde(alias = "blocklist_enabled")]
+    pub blocklist_enabled: Option<bool>,
+    /// Number of rules in the [blocklists].
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    ///
+    /// [blocklists]: <https://github.com/transmission/transmission/blob/main/docs/Blocklists.md>
+    #[serde(alias = "blocklist_size")]
+    pub blocklist_size: Option<i32>,
+    /// location of the blocklist to use for `blocklist-update`.
+    ///
+    /// > Added in Transmission 2.12 (`rpc-version-semver` 3.5.0, `rpc-version`: 11)
+    #[serde(alias = "blocklist_url")]
+    pub blocklist_url: Option<String>,
+    /// Maximum size of the disk cache (MiB). Pieces are guaranteed to be written to filesystem if
+    /// sequential download is enabled. Otherwise, data might still be in cache only.
+    ///
+    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
+    ///
+    /// > Renamed `cache_size_mb` to `cache_size_mib` in Transmission 4.1.0 (`rpc-version-semver`
+    /// > 6.0.0,, `rpc-version`: 18)
+    ///
+    /// > ⚠ **DEPRECATED** in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?):
+    /// The memory cache is being removed, making this setting moot. The setting will still be
+    /// gettable and settable via RPC session_get and session_set until Transmission
+    /// 5.0.0 to avoid client breakage, but it will be otherwise unused in libtransmission. Clients
+    ///   should stop using this key.
+    #[serde(alias = "cache_size_mib")]
+    #[serde(alias = "cache_size_mb")]
+    pub cache_size_mb: Option<i32>,
+    /// Location of transmission's configuration directory.
+    ///
+    /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
+    #[serde(alias = "config_dir")]
+    pub config_dir: Option<String>,
+    /// Announce URLs, one per line, and a blank line between [tiers].
+    ///
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
+    ///
+    /// [tiers]: https://www.bittorrent.org/beps/bep_0012.html
+    #[serde(alias = "default_trackers")]
+    pub default_trackers: Option<String>,
+    /// `true` means allow [DHT] in public torrents.
+    ///
+    /// [DHT]: https://wikipedia.org/wiki/Distributed_hash_table
+    #[serde(alias = "dht_enabled")]
+    pub dht_enabled: Option<bool>,
+    /// Default path to download torrents
+    #[serde(alias = "download_dir")]
+    pub download_dir: Option<String>,
+    /// > Added in Transmission 2.20 (`rpc-version-semver` 3.6.0, `rpc-version`: 12)
+    ///
+    /// > ⚠ **DEPRECATED** in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17):
+    /// Use the `free-space` method instead.
+    #[serde(alias = "download_dir_free_space")]
+    pub download_dir_free_space: Option<u64>,
+    /// If `true`, limit how many torrents can be downloaded at once.
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    #[serde(alias = "download_queue_enabled")]
+    pub download_queue_enabled: Option<bool>,
+    /// Max number of torrents to download at once (see [`download_queue_enabled`]).
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    ///
+    /// [`download_queue_enabled`]: Self::download_queue_enabled
+    #[serde(alias = "download_queue_size")]
+    pub download_queue_size: Option<i32>,
+    /// The encryption type for peer connections.
+    #[serde(alias = "encryption")]
+    pub encryption: Option<Encryption>,
+    /// `true` if the seeding inactivity limit is honored by default.
+    ///
+    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
+    #[serde(alias = "idle_seeding_limit_enabled")]
+    pub idle_seeding_limit_enabled: Option<bool>,
+    /// torrents we're seeding will be stopped if they're idle for this long (in minutes).
+    ///
+    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
+    #[serde(alias = "idle_seeding_limit")]
+    pub idle_seeding_limit: Option<i32>,
+    /// `true` means keep torrents in [`incomplete_dir`] until done.
+    ///
+    /// > Added in Transmission 1.80 (`rpc-version-semver` 3.0.0, `rpc-version`: 7)
+    ///
+    /// [`incomplete_dir`]: Self::incomplete_dir
+    #[serde(alias = "incomplete_dir_enabled")]
+    pub incomplete_dir_enabled: Option<bool>,
+    /// Path for incomplete torrents, when enabled.
+    ///
+    /// > Added in Transmission 1.80 (`rpc-version-semver` 3.0.0, `rpc-version`: 7)
+    #[serde(alias = "incomplete_dir")]
+    pub incomplete_dir: Option<String>,
+    /// `true` means allow Local Peer Discovery in public torrents.
+    #[serde(alias = "lpd_enabled")]
+    pub lpd_enabled: Option<bool>,
+    /// Maximum global number of peers.
+    ///
+    /// > Renamed from `peer-limit` to `peer-limit-global` in Transmission 1.60
+    /// (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    #[serde(alias = "peer_limit_global")]
+    pub peer_limit_global: Option<i32>,
+    /// Default maximum number of peers per torrent.
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    #[serde(alias = "peer_limit_per_torrent")]
+    pub peer_limit_per_torrent: Option<i32>,
+    /// `true` means pick a random peer port on launch.
+    #[serde(alias = "peer_port_random_on_start")]
+    pub peer_port_random_on_start: Option<bool>,
+    /// The port that the daemon listens for peer connections on.
+    ///
+    /// > Renamed from `port` to `peer-port` in Transmission 1.60 (`rpc-version-semver` 2.0.0,
+    /// `rpc-version`: 5)
+    #[serde(alias = "peer_port")]
+    pub peer_port: Option<u16>,
+    /// `true` means allow [PEX] in public torrents.
+    ///
+    /// > Renamed from `pex-allowed` to `pex-enabled` in Transmission 1.60 (`rpc-version-semver`
+    /// 2.0.0, `rpc-version`: 5)
+    ///
+    /// [PEX]: https://wikipedia.org/wiki/Peer_exchange
+    #[serde(alias = "pex_enabled")]
+    pub pex_enabled: Option<bool>,
+    /// `true` means ask upstream router to forward the configured peer port to transmission using
+    /// [UPnP] or [NAT-PMP].
+    ///
+    /// [UPnP]: https://wikipedia.org/wiki/Universal_Plug_and_Play
+    /// [NAT-PMP]: https://wikipedia.org/wiki/NAT_Port_Mapping_Protocol
+    #[serde(alias = "port_forwarding_enabled")]
+    pub port_forwarding_enabled: Option<bool>,
+    /// List of preferred transport protocols in the order of preferred-first.
+    ///
+    /// * ["utp"](https://en.wikipedia.org/wiki/Micro_Transport_Protocol)
+    /// * ["tcp"](https://en.wikipedia.org/wiki/Transmission_Control_Protocol)
+    ///
+    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
+    #[serde(alias = "preferred_transports")]
+    pub preferred_transports: Option<Vec<Transport>>,
+    /// Whether or not to consider idle torrents as stalled.
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    #[serde(alias = "queue_stalled_enabled")]
+    pub queue_stalled_enabled: Option<bool>,
+    /// Torrents that are idle for `queue_stalled_minutes` aren't counted toward
+    /// [`seed_queue_size`] or [`download-queue-size`].
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    ///
+    /// [`seed_queue_size`]: Self::seed_queue_size
+    /// [`download-queue-size`]: Self::download-queue-size
+    #[serde(alias = "queue_stalled_minutes")]
+    pub queue_stalled_minutes: Option<i32>,
+    /// `true` means append `.part` to incomplete files.
+    /// 
+    /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
+    #[serde(alias = "rename_partial_files")]
+    pub rename_partial_files: Option<bool>,
+    /// The number of outstanding block requests a peer is allowed to queue in the client.
+    ///
+    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
+    #[serde(alias = "reqq")]
+    pub reqq: Option<i32>,
+    /// The minimum RPC API version supported by the RPC server. It changes when a new version of
+    /// Transmission changes the RPC interface in a way that is not backwards compatible.
+    ///
+    /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
+    /// Use `rpc_version_semver` instead.
+    #[serde(alias = "rpc_version_minimum")]
+    pub rpc_version_minimum: Option<i32>,
+    /// The current RPC API version in a [semver]-compatible string.
+    ///
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
+    ///
+    /// [semver]: https://semver.org/
+    #[serde(alias = "rpc_version_semver")]
+    pub rpc_version_semver: Option<String>,
+    /// the current RPC API version.
+    ///
+    /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
+    /// Use `rpc_version_semver` instead.
+    #[serde(alias = "rpc_version")]
+    pub rpc_version: Option<i32>,
+    /// Whether or not to call the [added script] (see: [scripts.md]).
+    ///
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
+    ///
+    /// [added script]: Self::script_torrent_added_filename
+    /// [scripts.md]: https://github.com/transmission/transmission/blob/main/docs/Scripts.md
+    #[serde(alias = "script_torrent_added_enabled")]
+    pub script_torrent_added_enabled: Option<bool>,
+    /// Path of the script to run on torrent added (see: [scripts.md]).
+    ///
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
+    ///
+    /// [scripts.md]: https://github.com/transmission/transmission/blob/main/docs/Scripts.md
+    #[serde(alias = "script_torrent_added_filename")]
+    pub script_torrent_added_filename: Option<String>,
+    /// Whether or not to call the [done script] (see: [scripts.md]).
+    ///
+    /// [done script]: Self::script_torrent_done_filename
+    /// [scripts.md]: https://github.com/transmission/transmission/blob/main/docs/Scripts.md
+    #[serde(alias = "script_torrent_done_enabled")]
+    pub script_torrent_done_enabled: Option<bool>,
+    /// Path of the script to run on torrent completion (see: [scripts.md]).
+    ///
+    /// [scripts.md]: https://github.com/transmission/transmission/blob/main/docs/Scripts.md
+    #[serde(alias = "script_torrent_done_filename")]
+    pub script_torrent_done_filename: Option<String>,
+    /// Whether or not to call the [seeding-done] script (see: [scripts.md]).
+    ///
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
+    ///
+    /// [seeding-done]: Self::script_torrent_done_seeding_filename
+    /// [scripts.md]: https://github.com/transmission/transmission/blob/main/docs/Scripts.md
+    #[serde(alias = "script_torrent_done_seeding_enabled")]
+    pub script_torrent_done_seeding_enabled: Option<bool>,
+    /// Path of the script to run on torrent seeding completion (see: [scripts.md]).
+    /// 
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
+    ///
+    /// [scripts.md]: https://github.com/transmission/transmission/blob/main/docs/Scripts.md
+    #[serde(alias = "script_torrent_done_seeding_filename")]
+    pub script_torrent_done_seeding_filename: Option<String>,
+    /// if `true`, limit how many torrents can be uploaded at once.
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    #[serde(alias = "seed_queue_enabled")]
+    pub seed_queue_enabled: Option<bool>,
+    /// Max number of torrents to uploaded at once (see [seed_queue_enabled]).
+    ///
+    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    ///
+    /// [seed_queue_enabled]: Self::seed_queue_enabled
+    #[serde(alias = "seed_queue_size")]
+    pub seed_queue_size: Option<i32>,
+    /// The default seed ratio for torrents to use.
+    ///
+    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
+    #[serde(alias = "seedRatioLimit")]
+    pub seed_ratio_limit: Option<f64>,
+    /// `true` if [`seed_ratio_limit`] is honored by default.
+    ///
+    /// [`seed_ratio_limit`]: Self::seed_ratio_limit
+    #[serde(alias = "seedRatioLimited")]
+    pub seed_ratio_limited: Option<bool>,
+    /// `true` means sequential download is enabled by default for added torrents.
+    /// 
+    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
+    #[serde(alias = "sequential_download")]
+    pub sequential_download: Option<bool>,
+    /// The current [`X-Transmission-Session-Id`] value.
+    ///
+    /// > Added in Transmission 3.00 (`rpc-version-semver` 5.2.0, `rpc-version`: 16)
+    ///
+    /// [`X-Transmission-Session-Id`]: 
+    /// <https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md#231-csrf-protection>
+    #[serde(alias = "session_id")]
+    pub session_id: Option<String>,
+    /// `true` means limit global download speed.
+    #[serde(alias = "speed_limit_down_enabled")]
+    pub speed_limit_down_enabled: Option<bool>,
+    /// Max global download speed (kB/s).
+    #[serde(alias = "speed_limit_down")]
+    pub speed_limit_down: Option<i32>,
+    /// `true` means limit global upload speed.
+    #[serde(alias = "speed_limit_up_enabled")]
+    pub speed_limit_up_enabled: Option<bool>,
+    /// Max global upload speed (kB/s).
+    #[serde(alias = "speed_limit_up")]
+    pub speed_limit_up: Option<i32>,
+    /// `true` means added torrents will be started right away.
+    ///
+    /// > Added in Transmission 2.00 (`rpc-version-semver` 3.3.0, `rpc-version`: 9)
+    #[serde(alias = "start_added_torrents")]
+    pub start_added_torrents: Option<bool>,
+    /// `true` means allow [TCP].
+    ///
+    /// > (?) Added in Transmission 4.0.0 (`rpc-version-semver`: 5.3.0, `rpc-version`: 17) [in
+    /// [transmission:fa8b6a5e0]].
+    ///
+    /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
+    /// `tcp_enabled`. Use `preferred_transports` instead.
+    ///
+    /// [TCP]: https://en.wikipedia.org/wiki/Transmission_Control_Protocol
+    /// [transmission:fa8b6a5e0]:
+    /// <https://github.com/transmission/transmission/commit/fa8b6a5e0aa22fe2f798b7c6dcc9c32dbac63dca>
+    #[serde(alias = "tcp_enabled")]
+    pub tcp_enabled: Option<bool>,
+    /// `true` means the `.torrent` file of added torrents will be deleted.
+    ///
+    /// > Added in Transmission 2.00 (`rpc-version-semver` 3.3.0, `rpc-version`: 9)
+    #[serde(alias = "trash_original_torrent_files")]
+    pub trash_original_torrent_files: Option<bool>,
+    /// The units used by the daemon (I think?).
+    ///
+    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
+    #[serde(alias = "units")]
+    pub units: Option<SessionGetUnits>,
+    /// `true` means allow [uTP].
+    ///
+    /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
+    /// `utp_enabled`. Use `preferred_transports` instead.
+    ///
+    /// [uTP]: https://wikipedia.org/wiki/Micro_Transport_Protocol
+    #[serde(alias = "utp_enabled")]
+    pub utp_enabled: Option<bool>,
+    /// Long version string, ie. `$version ($revision)`.
+    ///
+    /// > Added in Transmission 1.41 (`rpc-version-semver` 1.2.0, `rpc-version`: 3)
+    #[serde(alias = "version")]
+    pub version: Option<String>,
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub struct SessionGetUnits {
+    /// 4 strings: KB/s, MB/s, GB/s, TB/s
+    ///
+    /// v4.1.1: 5 strings: B/s, KB/s, MB/s, GB/s, TB/s
+    #[serde(alias = "speed_units")]
+    pub speed_units: Vec<String>,
+    /// number of bytes in a KB (1000 for kB; 1024 for KiB)
+    #[serde(alias = "speed_bytes")]
+    pub speed_bytes: usize,
+    /// 4 strings: KB, MB, GB, TB
+    ///
+    /// v4.1.1: 5 strings: B, KB, MB, GB, TB
+    #[serde(alias = "size_units")]
+    pub size_units: Vec<String>,
+    /// number of bytes in a KB (1000 for kB; 1024 for KiB)
+    #[serde(alias = "size_bytes")]
+    pub size_bytes: usize,
+    /// 4 strings: KiB, MiB, GiB, TiB
+    ///
+    /// v4.1.1: 5 strings: B, KiB, MiB, GiB, TiB
+    #[serde(alias = "memory_units")]
+    pub memory_units: Vec<String>,
+    /// number of bytes in a KB (1000 for kB; 1024 for KiB)
+    #[serde(alias = "memory_bytes")]
+    pub memory_bytes: usize,
+}
+
+#[cfg(test)]
+mod serde_tests {
+    use serde_json;
+
+    use crate::types::response::{SessionGet, SessionGetUnits};
+    use crate::types::{AltSpeedDay, Encryption, Result, RpcResponse, Transport};
+
+    #[test]
+    fn session_get_v300() -> Result<()> {
+        let resp = serde_json::from_str::<RpcResponse<SessionGet>>(
+            r#"
+            {
+              "arguments": {
+                "alt-speed-down": 500,
+                "alt-speed-enabled": false,
+                "alt-speed-time-begin": 540,
+                "alt-speed-time-day": 0,
+                "alt-speed-time-enabled": false,
+                "alt-speed-time-end": 1020,
+                "alt-speed-up": 500,
+                "blocklist-enabled": false,
+                "blocklist-size": 0,
+                "blocklist-url": "http://www.example.com/blocklist",
+                "cache-size-mb": 16,
+                "config-dir": "/config",
+                "dht-enabled": false,
+                "download-dir": "/downloads",
+                "download-dir-free-space": 123456789,
+                "download-queue-enabled": true,
+                "download-queue-size": 1,
+                "encryption": "tolerated",
+                "idle-seeding-limit": 30,
+                "idle-seeding-limit-enabled": false,
+                "incomplete-dir": "/incomplete",
+                "incomplete-dir-enabled": false,
+                "lpd-enabled": false,
+                "peer-limit-global": 100,
+                "peer-limit-per-torrent": 20,
+                "peer-port": 55555,
+                "peer-port-random-on-start": false,
+                "pex-enabled": false,
+                "port-forwarding-enabled": false,
+                "queue-stalled-enabled": true,
+                "queue-stalled-minutes": 30,
+                "rename-partial-files": false,
+                "rpc-version": 16,
+                "rpc-version-minimum": 1,
+                "script-torrent-done-enabled": true,
+                "script-torrent-done-filename": "/usr/bin/test",
+                "seed-queue-enabled": false,
+                "seed-queue-size": 500,
+                "seedRatioLimit": 2,
+                "seedRatioLimited": false,
+                "session-id": "w2oQxnkhWlut8omPLCDxgGR3g0pDX7gEan4Xz4QHqUlnlBEu",
+                "speed-limit-down": 1000,
+                "speed-limit-down-enabled": true,
+                "speed-limit-up": 2000,
+                "speed-limit-up-enabled": true,
+                "start-added-torrents": false,
+                "trash-original-torrent-files": true,
+                "units": {
+                  "memory-bytes": 1024,
+                  "memory-units": [
+                    "KiB",
+                    "MiB",
+                    "GiB",
+                    "TiB"
+                  ],
+                  "size-bytes": 1000,
+                  "size-units": [
+                    "kB",
+                    "MB",
+                    "GB",
+                    "TB"
+                  ],
+                  "speed-bytes": 1000,
+                  "speed-units": [
+                    "kB/s",
+                    "MB/s",
+                    "GB/s",
+                    "TB/s"
+                  ]
+                },
+                "utp-enabled": true,
+                "version": "3.00 (bb6b5a062e)"
+              },
+              "result": "success"
+            }
+            "#,
+        )?;
+
+        println!("{resp:#?}");
+        assert!(resp.is_ok());
+
+        assert_eq!(resp.arguments.alt_speed_down, Some(500));
+        assert_eq!(resp.arguments.alt_speed_enabled, Some(false));
+        assert_eq!(resp.arguments.alt_speed_time_begin, Some(540));
+        assert_eq!(resp.arguments.alt_speed_time_day, Some(AltSpeedDay::empty()));
+        assert_eq!(resp.arguments.alt_speed_time_enabled, Some(false));
+        assert_eq!(resp.arguments.alt_speed_time_end, Some(1020));
+        assert_eq!(resp.arguments.alt_speed_up, Some(500));
+
+        assert_eq!(resp.arguments.anti_brute_force_enabled, None);
+        assert_eq!(resp.arguments.anti_brute_force_threshold, None);
+
+        assert_eq!(resp.arguments.blocklist_enabled, Some(false));
+        assert_eq!(resp.arguments.blocklist_size, Some(0));
+        assert_eq!(resp.arguments.blocklist_url, Some("http://www.example.com/blocklist".to_string()));
+
+        assert_eq!(resp.arguments.cache_size_mb, Some(16));
+        assert_eq!(resp.arguments.config_dir, Some("/config".to_string()));
+        assert_eq!(resp.arguments.default_trackers, None);
+        assert_eq!(resp.arguments.dht_enabled, Some(false));
+
+        assert_eq!(resp.arguments.download_dir, Some("/downloads".to_string()));
+        assert_eq!(resp.arguments.download_dir_free_space, Some(123456789));
+        assert_eq!(resp.arguments.download_queue_enabled, Some(true));
+        assert_eq!(resp.arguments.download_queue_size, Some(1));
+
+        assert_eq!(resp.arguments.encryption, Some(Encryption::Tolerated));
+        assert_eq!(resp.arguments.idle_seeding_limit_enabled, Some(false));
+        assert_eq!(resp.arguments.idle_seeding_limit, Some(30));
+
+        assert_eq!(resp.arguments.incomplete_dir_enabled, Some(false));
+        assert_eq!(resp.arguments.incomplete_dir, Some("/incomplete".to_string()));
+
+        assert_eq!(resp.arguments.lpd_enabled, Some(false));
+        assert_eq!(resp.arguments.peer_limit_global, Some(100));
+        assert_eq!(resp.arguments.peer_limit_per_torrent, Some(20));
+        assert_eq!(resp.arguments.peer_port_random_on_start, Some(false));
+        assert_eq!(resp.arguments.peer_port, Some(55555));
+        assert_eq!(resp.arguments.pex_enabled, Some(false));
+        assert_eq!(resp.arguments.port_forwarding_enabled, Some(false));
+        assert_eq!(resp.arguments.preferred_transports, None);
+        assert_eq!(resp.arguments.queue_stalled_enabled, Some(true));
+        assert_eq!(resp.arguments.queue_stalled_minutes, Some(30));
+        assert_eq!(resp.arguments.rename_partial_files, Some(false));
+        assert_eq!(resp.arguments.reqq, None);
+
+        assert_eq!(resp.arguments.rpc_version_minimum, Some(1));
+        assert_eq!(resp.arguments.rpc_version_semver, None);
+        assert_eq!(resp.arguments.rpc_version, Some(16));
+
+        assert_eq!(resp.arguments.script_torrent_added_enabled, None);
+        assert_eq!(resp.arguments.script_torrent_added_filename, None);
+        assert_eq!(resp.arguments.script_torrent_done_enabled, Some(true));
+        assert_eq!(resp.arguments.script_torrent_done_filename, Some("/usr/bin/test".to_string()));
+        assert_eq!(resp.arguments.script_torrent_done_seeding_enabled, None);
+        assert_eq!(resp.arguments.script_torrent_done_seeding_filename, None);
+
+        assert_eq!(resp.arguments.seed_queue_enabled, Some(false));
+        assert_eq!(resp.arguments.seed_queue_size, Some(500));
+        assert_eq!(resp.arguments.seed_ratio_limit, Some(2.0));
+        assert_eq!(resp.arguments.seed_ratio_limited, Some(false));
+
+        assert_eq!(resp.arguments.sequential_download, None);
+        let session_id = "w2oQxnkhWlut8omPLCDxgGR3g0pDX7gEan4Xz4QHqUlnlBEu".to_string();
+        assert_eq!(resp.arguments.session_id, Some(session_id));
+
+        assert_eq!(resp.arguments.speed_limit_down_enabled, Some(true));
+        assert_eq!(resp.arguments.speed_limit_down, Some(1000));
+        assert_eq!(resp.arguments.speed_limit_up_enabled, Some(true));
+        assert_eq!(resp.arguments.speed_limit_up, Some(2000));
+
+        assert_eq!(resp.arguments.start_added_torrents, Some(false));
+        assert_eq!(resp.arguments.tcp_enabled, None);
+        assert_eq!(resp.arguments.trash_original_torrent_files, Some(true));
+
+        let units = SessionGetUnits {
+            memory_bytes: 1024,
+            memory_units: ["KiB", "MiB", "GiB", "TiB"]
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+            size_bytes: 1000,
+            size_units: ["kB", "MB", "GB", "TB"]
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+            speed_bytes: 1000,
+            speed_units: ["kB/s", "MB/s", "GB/s", "TB/s"]
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+        };
+        assert_eq!(resp.arguments.units, Some(units));
+
+        assert_eq!(resp.arguments.utp_enabled, Some(true));
+        assert_eq!(resp.arguments.version, Some("3.00 (bb6b5a062e)".to_string()));
+
+        Ok(())
+    }
+
+    // ---------------------------------------------------------------------
+
+    #[test]
+    fn session_get_v411() -> Result<()> {
+        // TODO: change to JSON-RPC response
+        let resp = serde_json::from_str::<RpcResponse<SessionGet>>(
+            r#"
+            {
+              "arguments": {
+                "alt-speed-down": 500,
+                "alt-speed-enabled": false,
+                "alt-speed-time-begin": 540,
+                "alt-speed-time-day": 0,
+                "alt-speed-time-enabled": false,
+                "alt-speed-time-end": 1020,
+                "alt-speed-up": 500,
+                "anti-brute-force-enabled": false,
+                "anti-brute-force-threshold": 100,
+                "blocklist-enabled": false,
+                "blocklist-size": 0,
+                "blocklist-url": "http://www.example.com/blocklist",
+                "cache-size-mb": 16,
+                "config-dir": "/config",
+                "default-trackers": "",
+                "dht-enabled": false,
+                "download-dir": "/downloads",
+                "download-dir-free-space": 123456789,
+                "download-queue-enabled": true,
+                "download-queue-size": 2,
+                "encryption": "allowed",
+                "idle-seeding-limit": 30,
+                "idle-seeding-limit-enabled": false,
+                "incomplete-dir": "/incomplete",
+                "incomplete-dir-enabled": false,
+                "lpd-enabled": false,
+                "peer-limit-global": 100,
+                "peer-limit-per-torrent": 20,
+                "peer-port": 55555,
+                "peer-port-random-on-start": false,
+                "pex-enabled": false,
+                "port-forwarding-enabled": false,
+                "preferred_transports": [
+                  "utp",
+                  "tcp"
+                ],
+                "queue-stalled-enabled": true,
+                "queue-stalled-minutes": 30,
+                "rename-partial-files": false,
+                "reqq": 2000,
+                "rpc-version": 19,
+                "rpc-version-minimum": 14,
+                "rpc-version-semver": "6.0.1",
+                "script-torrent-added-enabled": false,
+                "script-torrent-added-filename": "",
+                "script-torrent-done-enabled": true,
+                "script-torrent-done-filename": "/usr/bin/test",
+                "script-torrent-done-seeding-enabled": false,
+                "script-torrent-done-seeding-filename": "",
+                "seed-queue-enabled": false,
+                "seed-queue-size": 500,
+                "seedRatioLimit": 2.0,
+                "seedRatioLimited": false,
+                "sequential_download": false,
+                "session-id": "Yl4AAweXcSRDT4vHb7BccFVXFbGa4N75ypQI7hTZ5Lqt6wPO",
+                "speed-limit-down": 2000,
+                "speed-limit-down-enabled": true,
+                "speed-limit-up": 1000,
+                "speed-limit-up-enabled": true,
+                "start-added-torrents": false,
+                "tcp-enabled": true,
+                "trash-original-torrent-files": true,
+                "units": {
+                  "memory-bytes": 1024,
+                  "memory-units": [
+                    "B",
+                    "KiB",
+                    "MiB",
+                    "GiB",
+                    "TiB"
+                  ],
+                  "size-bytes": 1000,
+                  "size-units": [
+                    "B",
+                    "kB",
+                    "MB",
+                    "GB",
+                    "TB"
+                  ],
+                  "speed-bytes": 1000,
+                  "speed-units": [
+                    "B/s",
+                    "kB/s",
+                    "MB/s",
+                    "GB/s",
+                    "TB/s"
+                  ]
+                },
+                "utp-enabled": true,
+                "version": "4.1.1 (56442e2929)"
+              },
+              "result": "success"
+            }
+            "#,
+        )?;
+
+        println!("{resp:#?}");
+        assert!(resp.is_ok());
+
+        assert_eq!(resp.arguments.alt_speed_down, Some(500));
+        assert_eq!(resp.arguments.alt_speed_enabled, Some(false));
+        assert_eq!(resp.arguments.alt_speed_time_begin, Some(540));
+        assert_eq!(resp.arguments.alt_speed_time_day, Some(AltSpeedDay::empty()));
+        assert_eq!(resp.arguments.alt_speed_time_enabled, Some(false));
+        assert_eq!(resp.arguments.alt_speed_time_end, Some(1020));
+        assert_eq!(resp.arguments.alt_speed_up, Some(500));
+
+        assert_eq!(resp.arguments.anti_brute_force_enabled, Some(false));
+        assert_eq!(resp.arguments.anti_brute_force_threshold, Some(100));
+
+        assert_eq!(resp.arguments.blocklist_enabled, Some(false));
+        assert_eq!(resp.arguments.blocklist_size, Some(0));
+        assert_eq!(resp.arguments.blocklist_url, Some("http://www.example.com/blocklist".to_string()));
+
+        // Supposedly renamed to `cache_size_mib` in 4.1.0, but my `4.1.1 (56442e2929)` instance still
+        // returns `cache-size-mb`.
+        assert_eq!(resp.arguments.cache_size_mb, Some(16));
+        assert_eq!(resp.arguments.config_dir, Some("/config".to_string()));
+        assert_eq!(resp.arguments.default_trackers, Some("".to_string()));
+        assert_eq!(resp.arguments.dht_enabled, Some(false));
+
+        assert_eq!(resp.arguments.download_dir, Some("/downloads".to_string()));
+        assert_eq!(resp.arguments.download_dir_free_space, Some(123456789));
+        assert_eq!(resp.arguments.download_queue_enabled, Some(true));
+        assert_eq!(resp.arguments.download_queue_size, Some(2));
+
+        assert_eq!(resp.arguments.encryption, Some(Encryption::Tolerated));
+        assert_eq!(resp.arguments.idle_seeding_limit_enabled, Some(false));
+        assert_eq!(resp.arguments.idle_seeding_limit, Some(30));
+
+        assert_eq!(resp.arguments.incomplete_dir_enabled, Some(false));
+        assert_eq!(resp.arguments.incomplete_dir, Some("/incomplete".to_string()));
+
+        assert_eq!(resp.arguments.lpd_enabled, Some(false));
+        assert_eq!(resp.arguments.peer_limit_global, Some(100));
+        assert_eq!(resp.arguments.peer_limit_per_torrent, Some(20));
+        assert_eq!(resp.arguments.peer_port_random_on_start, Some(false));
+        assert_eq!(resp.arguments.peer_port, Some(55555));
+        assert_eq!(resp.arguments.pex_enabled, Some(false));
+        assert_eq!(resp.arguments.port_forwarding_enabled, Some(false));
+        let transports = vec![Transport::UTP, Transport::TCP];
+        assert_eq!(resp.arguments.preferred_transports, Some(transports));
+        assert_eq!(resp.arguments.queue_stalled_enabled, Some(true));
+        assert_eq!(resp.arguments.queue_stalled_minutes, Some(30));
+        assert_eq!(resp.arguments.rename_partial_files, Some(false));
+        assert_eq!(resp.arguments.reqq, Some(2000));
+
+        assert_eq!(resp.arguments.rpc_version_minimum, Some(14));
+        assert_eq!(resp.arguments.rpc_version_semver, Some("6.0.1".to_string()));
+        assert_eq!(resp.arguments.rpc_version, Some(19));
+
+        assert_eq!(resp.arguments.script_torrent_added_enabled, Some(false));
+        assert_eq!(resp.arguments.script_torrent_added_filename, Some("".to_string()));
+        assert_eq!(resp.arguments.script_torrent_done_enabled, Some(true));
+        assert_eq!(resp.arguments.script_torrent_done_filename, Some("/usr/bin/test".to_string()));
+        assert_eq!(resp.arguments.script_torrent_done_seeding_enabled, Some(false));
+        assert_eq!(resp.arguments.script_torrent_done_seeding_filename, Some("".to_string()));
+
+        assert_eq!(resp.arguments.seed_queue_enabled, Some(false));
+        assert_eq!(resp.arguments.seed_queue_size, Some(500));
+        assert_eq!(resp.arguments.seed_ratio_limit, Some(2.0));
+        assert_eq!(resp.arguments.seed_ratio_limited, Some(false));
+
+        assert_eq!(resp.arguments.sequential_download, Some(false));
+        let session_id = "Yl4AAweXcSRDT4vHb7BccFVXFbGa4N75ypQI7hTZ5Lqt6wPO".to_string();
+        assert_eq!(resp.arguments.session_id, Some(session_id));
+
+        assert_eq!(resp.arguments.speed_limit_down_enabled, Some(true));
+        assert_eq!(resp.arguments.speed_limit_down, Some(2000));
+        assert_eq!(resp.arguments.speed_limit_up_enabled, Some(true));
+        assert_eq!(resp.arguments.speed_limit_up, Some(1000));
+
+        assert_eq!(resp.arguments.start_added_torrents, Some(false));
+        assert_eq!(resp.arguments.tcp_enabled, Some(true));
+        assert_eq!(resp.arguments.trash_original_torrent_files, Some(true));
+
+        let units = SessionGetUnits {
+            memory_bytes: 1024,
+            memory_units: ["B", "KiB", "MiB", "GiB", "TiB"]
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+            size_bytes: 1000,
+            size_units: ["B", "kB", "MB", "GB", "TB"]
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+            speed_bytes: 1000,
+            speed_units: ["B/s", "kB/s", "MB/s", "GB/s", "TB/s"]
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+        };
+        assert_eq!(resp.arguments.units, Some(units));
+
+        assert_eq!(resp.arguments.utp_enabled, Some(true));
+        assert_eq!(resp.arguments.version, Some("4.1.1 (56442e2929)".to_string()));
+
+        Ok(())
+    }
+}

@@ -13,8 +13,8 @@ pub use self::request::{
 
 pub use self::response::{
     BlocklistUpdate, ErrorType, FreeSpace, GroupGet, Nothing, PortTest, RpcResponse,
-    RpcResponseArgument, SessionGet, SessionStats, Torrent, TorrentAddedOrDuplicate,
-    TorrentRenamePath, TorrentStatus, Torrents, TrackerState, WebseedsEx,
+    RpcResponseArgument, SessionGet, SessionGetUnits, SessionStats, Torrent,
+    TorrentAddedOrDuplicate, TorrentRenamePath, TorrentStatus, Torrents, TrackerState, WebseedsEx,
 };
 
 /// [`Torrent`] field sub-type. You probably won't need to interact with this directly.
