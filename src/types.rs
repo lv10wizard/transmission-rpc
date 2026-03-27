@@ -150,7 +150,7 @@ bitflags::bitflags! {
     /// To specify Monday, Wednesday, and Friday:
     ///
     /// ```rust
-    /// let mwf = AltSpeedDay::Monday | AltSpeedDay::WEDNESDAY | AltSpeedDay::FRIDAY;
+    /// let mwf = AltSpeedDay::MONDAY | AltSpeedDay::WEDNESDAY | AltSpeedDay::FRIDAY;
     /// ```
     ///
     /// [`tr_sched_day`]: https://github.com/transmission/transmission/blob/08ec7fb7c7b9c77ba52ff84d853833d70fd6f59b/libtransmission/transmission.h#L515-L527
