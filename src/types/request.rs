@@ -31,8 +31,6 @@ mod torrent_get;
 mod torrent_set;
 
 #[cfg(test)]
-mod json_rpc_tests;
-#[cfg(test)]
 mod test_helper;
 
 /// Represents a transmission rpc method.
