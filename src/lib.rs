@@ -27,11 +27,12 @@ pub mod types;
 const MAX_RETRIES: usize = 5;
 
 #[derive(Clone, Debug)]
-enum TransError {
+pub(crate) enum TransError {
     MaxRetriesReached,
     NoSessionIdReceived,
     TorrentAddInvalid,
     UnhandledJsonRpcVersion(String),
+    UnknownRpcSemver(i32),
 }
 
 impl std::fmt::Display for TransError {
@@ -43,6 +44,10 @@ impl std::fmt::Display for TransError {
                 write!(f, "torrent-add MUST include either `filename` or `metainfo`")
             },
             TransError::UnhandledJsonRpcVersion(v) => write!(f, "Unhandled JSON-RPC version: {v}"),
+            TransError::UnknownRpcSemver(v) => {
+                // Indicates the semver for rpc-version `v` is unaccounted for in rust code.
+                write!(f, "[!!] Unknown Transmission RPC semver: rpc-version={v}")
+            },
         }
     }
 }
@@ -1405,7 +1410,13 @@ impl TransClient {
             debug!("Loaded auth: {:?}", &self.auth);
             let rq = match &self.session_id {
                 None => self.rpc_request(),
-                Some(id) => self.rpc_request().header("X-Transmission-Session-Id", id),
+
+                Some(id) => {
+                    self.rpc_request().header("X-Transmission-Session-Id", id)
+                    // TODO: if self.semver.is_none() && request not contains RpcVersion =>
+                    // TODO- request session-get RpcVersion and map onto the corresponding semver
+                    // TODO- if no X-Transmission-Rpc-Version header.
+                },
             }
             .json(&request);
 
@@ -1462,6 +1473,9 @@ impl TransClient {
                         resp
                     },
                 };
+
+                // TODO: if self.semver.is_none() => cache response version-mapped-to-semver
+                // TODO- (if resp is SessionGet)
 
                 return Ok(rpc_response);
             }

@@ -231,7 +231,7 @@ pub struct SessionGet {
     /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
     /// Use `rpc_version_semver` instead.
     #[serde(alias = "rpc_version_minimum")]
-    pub rpc_version_minimum: Option<i32>,
+    pub rpc_version_minimum: Option<i32>, // TODO: i32 -> RpcVersion
     /// The current RPC API version in a [semver]-compatible string.
     ///
     /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
@@ -244,7 +244,7 @@ pub struct SessionGet {
     /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
     /// Use `rpc_version_semver` instead.
     #[serde(alias = "rpc_version")]
-    pub rpc_version: Option<i32>,
+    pub rpc_version: Option<i32>, // TODO: i32 -> RpcVersion
     /// Whether or not to call the [added script] (see: [scripts.md]).
     ///
     /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)

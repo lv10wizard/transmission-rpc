@@ -100,6 +100,8 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     let compat_struct_id = format_ident!("{COMPAT_PREFIX}{}", orig_struct_id);
     let generics = &ast.generics;
     let semi_token = data.semi_token;
+    // TODO: let compat_doc = format!("TODO");
+    // TODO: Generate a compat struct for each transmission semver
     quote! {
         /// Semver-6.0.0 compatible serialization helper.
         #[automatically_derived]
@@ -318,6 +320,14 @@ where
     let mut attr_name = None;
     let mut attr_type = None;
     let mut mapping = None;
+
+    // TODO: ----- Generate a compat container (struct/enum) for each semver
+    // TODO: #[compat(added = "VERSION")] => include only for compat versions >=
+    // TODO: (?) #[compat(deprecated = "VERSION")] => one-time warn + a way to disable
+    // TODO: #[compat(removed = "VERSION")] => do not include for compat versions >=
+    // TODO: #[compat(changed = "VERSION", name = "...", type = ("TYPE"[, "MAP"]))] => 
+    // TODO-    ver >= "VERSION" => transform generated container field/variant
+    // TODO: ----- 
 
     for attr in attributes.into_iter() {
         if attr.path() != COMPAT_ATTR {
