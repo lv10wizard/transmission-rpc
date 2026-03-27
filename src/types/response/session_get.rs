@@ -294,11 +294,13 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     #[serde(alias = "seedRatioLimit")]
+    #[serde(alias = "seed_ratio_limit")]
     pub seed_ratio_limit: Option<f64>,
     /// `true` if [`seed_ratio_limit`] is honored by default.
     ///
     /// [`seed_ratio_limit`]: Self::seed_ratio_limit
     #[serde(alias = "seedRatioLimited")]
+    #[serde(alias = "seed_ratio_limited")]
     pub seed_ratio_limited: Option<bool>,
     /// `true` means sequential download is enabled by default for added torrents.
     /// 
@@ -401,8 +403,13 @@ pub struct SessionGetUnits {
 mod serde_tests {
     use serde_json;
 
-    use crate::types::response::{SessionGet, SessionGetUnits};
-    use crate::types::{AltSpeedDay, Encryption, Result, RpcResponse, Transport};
+    use crate::{
+        json_rpc::JsonRpcResponse,
+        types::{
+            AltSpeedDay, Encryption, Result, RpcResponse, Transport,
+            response::{SessionGet, SessionGetUnits},
+        },
+    };
 
     #[test]
     fn session_get_v300() -> Result<()> {
@@ -594,92 +601,92 @@ mod serde_tests {
 
     #[test]
     fn session_get_v411() -> Result<()> {
-        // TODO: change to JSON-RPC response
-        let resp = serde_json::from_str::<RpcResponse<SessionGet>>(
-            r#"
-            {
-              "arguments": {
-                "alt-speed-down": 500,
-                "alt-speed-enabled": false,
-                "alt-speed-time-begin": 540,
-                "alt-speed-time-day": 0,
-                "alt-speed-time-enabled": false,
-                "alt-speed-time-end": 1020,
-                "alt-speed-up": 500,
-                "anti-brute-force-enabled": false,
-                "anti-brute-force-threshold": 100,
-                "blocklist-enabled": false,
-                "blocklist-size": 0,
-                "blocklist-url": "http://www.example.com/blocklist",
-                "cache-size-mb": 16,
-                "config-dir": "/config",
-                "default-trackers": "",
-                "dht-enabled": false,
-                "download-dir": "/downloads",
-                "download-dir-free-space": 123456789,
-                "download-queue-enabled": true,
-                "download-queue-size": 2,
+        let resp: RpcResponse<_> = serde_json::from_str::<JsonRpcResponse<SessionGet>>(
+            r#"{
+              "id": 12345,
+              "jsonrpc": "2.0",
+              "result": {
+                "alt_speed_down": 500,
+                "alt_speed_enabled": false,
+                "alt_speed_time_begin": 540,
+                "alt_speed_time_day": 0,
+                "alt_speed_time_enabled": false,
+                "alt_speed_time_end": 1020,
+                "alt_speed_up": 500,
+                "anti_brute_force_enabled": false,
+                "anti_brute_force_threshold": 101,
+                "blocklist_enabled": false,
+                "blocklist_size": 0,
+                "blocklist_url": "http://www.example.com/blocklist",
+                "cache_size_mib": 16,
+                "config_dir": "/config",
+                "default_trackers": "",
+                "dht_enabled": false,
+                "download_dir": "/downloads",
+                "download_dir_free_space": 123456789,
+                "download_queue_enabled": true,
+                "download_queue_size": 2,
                 "encryption": "allowed",
-                "idle-seeding-limit": 30,
-                "idle-seeding-limit-enabled": false,
-                "incomplete-dir": "/incomplete",
-                "incomplete-dir-enabled": false,
-                "lpd-enabled": false,
-                "peer-limit-global": 100,
-                "peer-limit-per-torrent": 20,
-                "peer-port": 55555,
-                "peer-port-random-on-start": false,
-                "pex-enabled": false,
-                "port-forwarding-enabled": false,
+                "idle_seeding_limit": 30,
+                "idle_seeding_limit_enabled": false,
+                "incomplete_dir": "/incomplete",
+                "incomplete_dir_enabled": false,
+                "lpd_enabled": false,
+                "peer_limit_global": 110,
+                "peer_limit_per_torrent": 10,
+                "peer_port": 55555,
+                "peer_port_random_on_start": false,
+                "pex_enabled": false,
+                "port_forwarding_enabled": false,
                 "preferred_transports": [
                   "utp",
                   "tcp"
                 ],
-                "queue-stalled-enabled": true,
-                "queue-stalled-minutes": 30,
-                "rename-partial-files": false,
+                "queue_stalled_enabled": true,
+                "queue_stalled_minutes": 30,
+                "rename_partial_files": false,
                 "reqq": 2000,
-                "rpc-version": 19,
-                "rpc-version-minimum": 14,
-                "rpc-version-semver": "6.0.1",
-                "script-torrent-added-enabled": false,
-                "script-torrent-added-filename": "",
-                "script-torrent-done-enabled": true,
-                "script-torrent-done-filename": "/usr/bin/test",
-                "script-torrent-done-seeding-enabled": false,
-                "script-torrent-done-seeding-filename": "",
-                "seed-queue-enabled": false,
-                "seed-queue-size": 500,
-                "seedRatioLimit": 2.0,
-                "seedRatioLimited": false,
+                "rpc_version": 19,
+                "rpc_version_minimum": 14,
+                "rpc_version_semver": "6.0.1",
+                "script_torrent_added_enabled": false,
+                "script_torrent_added_filename": "",
+                "script_torrent_done_enabled": true,
+                "script_torrent_done_filename": "/usr/bin/test",
+                "script_torrent_done_seeding_enabled": false,
+                "script_torrent_done_seeding_filename": "",
+                "seed_queue_enabled": false,
+                "seed_queue_size": 500,
+                "seed_ratio_limit": 2.0,
+                "seed_ratio_limited": false,
                 "sequential_download": false,
-                "session-id": "Yl4AAweXcSRDT4vHb7BccFVXFbGa4N75ypQI7hTZ5Lqt6wPO",
-                "speed-limit-down": 2000,
-                "speed-limit-down-enabled": true,
-                "speed-limit-up": 1000,
-                "speed-limit-up-enabled": true,
-                "start-added-torrents": false,
-                "tcp-enabled": true,
-                "trash-original-torrent-files": true,
+                "session_id": "5C7Jx5rb62lGlJJo6Udy01hjGtlrfg23xaBn3YPkqUWF6uSX",
+                "speed_limit_down": 1234,
+                "speed_limit_down_enabled": true,
+                "speed_limit_up": 4321,
+                "speed_limit_up_enabled": true,
+                "start_added_torrents": false,
+                "tcp_enabled": true,
+                "trash_original_torrent_files": true,
                 "units": {
-                  "memory-bytes": 1024,
-                  "memory-units": [
+                  "memory_bytes": 1024,
+                  "memory_units": [
                     "B",
                     "KiB",
                     "MiB",
                     "GiB",
                     "TiB"
                   ],
-                  "size-bytes": 1000,
-                  "size-units": [
+                  "size_bytes": 1000,
+                  "size_units": [
                     "B",
                     "kB",
                     "MB",
                     "GB",
                     "TB"
                   ],
-                  "speed-bytes": 1000,
-                  "speed-units": [
+                  "speed_bytes": 1000,
+                  "speed_units": [
                     "B/s",
                     "kB/s",
                     "MB/s",
@@ -687,13 +694,13 @@ mod serde_tests {
                     "TB/s"
                   ]
                 },
-                "utp-enabled": true,
+                "utp_enabled": true,
                 "version": "4.1.1 (56442e2929)"
-              },
-              "result": "success"
+              }
             }
-            "#,
-        )?;
+            "#
+        )?
+        .into();
 
         println!("{resp:#?}");
         assert!(resp.is_ok());
@@ -707,14 +714,12 @@ mod serde_tests {
         assert_eq!(resp.arguments.alt_speed_up, Some(500));
 
         assert_eq!(resp.arguments.anti_brute_force_enabled, Some(false));
-        assert_eq!(resp.arguments.anti_brute_force_threshold, Some(100));
+        assert_eq!(resp.arguments.anti_brute_force_threshold, Some(101));
 
         assert_eq!(resp.arguments.blocklist_enabled, Some(false));
         assert_eq!(resp.arguments.blocklist_size, Some(0));
         assert_eq!(resp.arguments.blocklist_url, Some("http://www.example.com/blocklist".to_string()));
 
-        // Supposedly renamed to `cache_size_mib` in 4.1.0, but my `4.1.1 (56442e2929)` instance still
-        // returns `cache-size-mb`.
         assert_eq!(resp.arguments.cache_size_mb, Some(16));
         assert_eq!(resp.arguments.config_dir, Some("/config".to_string()));
         assert_eq!(resp.arguments.default_trackers, Some("".to_string()));
@@ -733,8 +738,8 @@ mod serde_tests {
         assert_eq!(resp.arguments.incomplete_dir, Some("/incomplete".to_string()));
 
         assert_eq!(resp.arguments.lpd_enabled, Some(false));
-        assert_eq!(resp.arguments.peer_limit_global, Some(100));
-        assert_eq!(resp.arguments.peer_limit_per_torrent, Some(20));
+        assert_eq!(resp.arguments.peer_limit_global, Some(110));
+        assert_eq!(resp.arguments.peer_limit_per_torrent, Some(10));
         assert_eq!(resp.arguments.peer_port_random_on_start, Some(false));
         assert_eq!(resp.arguments.peer_port, Some(55555));
         assert_eq!(resp.arguments.pex_enabled, Some(false));
@@ -763,13 +768,13 @@ mod serde_tests {
         assert_eq!(resp.arguments.seed_ratio_limited, Some(false));
 
         assert_eq!(resp.arguments.sequential_download, Some(false));
-        let session_id = "Yl4AAweXcSRDT4vHb7BccFVXFbGa4N75ypQI7hTZ5Lqt6wPO".to_string();
+        let session_id = "5C7Jx5rb62lGlJJo6Udy01hjGtlrfg23xaBn3YPkqUWF6uSX".to_string();
         assert_eq!(resp.arguments.session_id, Some(session_id));
 
+        assert_eq!(resp.arguments.speed_limit_down, Some(1234));
         assert_eq!(resp.arguments.speed_limit_down_enabled, Some(true));
-        assert_eq!(resp.arguments.speed_limit_down, Some(2000));
+        assert_eq!(resp.arguments.speed_limit_up, Some(4321));
         assert_eq!(resp.arguments.speed_limit_up_enabled, Some(true));
-        assert_eq!(resp.arguments.speed_limit_up, Some(1000));
 
         assert_eq!(resp.arguments.start_added_torrents, Some(false));
         assert_eq!(resp.arguments.tcp_enabled, Some(true));
