@@ -20,6 +20,10 @@ pub use self::response::{
 /// [`Torrent`] field sub-type. You probably won't need to interact with this directly.
 pub use self::response::{File, FileStat, Peer, PeersFrom, Tracker, TrackerStat};
 
+/// [`SessionStats`] current- and cumulative-stats sub-type. You probably won't need to interact
+/// with this directly.
+pub use self::response::Stats;
+
 pub use self::tracker::{TrackerList, TrackerTier};
 
 pub(crate) mod request;

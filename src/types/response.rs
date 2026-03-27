@@ -13,8 +13,11 @@ use super::{Id, IdleMode, Priority, RatioMode, Tag, TrackerId, TrackerList};
 use crate::json_rpc::{JsonRpcResponse, JsonRpcResult};
 
 pub use session_get::{SessionGet, SessionGetUnits};
+pub use session_stats::{SessionStats, Stats};
 
 mod session_get;
+mod session_stats;
+
 #[cfg(test)]
 mod torrent_get_serde_tests;
 
@@ -66,27 +69,6 @@ impl<T: RpcResponseArgument> RpcResponse<T> {
 pub trait RpcResponseArgument: Default {}
 
 impl RpcResponseArgument for SessionGet {}
-
-#[derive(Deserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct SessionStats {
-    #[serde(alias = "torrent_count")]
-    pub torrent_count: i32,
-    #[serde(alias = "active_torrent_count")]
-    pub active_torrent_count: i32,
-    #[serde(alias = "paused_torrent_count")]
-    pub paused_torrent_count: i32,
-    #[serde(alias = "download_speed")]
-    pub download_speed: i64,
-    #[serde(alias = "upload_speed")]
-    pub upload_speed: i64,
-    #[serde(alias = "current-stats")]
-    #[serde(alias = "current_stats")]
-    pub current_stats: Stats,
-    #[serde(alias = "cumulative-stats")]
-    #[serde(alias = "cumulative_stats")]
-    pub cumulative_stats: Stats,
-}
 impl RpcResponseArgument for SessionStats {}
 
 #[derive(Deserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -634,21 +616,6 @@ impl Torrent {
             .map(Id::Id)
             .or_else(|| self.hash_string.clone().map(Id::Hash))
     }
-}
-
-#[derive(Deserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct Stats {
-    #[serde(alias = "files_added")]
-    pub files_added: i32,
-    #[serde(alias = "downloaded_bytes")]
-    pub downloaded_bytes: i64,
-    #[serde(alias = "uploaded_bytes")]
-    pub uploaded_bytes: i64,
-    #[serde(alias = "seconds_active")]
-    pub seconds_active: i64,
-    #[serde(alias = "session_count")]
-    pub session_count: Option<i32>,
 }
 
 #[derive(Deserialize, Default, Debug)]
