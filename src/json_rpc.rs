@@ -305,7 +305,31 @@ mod request_tests {
     use crate::types::{JSON_RPC_VERSION_2_0, Result, RpcRequest, SessionGetField};
 
     #[test]
-    fn rpc_request_json_rpc_serialize() -> Result<()> {
+    fn rpc_request_json_rpc_tagged_serialize() -> Result<()> {
+        let args = [SessionGetField::Version].into();
+        let mut request = RpcRequest::session_get(Some(args), Some(456.into()));
+        request.jsonrpc = Some(JSON_RPC_VERSION_2_0.to_string());
+
+        let ser_request = serde_json::to_string(&request)?;
+        println!("----- request:\n\n{ser_request}\n");
+
+        assert_eq!(ser_request, 
+            "{\
+               \"jsonrpc\":\"2.0\",\
+               \"method\":\"session_get\",\
+               \"params\":{\
+                 \"fields\":[\
+                   \"version\"\
+                 ]\
+               },\
+               \"id\":456\
+            }");
+
+        Ok(())
+    }
+
+    #[test]
+    fn rpc_request_json_rpc_no_tag_serialize() -> Result<()> {
         let args = [SessionGetField::Version].into();
         let mut request = RpcRequest::session_get(Some(args), None);
         request.jsonrpc = Some(JSON_RPC_VERSION_2_0.to_string());
