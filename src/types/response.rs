@@ -87,13 +87,28 @@ pub struct BlocklistUpdate {
 }
 impl RpcResponseArgument for BlocklistUpdate {}
 
+/// Represents the result of a [`free_space`] query.
+///
+/// [`free_space`]: crate::TransClient::free_space
 #[derive(Deserialize, Default, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct FreeSpace {
+    /// The directory that was queried in the [`free_space`] request.
+    ///
+    /// [`free_space`]: crate::TransClient::free_space
     pub path: String,
+    /// The amount of free space, in bytes, of the [`path`] directory.
+    ///
+    /// [`path`]: Self::path
     #[serde(alias = "size_bytes")]
-    pub size_bytes: i64,
-    pub total_size: i64,
+    pub size_bytes: i64, // TODO: u64
+    /// The total capacity, in bytes, of the [`path`] directory.
+    ///
+    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
+    ///
+    /// [`path`]: Self::path
+    #[serde(alias = "total_size")]
+    pub total_size: Option<i64>, // TODO: Option<u64>
 }
 impl RpcResponseArgument for FreeSpace {}
 
@@ -1060,7 +1075,7 @@ impl RpcResponseArgument for Vec<GroupGet> {}
 mod serde_tests {
     use crate::{
         json_rpc::JsonRpcResponse,
-        types::{BlocklistUpdate, Result, RpcResponse, TorrentAddedOrDuplicate},
+        types::{BlocklistUpdate, FreeSpace, Result, RpcResponse, TorrentAddedOrDuplicate},
     };
     use serde_json;
     use serde_json::Value;
@@ -1160,6 +1175,55 @@ mod serde_tests {
         assert!(resp.is_ok());
 
         assert_eq!(resp.arguments.blocklist_size, Some(2041));
+        Ok(())
+    }
+
+    #[test]
+    fn free_space_v300() -> Result<()> {
+        let resp = serde_json::from_str::<RpcResponse<FreeSpace>>(
+            r#"
+            {
+              "arguments": {
+                "path": "/incomplete",
+                "size-bytes": 456789
+              },
+              "result": "success",
+              "tag": 12345
+            }
+            "#
+        )?;
+
+        println!("{resp:#?}");
+        assert!(resp.is_ok());
+
+        assert_eq!(resp.arguments.path, "/incomplete".to_string());
+        assert_eq!(resp.arguments.size_bytes, 456789);
+        Ok(())
+    }
+
+    #[test]
+    fn free_space_v411() -> Result<()> {
+        let resp: RpcResponse<_> = serde_json::from_str::<JsonRpcResponse<FreeSpace>>(
+            r#"
+            {
+              "id": 12345,
+              "jsonrpc": "2.0",
+              "result": {
+                "path": "/downloads",
+                "size_bytes": 4321,
+                "total_size": 257698037760
+              }
+            }
+            "#
+        )?
+        .into();
+
+        println!("{resp:#?}");
+        assert!(resp.is_ok());
+
+        assert_eq!(resp.arguments.path, "/downloads".to_string());
+        assert_eq!(resp.arguments.size_bytes, 4321);
+        assert_eq!(resp.arguments.total_size, Some(257698037760));
         Ok(())
     }
 }
