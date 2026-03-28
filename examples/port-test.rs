@@ -3,7 +3,9 @@ extern crate transmission_rpc;
 use dotenvy::dotenv;
 use std::env;
 use transmission_rpc::TransClient;
-use transmission_rpc::types::{BasicAuth, PortTest, Result, RpcResponse, Tag};
+use transmission_rpc::types::{
+    BasicAuth, IpProtocol, PortTest, PortTestArgs, Result, RpcResponse, Tag,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -16,7 +18,11 @@ async fn main() -> Result<()> {
     } else {
         client = TransClient::new(url.parse()?);
     }
-    let response: Result<RpcResponse<PortTest>> = client.port_test().await;
+    let args = PortTestArgs {
+        ip_protocol: Some(IpProtocol::Ipv6),
+        ..Default::default()
+    };
+    let response: Result<RpcResponse<PortTest>> = client.port_test(args).await;
     match &response {
         Ok(resp) => {
             assert_eq!(resp.tag, None);
@@ -27,7 +33,9 @@ async fn main() -> Result<()> {
     println!("Rpc response is ok: {}", response?.is_ok());
 
     let tag = Tag(3);
-    let response: Result<RpcResponse<PortTest>> = client.port_test_tagged(tag).await;
+    let args = PortTestArgs::new()
+        .ip_protocol(IpProtocol::Ipv6);
+    let response: Result<RpcResponse<PortTest>> = client.port_test_tagged(args, tag).await;
     match &response {
         Ok(resp) => {
             assert_eq!(resp.tag, Some(tag));

@@ -7,8 +7,9 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 #[allow(unused_imports)]
 pub(crate) use self::request::{RpcRequest, SessionGetArgs};
 pub use self::request::{
-    ArgumentFields, GroupSetArgs, SessionGetField, SessionSetArgs, TorrentAction, TorrentAddArgs,
-    TorrentGetField, TorrentRenamePathArgs, TorrentSetArgs, TrackerReplaceArgs, TrackerReplacePair,
+    ArgumentFields, GroupSetArgs, PortTestArgs, SessionGetField, SessionSetArgs, TorrentAction,
+    TorrentAddArgs, TorrentGetField, TorrentRenamePathArgs, TorrentSetArgs, TrackerReplaceArgs,
+    TrackerReplacePair,
 };
 
 pub use self::response::{
@@ -258,6 +259,16 @@ impl Display for MinutesAfterMidnight {
     }
 }
 
+/// Represents the IP version used for [`port_test`].
+///
+/// [`port_test`]: crate::TransClient::port_test
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
+pub enum IpProtocol {
+    Ipv4,
+    Ipv6,
+}
+
 /// Represents an arbitrary `tag` number used by clients to track responses. <sup>[[1]][[2]]</sup>
 ///
 /// [1]: <https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md#21-requests>
@@ -280,5 +291,34 @@ impl From<&i64> for Tag {
 impl Display for Tag {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+#[cfg(test)]
+mod serde_tests {
+    use super::*;
+
+    #[test]
+    fn ip_protocol_v4_serialize() -> Result<()> {
+        assert_eq!(serde_json::to_string(&IpProtocol::Ipv4)?, "\"ipv4\"");
+        Ok(())
+    }
+
+    #[test]
+    fn ip_protocol_v6_serialize() -> Result<()> {
+        assert_eq!(serde_json::to_string(&IpProtocol::Ipv6)?, "\"ipv6\"");
+        Ok(())
+    }
+
+    #[test]
+    fn ip_protocol_v4_deserialize() -> Result<()> {
+        assert_eq!(serde_json::from_str::<IpProtocol>("\"ipv4\"")?, IpProtocol::Ipv4);
+        Ok(())
+    }
+
+    #[test]
+    fn ip_protocol_v6_deserialize() -> Result<()> {
+        assert_eq!(serde_json::from_str::<IpProtocol>("\"ipv6\"")?, IpProtocol::Ipv6);
+        Ok(())
     }
 }

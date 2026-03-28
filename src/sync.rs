@@ -14,9 +14,10 @@ use crate::{
     BodyString, MAX_RETRIES, TransError,
     types::{
         JSON_RPC_VERSION_2_0, BasicAuth, BlocklistUpdate, FreeSpace, GroupGet, GroupSetArgs, Id,
-        Nothing, PortTest, Result, RpcRequest, RpcResponse, RpcResponseArgument, SessionGet,
-        SessionGetField, SessionSetArgs, SessionStats, Tag, Torrent, TorrentAction, TorrentAddArgs,
-        TorrentAddedOrDuplicate, TorrentGetField, TorrentRenamePath, TorrentSetArgs, Torrents,
+        Nothing, PortTest, PortTestArgs, Result, RpcRequest, RpcResponse, RpcResponseArgument,
+        SessionGet, SessionGetField, SessionSetArgs, SessionStats, Tag, Torrent, TorrentAction,
+        TorrentAddArgs, TorrentAddedOrDuplicate, TorrentGetField, TorrentRenamePath,
+        TorrentSetArgs, Torrents,
     },
 };
 
@@ -471,13 +472,15 @@ impl SharableTransClient {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn port_test(&self) -> Result<RpcResponse<PortTest>> {
-        self.call(RpcRequest::port_test(None)).await
+    pub async fn port_test(&self, args: PortTestArgs) -> Result<RpcResponse<PortTest>> {
+        self.call(RpcRequest::port_test(args, None)).await
     }
 
     /// Performs a port-test request that can be tracked by `tag`.
-    pub async fn port_test_tagged(&self, tag: Tag) -> Result<RpcResponse<PortTest>> {
-        self.call(RpcRequest::port_test(Some(tag))).await
+    pub async fn port_test_tagged(&self, args: PortTestArgs, tag: Tag)
+        -> Result<RpcResponse<PortTest>>
+    {
+        self.call(RpcRequest::port_test(args, Some(tag))).await
     }
 
     /// Move torrents with IDs specified in `ids` to the top of the download queue.

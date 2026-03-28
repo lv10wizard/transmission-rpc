@@ -9,7 +9,7 @@ use serde_json::Value;
 use serde_repr::*;
 use url::Url;
 
-use super::{Id, IdleMode, Priority, RatioMode, Tag, TrackerId, TrackerList};
+use super::{Id, IdleMode, IpProtocol, Priority, RatioMode, Tag, TrackerId, TrackerList};
 use crate::json_rpc::{JsonRpcResponse, JsonRpcResult};
 
 pub use session_get::{SessionGet, SessionGetUnits};
@@ -112,13 +112,23 @@ pub struct FreeSpace {
 }
 impl RpcResponseArgument for FreeSpace {}
 
+/// Represents the result of a [`port_test`] query.
+///
+/// [`port_test`]: crate::TransClient::port_test
 #[derive(Deserialize, Default, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub struct PortTest {
+    /// True if the [`peer_port`] is open, false if closed.
+    ///
+    /// [`peer_port`]: SessionGet::peer_port
     #[serde(alias = "port_is_open")]
     pub port_is_open: bool,
+    /// Which IP version the test was performed on. This may be `None` either if the rpc server
+    /// version is too low (unimplemented) or if the version could not be determined.
+    ///
+    /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
     #[serde(alias = "ip_protocol")]
-    pub ip_protocol: Option<String>,
+    pub ip_protocol: Option<IpProtocol>,
 }
 impl RpcResponseArgument for PortTest {}
 
@@ -1075,7 +1085,10 @@ impl RpcResponseArgument for Vec<GroupGet> {}
 mod serde_tests {
     use crate::{
         json_rpc::JsonRpcResponse,
-        types::{BlocklistUpdate, FreeSpace, Result, RpcResponse, TorrentAddedOrDuplicate},
+        types::{
+            BlocklistUpdate, FreeSpace, IpProtocol, PortTest, Result, RpcResponse,
+            TorrentAddedOrDuplicate,
+        },
     };
     use serde_json;
     use serde_json::Value;
@@ -1224,6 +1237,52 @@ mod serde_tests {
         assert_eq!(resp.arguments.path, "/downloads".to_string());
         assert_eq!(resp.arguments.size_bytes, 4321);
         assert_eq!(resp.arguments.total_size, Some(257698037760));
+        Ok(())
+    }
+
+    #[test]
+    fn port_test_v300() -> Result<()> {
+        let resp = serde_json::from_str::<RpcResponse<PortTest>>(
+            r#"
+            {
+              "arguments": {
+                "port-is-open": false
+              },
+              "result": "success",
+              "tag": 12345
+            }
+            "#
+        )?;
+
+        println!("{resp:#?}");
+        assert!(resp.is_ok());
+
+        assert_eq!(resp.arguments.port_is_open, false);
+        assert_eq!(resp.arguments.ip_protocol, None);
+        Ok(())
+    }
+
+    #[test]
+    fn port_test_v411() -> Result<()> {
+        let resp: RpcResponse<_> = serde_json::from_str::<JsonRpcResponse<PortTest>>(
+            r#"
+            {
+              "id": 12345,
+              "jsonrpc": "2.0",
+              "result": {
+                "port_is_open": true,
+                "ip_protocol": "ipv6"
+              }
+            }
+            "#
+        )?
+        .into();
+
+        println!("{resp:#?}");
+        assert!(resp.is_ok());
+
+        assert_eq!(resp.arguments.port_is_open, true);
+        assert_eq!(resp.arguments.ip_protocol, Some(IpProtocol::Ipv6));
         Ok(())
     }
 }

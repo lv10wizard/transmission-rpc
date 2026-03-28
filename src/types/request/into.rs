@@ -4,6 +4,7 @@ use super::{
     GroupGetArgs,
     GroupSetArgs,
     Method,
+    PortTestArgs,
     QueueMoveArgs,
     RpcRequest,
     SessionGetArgs,
@@ -65,6 +66,18 @@ impl From<GroupSetArgs> for RpcRequest {
             tag: None,
             jsonrpc: None,
         }
+    }
+}
+
+impl From<PortTestArgs> for Args {
+    fn from(value: PortTestArgs) -> Self {
+        Self::PortTest(value)
+    }
+}
+
+impl From<PortTestArgs> for RpcRequest {
+    fn from(value: PortTestArgs) -> Self {
+        RpcRequest::port_test(value, None)
     }
 }
 

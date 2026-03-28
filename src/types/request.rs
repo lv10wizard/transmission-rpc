@@ -6,7 +6,10 @@ use serde::{Serialize, Serializer};
 use compat_macros::GenerateCompat;
 
 use crate::json_rpc::{JsonRpcId, JsonRpcRequest};
-use super::{AltSpeedDay, Encryption, EncryptionCompat, Id, MinutesAfterMidnight, Tag, Transport};
+use super::{
+    AltSpeedDay, Encryption, EncryptionCompat, Id, IpProtocol, MinutesAfterMidnight, Tag,
+    Transport,
+};
 
 pub(crate) use group_set::*; // GroupSetArgs
 pub(crate) use session_get::*; // SessionGetArgs
@@ -167,10 +170,10 @@ impl RpcRequest {
         }
     }
 
-    pub fn port_test(tag: Option<Tag>) -> RpcRequest {
+    pub fn port_test(args: PortTestArgs, tag: Option<Tag>) -> RpcRequest {
         RpcRequest {
             method: Method::PortTest,
-            arguments: None,
+            arguments: Some(args.into()),
             tag,
             jsonrpc: None,
         }
@@ -459,6 +462,8 @@ pub enum Args {
     #[compat(type = P)]
     GroupSet(GroupSetArgs),
     #[compat(type = P)]
+    PortTest(PortTestArgs),
+    #[compat(type = P)]
     SessionGet(SessionGetArgs),
     #[compat(type = P)]
     SessionSet(SessionSetArgs),
@@ -505,6 +510,31 @@ impl<I: IntoIterator<Item = String>> From<Option<I>> for GroupGetArgs {
             groups: value
                 .map(|val| val.into_iter().collect()),
         }
+    }
+}
+
+#[derive(GenerateCompat, Serialize, Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct PortTestArgs {
+    /// Specifies the IP version to use for the port test. For backwards compatibility, it is
+    /// allowed to omit this parameter to get the behavior before Transmission `4.1.0`
+    /// (`rpc-version-semver` 6.0.0), which is to check whichever IP version the OS happened to use
+    /// to connect to the port test service.
+    ///
+    /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
+    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
+    pub ip_protocol: Option<IpProtocol>,
+}
+
+impl PortTestArgs {
+    /// Constructs a new `PortTestArgs`. This is an alias for [`Default::default`].
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Fluently sets the `ip_protocol` [`port_test`] argument leaving all other fields untouched.
+    pub fn ip_protocol(mut self, proto: IpProtocol) -> Self {
+        self.ip_protocol = Some(proto);
+        self
     }
 }
 
@@ -599,6 +629,18 @@ mod serde_tests {
     fn request_free_space_semver_600() -> Result<()> {
         let args = FreeSpaceArgs { path: "/foo/bar".into() };
         verify(args, Some(JSON_RPC_VERSION_2_0), "\"path\":\"/foo/bar\"")
+    }
+
+    #[test]
+    fn request_port_test_legacy() -> Result<()> {
+        let args = PortTestArgs { ip_protocol: Some(IpProtocol::Ipv4) };
+        verify(args, None, "")
+    }
+
+    #[test]
+    fn request_port_test_semver_600() -> Result<()> {
+        let args = PortTestArgs { ip_protocol: Some(IpProtocol::Ipv6) };
+        verify(args, Some(JSON_RPC_VERSION_2_0), "\"ip_protocol\":\"ipv6\"")
     }
 
     #[test]
@@ -852,6 +894,18 @@ mod serde_tests {
     #[test]
     fn request_method_semver_600_group_set() -> Result<()> {
         assert_eq!(serialize_method_semver_600(Method::GroupSet)?, "\"group_set\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_legacy_port_test() -> Result<()> {
+        assert_eq!(serialize_method_legacy(Method::PortTest)?, "\"port-test\"");
+        Ok(())
+    }
+
+    #[test]
+    fn request_method_semver_600_port_test() -> Result<()> {
+        assert_eq!(serialize_method_semver_600(Method::PortTest)?, "\"port_test\"");
         Ok(())
     }
 
