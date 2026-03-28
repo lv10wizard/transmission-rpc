@@ -9,7 +9,7 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     #[serde(alias = "alt_speed_down")]
-    pub alt_speed_down: Option<i32>,
+    pub alt_speed_down: Option<i32>, // TODO: u64
     /// `true` means use the alt speeds (ie, turtle mode).
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
@@ -19,7 +19,7 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     #[serde(alias = "alt_speed_time_begin")]
-    pub alt_speed_time_begin: Option<i32>,
+    pub alt_speed_time_begin: Option<i32>, // TODO: u32
     /// What day(s) to turn on alt speeds (ie. turtle mode).
     #[serde(alias = "alt_speed_time_day")]
     pub alt_speed_time_day: Option<AltSpeedDay>,
@@ -32,12 +32,12 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     #[serde(alias = "alt_speed_time_end")]
-    pub alt_speed_time_end: Option<i32>,
+    pub alt_speed_time_end: Option<i32>, // TODO: u32
     /// Max global upload speed (kB/s).
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     #[serde(alias = "alt_speed_up")]
-    pub alt_speed_up: Option<i32>,
+    pub alt_speed_up: Option<i32>, // TODO: u64
     /// `true` means to enable a basic brute force protection for RPC server..
     ///
     /// > Added in Transmission ???
@@ -47,7 +47,7 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission ??? [NOT DOCUMENTED IN RPC-SPEC]
     #[serde(alias = "anti_brute_force_threshold")]
-    pub anti_brute_force_threshold: Option<i32>,
+    pub anti_brute_force_threshold: Option<i32>, // TODO: u64
     /// `true` means block peers based on the configured blocklist (see: [blocklists.md]).
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
@@ -62,12 +62,12 @@ pub struct SessionGet {
     ///
     /// [blocklists]: <https://github.com/transmission/transmission/blob/main/docs/Blocklists.md>
     #[serde(alias = "blocklist_size")]
-    pub blocklist_size: Option<i32>,
+    pub blocklist_size: Option<i32>, // TODO: u64
     /// location of the blocklist to use for `blocklist-update`.
     ///
     /// > Added in Transmission 2.12 (`rpc-version-semver` 3.5.0, `rpc-version`: 11)
     #[serde(alias = "blocklist_url")]
-    pub blocklist_url: Option<String>,
+    pub blocklist_url: Option<String>, // TODO: url::Url
     /// Maximum size of the disk cache (MiB). Pieces are guaranteed to be written to filesystem if
     /// sequential download is enabled. Otherwise, data might still be in cache only.
     ///
@@ -83,7 +83,7 @@ pub struct SessionGet {
     ///   should stop using this key.
     #[serde(alias = "cache_size_mib")]
     #[serde(alias = "cache_size_mb")]
-    pub cache_size_mb: Option<i32>,
+    pub cache_size_mb: Option<i32>, // TODO: u64
     /// Location of transmission's configuration directory.
     ///
     /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
@@ -95,7 +95,7 @@ pub struct SessionGet {
     ///
     /// [tiers]: https://www.bittorrent.org/beps/bep_0012.html
     #[serde(alias = "default_trackers")]
-    pub default_trackers: Option<String>,
+    pub default_trackers: Option<String>, // TODO: TrackerList
     /// `true` means allow [DHT] in public torrents.
     ///
     /// [DHT]: https://wikipedia.org/wiki/Distributed_hash_table
@@ -121,7 +121,7 @@ pub struct SessionGet {
     ///
     /// [`download_queue_enabled`]: Self::download_queue_enabled
     #[serde(alias = "download_queue_size")]
-    pub download_queue_size: Option<i32>,
+    pub download_queue_size: Option<i32>, // TODO: u64
     /// The encryption type for peer connections.
     #[serde(alias = "encryption")]
     pub encryption: Option<Encryption>,
@@ -134,7 +134,7 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
     #[serde(alias = "idle_seeding_limit")]
-    pub idle_seeding_limit: Option<i32>,
+    pub idle_seeding_limit: Option<i32>, // TODO: u64? u32?
     /// `true` means keep torrents in [`incomplete_dir`] until done.
     ///
     /// > Added in Transmission 1.80 (`rpc-version-semver` 3.0.0, `rpc-version`: 7)
@@ -155,12 +155,12 @@ pub struct SessionGet {
     /// > Renamed from `peer-limit` to `peer-limit-global` in Transmission 1.60
     /// (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     #[serde(alias = "peer_limit_global")]
-    pub peer_limit_global: Option<i32>,
+    pub peer_limit_global: Option<i32>, // TODO: u64
     /// Default maximum number of peers per torrent.
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     #[serde(alias = "peer_limit_per_torrent")]
-    pub peer_limit_per_torrent: Option<i32>,
+    pub peer_limit_per_torrent: Option<i32>, // TODO: u64
     /// `true` means pick a random peer port on launch.
     #[serde(alias = "peer_port_random_on_start")]
     pub peer_port_random_on_start: Option<bool>,
@@ -206,7 +206,7 @@ pub struct SessionGet {
     /// [`seed_queue_size`]: Self::seed_queue_size
     /// [`download-queue-size`]: Self::download-queue-size
     #[serde(alias = "queue_stalled_minutes")]
-    pub queue_stalled_minutes: Option<i32>,
+    pub queue_stalled_minutes: Option<i32>, // TODO: u64? u32?
     /// `true` means append `.part` to incomplete files.
     /// 
     /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
@@ -216,7 +216,7 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
     #[serde(alias = "reqq")]
-    pub reqq: Option<i32>,
+    pub reqq: Option<i32>, // TODO: u64? u32?
     /// The minimum RPC API version supported by the RPC server. It changes when a new version of
     /// Transmission changes the RPC interface in a way that is not backwards compatible.
     ///
@@ -230,7 +230,7 @@ pub struct SessionGet {
     ///
     /// [semver]: https://semver.org/
     #[serde(alias = "rpc_version_semver")]
-    pub rpc_version_semver: Option<String>,
+    pub rpc_version_semver: Option<String>, // TODO: semver::Version
     /// the current RPC API version.
     ///
     /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
@@ -289,7 +289,7 @@ pub struct SessionGet {
     ///
     /// [seed_queue_enabled]: Self::seed_queue_enabled
     #[serde(alias = "seed_queue_size")]
-    pub seed_queue_size: Option<i32>,
+    pub seed_queue_size: Option<i32>, // TODO: u64
     /// The default seed ratio for torrents to use.
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
@@ -320,13 +320,13 @@ pub struct SessionGet {
     pub speed_limit_down_enabled: Option<bool>,
     /// Max global download speed (kB/s).
     #[serde(alias = "speed_limit_down")]
-    pub speed_limit_down: Option<i32>,
+    pub speed_limit_down: Option<i32>, // TODO: u64
     /// `true` means limit global upload speed.
     #[serde(alias = "speed_limit_up_enabled")]
     pub speed_limit_up_enabled: Option<bool>,
     /// Max global upload speed (kB/s).
     #[serde(alias = "speed_limit_up")]
-    pub speed_limit_up: Option<i32>,
+    pub speed_limit_up: Option<i32>, // TODO: u64
     /// `true` means added torrents will be started right away.
     ///
     /// > Added in Transmission 2.00 (`rpc-version-semver` 3.3.0, `rpc-version`: 9)
