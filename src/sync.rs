@@ -31,7 +31,7 @@ pub struct SharableTransClient {
     /// into a [JSON-RPC] request.
     ///
     /// [JSON-RPC]: <https://www.jsonrpc.org/specification>
-    semver: Option<Version>,
+    semver: Arc<RwLock<Option<Version>>>,
 }
 
 impl SharableTransClient {
@@ -43,7 +43,7 @@ impl SharableTransClient {
             auth: Some(basic_auth),
             session_id: RwLock::new(None).into(),
             client: Client::new(),
-            semver: None,
+            semver: RwLock::new(None).into(),
         }
     }
 
@@ -55,7 +55,7 @@ impl SharableTransClient {
             auth: None,
             session_id: RwLock::new(None).into(),
             client: Client::new(),
-            semver: None,
+            semver: RwLock::new(None).into(),
         }
     }
 
@@ -66,7 +66,7 @@ impl SharableTransClient {
             auth: None,
             session_id: RwLock::new(None).into(),
             client,
-            semver: None,
+            semver: RwLock::new(None).into(),
         }
     }
 
@@ -1072,7 +1072,7 @@ impl SharableTransClient {
         &self,
         ids: I,
         location: String,
-        move_from: Option<bool>,
+        move_from: bool,
         tag: Tag,
     ) -> Result<RpcResponse<Nothing>>
     where
@@ -1365,7 +1365,7 @@ impl SharableTransClient {
                 .checked_sub(1)
                 .ok_or(TransError::MaxRetriesReached)?;
 
-            if let Some(semver) = &self.semver {
+            if let Some(semver) = self.semver.read().expect("unpoisoned semver lock").as_ref() {
                 // Flag that the request should be transformed into JSON-RPC.
                 request.jsonrpc = (semver >= &"6.0.0".parse::<Version>()?)
                     .then_some(JSON_RPC_VERSION_2_0.to_string());
@@ -1394,15 +1394,20 @@ impl SharableTransClient {
                 //  HTTP 409 response. This is so that clients supporting both JSON-RPC and the old
                 //  bespoke API can determine which scheme to use without making any extra
                 //  requests. Example: X-Transmission-Rpc-Version: 6.0.0"
-                self.semver = rsp
+                let semver = rsp
                     .headers()
                     .get("X-Transmission-Rpc-Version")
                     .map(HeaderValue::to_str)
                     .transpose()?
                     .map(Version::parse)
                     .transpose()?;
-                if let Some(semver) = &self.semver {
-                    debug!("Got rpc-semver: {}", semver);
+                let missing_semver = self.semver.read().expect("unpoisoned semver lock").is_none();
+                // We only need to cache the semver once (on the first 409 Conflict response).
+                if missing_semver {
+                    if let Some(semver) = semver.as_ref() {
+                        debug!("Got rpc-semver: {}", semver);
+                    }
+                    *self.semver.write().expect("unpoisoned semver lock") = semver;
                 }
 
                 let session_id = rsp

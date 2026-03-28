@@ -1516,6 +1516,7 @@ impl TransClient {
             );
 
             let rsp: reqwest::Response = rq.send().await?;
+            debug!("Response: {:?}", &rsp);
             if matches!(rsp.status(), StatusCode::CONFLICT) {
                 // "Starting from rpc-version-semver 6.0.0, Transmission returns the RPC version in
                 //  an HTTP header X-Transmission-Rpc-Version: {rpc_version_semver} in the CSRF
