@@ -71,11 +71,19 @@ pub trait RpcResponseArgument: Default {}
 impl RpcResponseArgument for SessionGet {}
 impl RpcResponseArgument for SessionStats {}
 
+/// Represents the result of a [`blocklist_update`] by fetching the current [`blocklist_url`].
+///
+/// [blocklist]: <https://github.com/transmission/transmission/blob/main/docs/Blocklists.md>
+/// [`blocklist_update`]: crate::TransClient::blocklist_update
+/// [`blocklist_url`]: SessionGet::blocklist_url
 #[derive(Deserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub struct BlocklistUpdate {
+    /// The current number of rules in the [blocklist].
+    ///
+    /// [blocklist]: <https://github.com/transmission/transmission/blob/main/docs/Blocklists.md>
     #[serde(alias = "blocklist_size")]
-    pub blocklist_size: Option<i32>,
+    pub blocklist_size: Option<i32>, // TODO: Option<_> -> u64
 }
 impl RpcResponseArgument for BlocklistUpdate {}
 
@@ -1049,8 +1057,11 @@ pub struct GroupGet {
 impl RpcResponseArgument for Vec<GroupGet> {}
 
 #[cfg(test)]
-mod tests {
-    use crate::types::{Result, RpcResponse, TorrentAddedOrDuplicate};
+mod serde_tests {
+    use crate::{
+        json_rpc::JsonRpcResponse,
+        types::{BlocklistUpdate, Result, RpcResponse, TorrentAddedOrDuplicate},
+    };
     use serde_json;
     use serde_json::Value;
 
@@ -1105,5 +1116,50 @@ mod tests {
             "result": "download directory path is not absolute"
         }
         "#
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    #[test]
+    fn blocklist_update_v300() -> Result<()> {
+        let resp = serde_json::from_str::<RpcResponse<BlocklistUpdate>>(
+            r#"
+            {
+              "arguments": {
+                "blocklist-size": 1023
+              },
+              "result": "success",
+              "tag": 12345
+            }
+            "#
+        )?;
+
+        println!("{resp:#?}");
+        assert!(resp.is_ok());
+
+        assert_eq!(resp.arguments.blocklist_size, Some(1023));
+        Ok(())
+    }
+
+    #[test]
+    fn blocklist_update_v411() -> Result<()> {
+        let resp: RpcResponse<_> = serde_json::from_str::<JsonRpcResponse<BlocklistUpdate>>(
+            r#"
+            {
+              "id": 12345,
+              "jsonrpc": "2.0",
+              "result": {
+                "blocklist_size": 2041
+              }
+            }
+            "#
+        )?
+        .into();
+
+        println!("{resp:#?}");
+        assert!(resp.is_ok());
+
+        assert_eq!(resp.arguments.blocklist_size, Some(2041));
+        Ok(())
     }
 }
