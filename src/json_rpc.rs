@@ -1,3 +1,9 @@
+//! Defines [JSON-RPC] handler types to interface with [Transmission] `4.1.0`
+//! (`rpc-version-semver` 6.0.0) and later.
+//!
+//! [JSON-RPC]: <https://www.jsonrpc.org/specification>
+//! [Transmission]: <https://transmissionbt.com/>
+
 use std::fmt::{self, Display};
 
 use serde::{Deserialize, Serialize};

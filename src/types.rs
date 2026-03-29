@@ -1,3 +1,7 @@
+//! Defines types for [Transmission] RPC handling and communication.
+//!
+//! [Transmission]: <https://transmissionbt.com/>
+
 use std::fmt::{self, Display};
 
 use bitflags::{self, parser};
@@ -15,11 +19,11 @@ pub use self::request::{
 pub use self::response::{
     BlocklistUpdate, ErrorType, FreeSpace, GroupGet, Nothing, PortTest, RpcResponse,
     RpcResponseArgument, SessionGet, SessionGetUnits, SessionStats, Torrent,
-    TorrentAddedOrDuplicate, TorrentRenamePath, TorrentStatus, Torrents, TrackerState, WebseedsEx,
+    TorrentAddedOrDuplicate, TorrentRenamePath, TorrentStatus, Torrents, TrackerState,
 };
 
 /// [`Torrent`] field sub-type. You probably won't need to interact with this directly.
-pub use self::response::{File, FileStat, Peer, PeersFrom, Tracker, TrackerStat};
+pub use self::response::{File, FileStat, Peer, PeersFrom, Tracker, TrackerStat, WebseedsEx};
 
 /// [`SessionStats`] current- and cumulative-stats sub-type. You probably won't need to interact
 /// with this directly.
@@ -37,12 +41,17 @@ pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + S
 
 pub type TrackerId = u32;
 
+/// [HTTP Basic Authentication] with a [Transmission] rpc server.
+///
+/// [HTTP Basic Authentication]: <https://en.wikipedia.org/wiki/Basic_access_authentication>
+/// [Transmission]: <https://transmissionbt.com/>
 #[derive(Debug, Clone)]
 pub struct BasicAuth {
     pub user: String,
     pub password: String,
 }
 
+/// Represents a unique identifier of a [`Torrent`].
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(untagged)]
 pub enum Id {
@@ -57,6 +66,7 @@ pub enum Id {
     Hash(String),
 }
 
+/// Represents a [`Torrent`]'s bandwidth and file download priority.
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(i8)]
 pub enum Priority {
@@ -65,6 +75,9 @@ pub enum Priority {
     High = 1,
 }
 
+/// Represents how a [`Torrent`] handles its [`seed_idle_limit`] setting.
+///
+/// [`seed_idle_limit`]: Torrent::seed_idle_limit
 #[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(i8)]
 pub enum IdleMode {
@@ -76,6 +89,9 @@ pub enum IdleMode {
     Unlimited = 2,
 }
 
+/// Represents how a [`Torrent`] handles its [`seed_ratio_limit`] setting.
+///
+/// [`seed_ratio_limit`]: Torrent::seed_idle_limit
 #[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(i8)]
 pub enum RatioMode {

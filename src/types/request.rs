@@ -513,6 +513,9 @@ impl<I: IntoIterator<Item = String>> From<Option<I>> for GroupGetArgs {
     }
 }
 
+/// Request arguments of a [`port_test`] query.
+///
+/// [`port_test`]: crate::TransClient::port_test
 #[derive(GenerateCompat, Serialize, Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct PortTestArgs {
     /// Specifies the IP version to use for the port test. For backwards compatibility, it is
@@ -576,6 +579,9 @@ pub struct TorrentSetLocationArgs {
     r#move: bool,
 }
 
+/// Request arguments of a [`torrent_rename_path`] query.
+///
+/// [`torrent_rename_path`]: crate::TransClient::torrent_rename_path
 #[derive(GenerateCompat, Serialize, Debug, Clone)]
 pub struct TorrentRenamePathArgs {
     ids: Vec<Id>,
@@ -583,6 +589,9 @@ pub struct TorrentRenamePathArgs {
     name: String,
 }
 
+/// The kind of [`torrent_action`] request.
+///
+/// [`torrent_action`]: crate::TransClient::torrent_action
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TorrentAction {
     Start,

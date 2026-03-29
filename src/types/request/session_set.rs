@@ -4,6 +4,9 @@ use serde_with::skip_serializing_none;
 
 use super::{AltSpeedDay, Encryption, EncryptionCompat, MinutesAfterMidnight, Transport};
 
+/// Request arguments of a [`session_set`] query.
+/// 
+/// [`session_set`]: crate::TransClient::session_set
 #[skip_serializing_none]
 #[derive(GenerateCompat, Serialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "kebab-case")]

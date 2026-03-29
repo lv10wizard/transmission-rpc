@@ -49,6 +49,9 @@ impl std::fmt::Display for TransError {
 
 impl std::error::Error for TransError {}
 
+/// Handles RPC communication with a [Transmission] instance.
+///
+/// [Transmission]: <https://transmissionbt.com/>
 pub struct TransClient {
     url: Url,
     auth: Option<BasicAuth>,

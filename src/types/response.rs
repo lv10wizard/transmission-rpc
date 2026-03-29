@@ -22,6 +22,21 @@ mod torrent_get_serde_tests;
 
 const SUCCESS: &'static str = "success";
 
+/// Represents a rpc response from the [Transmission] instance.
+///
+/// This is modeled in the bespoke RPC format for backwards compatibility with [Transmission]
+/// versions prior to `4.1.0` (`rpc-version-semver` 6.0.0).
+///
+/// For versions implementing [JSON-RPC]:
+///
+/// * `arguments`: maps onto either the `result` on success or `T::default()` on error.
+/// * `result`: maps onto either `"success"` if successful or the [JSON-RPC] `error` message and
+/// code in the following format: `"$message (code: $code)"`
+/// * `tag`: maps onto the request `id`, defaulting to `0` if no `tag` was specified in the
+/// request.
+///
+/// [Transmission]: <https://transmissionbt.com/>
+/// [JSON-RPC]: <https://www.jsonrpc.org/specification>
 #[derive(Deserialize, Debug)]
 pub struct RpcResponse<T: RpcResponseArgument> {
     /// "An optional `arguments` object of key/value pairs. Its keys contents are defined by the
@@ -131,17 +146,23 @@ pub struct PortTest {
 }
 impl RpcResponseArgument for PortTest {}
 
+/// Deserialization helper for successful [`torrent_get`] responses.
+///
+/// [`torrent_get`]: crate::TransClient::torrent_get
 #[derive(Deserialize, Default, Debug)]
 pub struct Torrents<T> {
     pub torrents: Vec<T>,
 }
 impl RpcResponseArgument for Torrents<Torrent> {}
 
-/// Represents response arguments for setter requests.
+/// Represents the empty response of setter requests.
 #[derive(Deserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Nothing {}
 impl RpcResponseArgument for Nothing {}
 
+/// Represents the response arguments of a successful [`torrent_add`] request.
+///
+/// [`torrent_add`]: crate::TransClient::torrent_add
 #[derive(Default, Debug, Clone)]
 pub enum TorrentAddedOrDuplicate {
     TorrentDuplicate(Torrent),
@@ -169,6 +190,9 @@ impl<'de> Deserialize<'de> for TorrentAddedOrDuplicate {
     }
 }
 
+/// Represents the response arguments of a successful [`torrent_rename_path`] request.
+///
+/// [`torrent_rename_path`]: crate::TransClient::torrent_rename_path
 #[derive(Deserialize, Default, Debug, Clone, PartialEq)]
 pub struct TorrentRenamePath {
     pub path: Option<String>,
@@ -177,6 +201,9 @@ pub struct TorrentRenamePath {
 }
 impl RpcResponseArgument for TorrentRenamePath {}
 
+/// Represents the response argument of a successful [`group_get`] request.
+///
+/// [`group_get`]: crate::TransClient::group_get
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub struct GroupGet {

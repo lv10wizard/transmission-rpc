@@ -2,6 +2,9 @@ use serde::Deserialize;
 
 use crate::types::{AltSpeedDay, Encryption, Transport};
 
+/// Represents the response argument of a successful [`session_get`] request.
+///
+/// [`session_get`]: crate::TransClient::session_get
 #[derive(Deserialize, Default, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct SessionGet {
@@ -370,6 +373,9 @@ pub struct SessionGet {
     pub version: Option<String>,
 }
 
+/// The units used by the [Transmission] instance. See: [`SessionGet::units`].
+///
+/// [Transmission]: <https://transmissionbt.com/>
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct SessionGetUnits {

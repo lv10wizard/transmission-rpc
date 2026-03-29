@@ -41,6 +41,12 @@ where
     }
 }
 
+/// Defines valid [`torrent_get`] fields to request to limit which [`Torrent`] fields the
+/// [Transmission] rpc server responds with.
+///
+/// [`torrent_get`]: crate::TransClient::torrent_get
+/// [`Torrent`]: crate::types::Torrent
+/// [Transmission]: <https://transmissionbt.com/>
 #[derive(
     GenerateCompat,
     Serialize,

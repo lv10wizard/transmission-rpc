@@ -12,6 +12,9 @@ use url::Url;
 
 use crate::types::{Id, IdleMode, Priority, RatioMode, TrackerId, TrackerList};
 
+/// Represents a torrent from a [`torrent_get`] request.
+///
+/// [`torrent_get`]: crate::TransClient::torrent_get
 #[derive(Deserialize, Default, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Torrent {
@@ -453,6 +456,9 @@ impl Torrent {
     }
 }
 
+/// Represents what kind of [`error_string`] a [`Torrent`] contains.
+///
+/// [`error_string`]: Torrent::error_string
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Deserialize_repr)]
 #[repr(u8)]
 pub enum ErrorType {
@@ -652,6 +658,7 @@ pub struct PeersFrom {
     pub from_tracker: u16,
 }
 
+/// Represents the [`Torrent`]'s current status.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Deserialize_repr)]
 #[repr(u8)]
 pub enum TorrentStatus {
@@ -817,6 +824,7 @@ pub struct TrackerStat {
     pub tier: usize,
 }
 
+/// Represents the state of a torrent [`Tracker`].
 #[derive(Deserialize_repr, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i8)]
 pub enum TrackerState {

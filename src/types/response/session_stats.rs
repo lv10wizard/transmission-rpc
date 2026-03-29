@@ -1,5 +1,8 @@
 use serde::Deserialize;
 
+/// Request arguments of a [`session_stats`] query.
+/// 
+/// [`session_stats`]: crate::TransClient::session_stats
 #[derive(Deserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionStats {

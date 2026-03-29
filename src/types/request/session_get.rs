@@ -68,6 +68,11 @@ where
     }
 }
 
+/// Defines valid [`session_get`] request fields to limit what [Transmission] session data to
+/// respond with.
+///
+/// [`session_get`]: crate::TransClient::session_get
+/// [Transmission]: <https://transmissionbt.com/>
 #[derive(GenerateCompat, Serialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum SessionGetField {
