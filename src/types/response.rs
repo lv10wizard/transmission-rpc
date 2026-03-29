@@ -17,9 +17,6 @@ mod session_get;
 mod session_stats;
 mod torrent;
 
-#[cfg(test)]
-mod torrent_get_serde_tests;
-
 const SUCCESS: &'static str = "success";
 
 /// Represents a rpc response from the [Transmission] instance.

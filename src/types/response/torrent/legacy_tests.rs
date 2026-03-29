@@ -1,4 +1,4 @@
-//! This file defines torrent-get response serde tests.
+//! This file defines torrent-get response legacy (pre- semver-6.0.0) deserialization tests.
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 

@@ -12,6 +12,9 @@ use url::Url;
 
 use crate::types::{Id, IdleMode, Priority, RatioMode, TrackerId, TrackerList};
 
+#[cfg(test)]
+mod legacy_tests;
+
 /// Represents a torrent from a [`torrent_get`] request.
 ///
 /// [`torrent_get`]: crate::TransClient::torrent_get
