@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize, de::{Error, Visitor}};
 
 /// Helper type representing a [tier] of tracker announce urls.
 ///
+/// See: [`TrackerList`].
+///
 /// ### Example
 ///
 /// In addition to manual construction, this type can be converted from any collection of

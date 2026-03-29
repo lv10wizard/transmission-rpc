@@ -137,6 +137,7 @@ pub struct Torrents<T> {
 }
 impl RpcResponseArgument for Torrents<Torrent> {}
 
+/// Represents response arguments for setter requests.
 #[derive(Deserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Nothing {}
 impl RpcResponseArgument for Nothing {}

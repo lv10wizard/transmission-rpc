@@ -170,6 +170,8 @@ pub struct Torrent {
     /// See: [`SessionGet::queue_stalled_minutes`].
     ///
     /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    ///
+    /// [`SessionGet::queue_stalled_minutes`]: super::SessionGet::queue_stalled_minutes
     #[serde(alias = "is_stalled")]
     pub is_stalled: Option<bool>,
     /// An array of the torrent's user-created (arbitrary) labels.

@@ -532,6 +532,8 @@ impl PortTestArgs {
     }
 
     /// Fluently sets the `ip_protocol` [`port_test`] argument leaving all other fields untouched.
+    ///
+    /// [`port_test`]: crate::TransClient::port_test
     pub fn ip_protocol(mut self, proto: IpProtocol) -> Self {
         self.ip_protocol = Some(proto);
         self

@@ -11,7 +11,7 @@ could be easily intercepted.
 
 #### Transmission RPC Spec
 
-https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md
+[https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md](https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md)
 
 #### Supported Methods
 
