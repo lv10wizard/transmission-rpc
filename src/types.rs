@@ -312,6 +312,8 @@ impl Display for Tag {
 
 #[cfg(test)]
 mod serde_tests {
+    use test_case::test_case;
+
     use super::*;
 
     #[test]
@@ -336,5 +338,46 @@ mod serde_tests {
     fn ip_protocol_v6_deserialize() -> Result<()> {
         assert_eq!(serde_json::from_str::<IpProtocol>("\"ipv6\"")?, IpProtocol::Ipv6);
         Ok(())
+    }
+
+    #[test_case("-1" => Priority::Low ; "low")]
+    #[test_case("0" => Priority::Normal ; "normal")]
+    #[test_case("1" => Priority::High ; "high")]
+    #[test_case("-2" => panics "invalid value: -2, expected one of: -1, 0, 1"
+        ; "invalid negative")]
+    #[test_case("2" => panics "invalid value: 2, expected one of: -1, 0, 1" ; "invalid positive")]
+    fn priority_deserialize(repr: &str) -> Priority {
+        match serde_json::from_str(repr) {
+            Ok(prio) => prio,
+            Err(err) => panic!("{err}"),
+        }
+    }
+
+    #[test_case("0" => IdleMode::Global ; "global")]
+    #[test_case("1" => IdleMode::Single ; "single")]
+    #[test_case("2" => IdleMode::Unlimited ; "unlimited")]
+    #[test_case("-1" => panics "invalid value: -1, expected one of: 0, 1, 2"
+        ; "invalid negative")]
+    #[test_case("3" => panics "invalid value: 3, expected one of: 0, 1, 2"
+        ; "invalid positive")]
+    fn idle_mode_deserialize(repr: &str) -> IdleMode {
+        match serde_json::from_str(repr) {
+            Ok(prio) => prio,
+            Err(err) => panic!("{err}"),
+        }
+    }
+
+    #[test_case("0" => RatioMode::Global ; "global")]
+    #[test_case("1" => RatioMode::Single ; "single")]
+    #[test_case("2" => RatioMode::Unlimited ; "unlimited")]
+    #[test_case("-1" => panics "invalid value: -1, expected one of: 0, 1, 2"
+        ; "invalid negative")]
+    #[test_case("3" => panics "invalid value: 3, expected one of: 0, 1, 2"
+        ; "invalid positive")]
+    fn ratio_mode_deserialize(repr: &str) -> RatioMode {
+        match serde_json::from_str(repr) {
+            Ok(prio) => prio,
+            Err(err) => panic!("{err}"),
+        }
     }
 }

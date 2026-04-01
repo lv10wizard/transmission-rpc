@@ -135,11 +135,6 @@ mod serde_tests {
     use crate::types::Result;
     use super::*;
 
-    #[derive(Deserialize, Debug)]
-    struct TestTrackerList {
-        list: TrackerList,
-    }
-
     #[test]
     fn tracker_list_serialize_single_tier_single_url() -> Result<()> {
         let list: TrackerList = vec![
@@ -227,26 +222,24 @@ mod serde_tests {
 
     #[test]
     fn tracker_list_deserialize_single_tier_single_url() -> Result<()> {
-        let deserialized: TestTrackerList = serde_json::from_str(r#"
-            {
-                "list":"https://one.example.com:1111\n"
-            }"#)?;
+        let deserialized: TrackerList = serde_json::from_str(r#"
+            "https://one.example.com:1111\n"
+        "#)?;
 
-        println!("< {:#?}", &deserialized.list);
+        println!("< {:#?}", &deserialized);
 
         let expected: TrackerList = vec![vec![Url::parse("https://one.example.com:1111")?]].into();
-        assert_eq!(deserialized.list, expected);
+        assert_eq!(deserialized, expected);
         Ok(())
     }
 
     #[test]
     fn tracker_list_deserialize_single_tier_multiple_url() -> Result<()> {
-        let deserialized: TestTrackerList = serde_json::from_str(r#"
-            {
-                "list":"https://one.example.com:1111\nhttps://two.example.com:2222\n"
-            }"#)?;
+        let deserialized: TrackerList = serde_json::from_str(r#"
+            "https://one.example.com:1111\nhttps://two.example.com:2222\n"
+        "#)?;
 
-        println!("< {:#?}", &deserialized.list);
+        println!("< {:#?}", &deserialized);
 
         let expected: TrackerList = vec![
             vec![
@@ -255,36 +248,34 @@ mod serde_tests {
             ]
         ]
         .into();
-        assert_eq!(deserialized.list, expected);
+        assert_eq!(deserialized, expected);
         Ok(())
     }
 
     #[test]
     fn tracker_list_deserialize_multiple_tier_single_url() -> Result<()> {
-        let deserialized: TestTrackerList = serde_json::from_str(r#"
-            {
-                "list":"https://one.example.com:1111\n\nhttps://foo.example.com/bar\n"
-            }"#)?;
+        let deserialized: TrackerList = serde_json::from_str(r#"
+            "https://one.example.com:1111\n\nhttps://foo.example.com/bar\n"
+        "#)?;
 
-        println!("< {:#?}", &deserialized.list);
+        println!("< {:#?}", &deserialized);
 
         let expected: TrackerList = vec![
             vec![Url::parse("https://one.example.com:1111")?],
             vec![Url::parse("https://foo.example.com/bar")?],
         ]
         .into();
-        assert_eq!(deserialized.list, expected);
+        assert_eq!(deserialized, expected);
         Ok(())
     }
 
     #[test]
     fn tracker_list_deserialize_multiple_tier_multiple_url() -> Result<()> {
-        let deserialized: TestTrackerList = serde_json::from_str(r#"
-            {
-                "list":"https://one.example.com:1111\nhttps://two.example.com:2222\n\nhttps://foo.example.com/bar\n\nhttps://lorem.example.com/ipsum\n\nhttps://three.example.com:3333\nhttps://four.example.com:4444\nhttps://five.example.com:5555\n"
-            }"#)?;
+        let deserialized: TrackerList = serde_json::from_str(r#"
+            "https://one.example.com:1111\nhttps://two.example.com:2222\n\nhttps://foo.example.com/bar\n\nhttps://lorem.example.com/ipsum\n\nhttps://three.example.com:3333\nhttps://four.example.com:4444\nhttps://five.example.com:5555\n"
+        "#)?;
 
-        println!("< {:#?}", &deserialized.list);
+        println!("< {:#?}", &deserialized);
 
         let expected: TrackerList = vec![
             vec![
@@ -300,20 +291,19 @@ mod serde_tests {
             ],
         ]
         .into();
-        assert_eq!(deserialized.list, expected);
+        assert_eq!(deserialized, expected);
         Ok(())
     }
 
     #[test]
     #[should_panic(expected = "relative URL without a base")]
     fn tracker_list_deserialize_malformed_url() {
-        match serde_json::from_str::<TestTrackerList>(r#"
-            {
-                "list":"malformed"
-            }"#)
+        match serde_json::from_str::<TrackerList>(r#"
+            "malformed"
+        "#)
         {
             Ok(deserialized) => {
-                println!("< {:#?}", &deserialized.list);
+                println!("< {:#?}", &deserialized);
             },
 
             Err(err) => panic!("{err}"),
@@ -323,13 +313,12 @@ mod serde_tests {
     #[test]
     #[should_panic(expected = "expected at least one '\\n'")]
     fn tracker_list_deserialize_malformed_tracker_list() {
-        match serde_json::from_str::<TestTrackerList>(r#"
-            {
-                "list":"http://foo.bar.example.com:1234/announce"
-            }"#)
+        match serde_json::from_str::<TrackerList>(r#"
+            "http://foo.bar.example.com:1234/announce"
+        "#)
         {
             Ok(deserialized) => {
-                println!("< {:#?}", &deserialized.list);
+                println!("< {:#?}", &deserialized);
             },
 
             Err(err) => panic!("{err}"),

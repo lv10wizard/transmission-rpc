@@ -1,10 +1,10 @@
-use std::net::IpAddr;
+use std::{
+    net::IpAddr,
+    result::Result as StdResult,
+};
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as base64};
-use chrono::{
-    DateTime, Utc,
-    serde::ts_seconds::deserialize as from_ts,
-};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, de::Error as _};
 use serde_json::Value;
 use serde_repr::Deserialize_repr;
@@ -12,13 +12,10 @@ use url::Url;
 
 use crate::types::{Id, IdleMode, Priority, RatioMode, TrackerId, TrackerList};
 
-#[cfg(test)]
-mod legacy_tests;
-
 /// Represents a torrent from a [`torrent_get`] request.
 ///
 /// [`torrent_get`]: crate::TransClient::torrent_get
-#[derive(Deserialize, Default, Debug, Clone)]
+#[derive(Deserialize, Default, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Torrent {
     /// The last time we uploaded or downloaded piece data on this torrent.
@@ -388,7 +385,7 @@ pub struct Torrent {
     pub torrent_file: Option<String>,
     /// Total size of the torrent, in bytes.
     #[serde(alias = "total_size")]
-    pub total_size: Option<i64>,
+    pub total_size: Option<i64>, // TODO: u64
     /// Array of the torrent's tracker data. This information is a subset of [`tracker_stats`].
     ///
     /// [`tracker_stats`]: Self::tracker_stats
@@ -434,7 +431,7 @@ pub struct Torrent {
     ///
     /// [webseed]: <https://www.bittorrent.org/beps/bep_0019.html>
     /// [`webseeds_ex`]: Self::webseeds_ex
-    pub webseeds: Option<Vec<String>>,
+    pub webseeds: Option<Vec<String>>, // TODO: Url
     /// A list of [webseed] data.
     ///
     /// > Added in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?)
@@ -475,10 +472,10 @@ pub enum ErrorType {
 #[serde(rename_all = "camelCase")]
 pub struct File {
     /// The total size of the file.
-    pub length: i64,
+    pub length: i64, // TODO: u64
     /// The current size of the file, i.e. how much we've downloaded.
     #[serde(alias = "bytes_completed")]
-    pub bytes_completed: i64,
+    pub bytes_completed: i64, // TODO: u64
     /// This file's name. Includes the full subpath in the torrent.
     pub name: String,
     /// Piece index where this file starts.
@@ -503,7 +500,7 @@ pub struct File {
 pub struct FileStat {
     /// The current size of the file, i.e. how much we've downloaded.
     #[serde(alias = "bytes_completed")]
-    pub bytes_completed: i64,
+    pub bytes_completed: i64, // TODO: u64
     /// The file's priority.
     pub priority: Priority,
     /// Do we want to download this file?
@@ -829,7 +826,7 @@ pub struct TrackerStat {
 
 /// Represents the state of a torrent [`Tracker`].
 #[derive(Deserialize_repr, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(i8)]
+#[repr(i8)] // TODO: u8
 pub enum TrackerState {
     /// We won't (announce,scrape) this torrent to this tracker because the torrent is stopped, or
     /// because of an error, or whatever.
@@ -845,34 +842,43 @@ pub enum TrackerState {
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "snake_case")] // Added in semver-6.0.0.
+#[serde(rename_all = "snake_case")] // Added after semver-6.0.0.
 pub struct WebseedsEx {
     /// The url to download from.
-    pub url: String,
+    pub url: String, // TODO: Url
     /// Can be true even if speed is 0, e.g. slow download
     pub is_downloading: bool,
     /// Current download speed
     pub download_bytes_per_second: u64,
 }
 
-fn from_ts_option<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
+fn from_ts<'de, D>(deserializer: D) -> StdResult<DateTime<Utc>, D::Error>
 where
     D: Deserializer<'de>,
 {
     let ts: i64 = Deserialize::deserialize(deserializer)?;
-    // The transmission rpc server responds with 0 or -1 (in the case of manualAnnounceTime) when
-    // the date is unset or invalid.
+    // The transmission rpc server responds with 0 or -1 (in the case of manualAnnounceTime /
+    // manual_announce_time) when the date is unset or invalid.
     // Consolidate any response <= 0 as UNIX_EPOCH to denote these cases.
     if ts <= 0 {
-        return Ok(Some(DateTime::UNIX_EPOCH));
+        return Ok(DateTime::UNIX_EPOCH);
     }
-    Ok(DateTime::<Utc>::from_timestamp(ts, 0))
+    DateTime::<Utc>::from_timestamp(ts, 0)
+        .ok_or_else(|| D::Error::custom(format!("timestamp out of range: {ts}")))
+}
+
+fn from_ts_option<'de, D>(deserializer: D) -> StdResult<Option<DateTime<Utc>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    from_ts(deserializer)
+        .map(|dt| Some(dt))
 }
 
 /// Attempts to deserialize a [`base64`]-encoded string into a `Vec<u8>`.
 ///
 /// [`base64`]: mod@base64
-fn from_bitfield_option<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
+fn from_bitfield_option<'de, D>(deserializer: D) -> StdResult<Option<Vec<u8>>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -883,7 +889,7 @@ where
 
 /// Attempts to deserialize an array of bools or ints (`0` or `1`) into a `Vec<bool>`, treating `0`
 /// as false and `1` as true.
-fn from_arr_bool_option<'de, D>(deserializer: D) -> Result<Option<Vec<bool>>, D::Error>
+fn from_arr_bool_option<'de, D>(deserializer: D) -> StdResult<Option<Vec<bool>>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -896,11 +902,16 @@ where
                 // transmission 5.0.0+ returns an array of booleans.
                 Value::Bool(b) => Ok(b),
                 // transmission 4.x.x and below returns an array of ints (1 true, 0 false).
-                Value::Number(num) => num.as_i64().map(|n| n == 1).ok_or_else(unexpected),
+                Value::Number(num) => match num.as_i64() {
+                    Some(0) => Ok(false),
+                    Some(1) => Ok(true),
+                    Some(x) => Err(D::Error::custom(format!("unexpected number: {x}"))),
+                    None => Err(unexpected()),
+                },
                 // rpc server misbehaving (got an unexpected type).
                 _ => Err(unexpected()),
             })
-            .collect::<Result<Vec<_>, _>>()?,
+            .collect::<StdResult<Vec<_>, _>>()?,
         // `wanted` should be an array.
         _ => Err(unexpected())?,
     };
@@ -910,3 +921,14 @@ where
 fn missing_downloader_count() -> i64 {
     -1
 }
+
+#[cfg(test)]
+mod legacy_tests;
+#[cfg(test)]
+mod peer_tests;
+#[cfg(test)]
+mod semver_600_tests;
+#[cfg(test)]
+mod sub_type_tests;
+#[cfg(test)]
+mod tracker_stat_tests;

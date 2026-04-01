@@ -1,4 +1,4 @@
-//! Defines helper `#[derive(...)`] macros for pre- and post- Transmission 4.1.0
+//! Defines helper `#[derive(...)]` macros for pre- and post- Transmission 4.1.0
 //! (`rpc-version-semver` 6.0.0, `rpc-version`: 18) request serialization compatibility.
 
 use proc_macro::TokenStream;
