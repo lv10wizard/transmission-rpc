@@ -664,8 +664,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "semver 6.0.0 left until done zero"
 )]
-#[test_case(r#"{"left_until_done":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"left_until_done":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "semver 6.0.0 left until done negative"
 )]
 
@@ -917,8 +916,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "semver 6.0.0 peers connected zero"
 )]
-#[test_case(r#"{"peers_connected": -1}"# => ignore["todo: u16"]
-    panics "invalid value: integer `-1`, expected u16"
+#[test_case(r#"{"peers_connected": -1}"# => panics "invalid value: integer `-1`, expected u16"
     ; "semver 6.0.0 peers connected negative"
 )]
 
@@ -957,8 +955,8 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "semver 6.0.0 peers getting from us zero"
 )]
-#[test_case(r#"{"peers_getting_from_us": -1}"# => ignore["todo: u16"]
-    panics "invalid value: integer `-1`, expected u16"
+#[test_case(r#"{"peers_getting_from_us": -1}"#
+    => panics "invalid value: integer `-1`, expected u16"
     ; "semver 6.0.0 peers getting from us negative"
 )]
 
@@ -972,8 +970,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "semver 6.0.0 peers sending to us zero"
 )]
-#[test_case(r#"{"peers_sending_to_us": -1}"# => ignore["todo: u16"]
-    panics "invalid value: integer `-1`, expected u16"
+#[test_case(r#"{"peers_sending_to_us": -1}"# => panics "invalid value: integer `-1`, expected u16"
     ; "semver 6.0.0 peers sending to us negative"
 )]
 
@@ -1116,8 +1113,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "semver 6.0.0 rate download zero"
 )]
-#[test_case(r#"{"rate_download":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"rate_download":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "semver 6.0.0 rate download negative"
 )]
 
@@ -1131,8 +1127,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "semver 6.0.0 rate upload zero"
 )]
-#[test_case(r#"{"rate_upload":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"rate_upload":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "semver 6.0.0 rate upload negative"
 )]
 
@@ -1181,8 +1176,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "semver 6.0.0 seconds seeding zero"
 )]
-#[test_case(r#"{"seconds_seeding":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"seconds_seeding":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "semver 6.0.0 seconds seeding negative"
 )]
 
@@ -1264,8 +1258,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "semver 6.0.0 size when done zero"
 )]
-#[test_case(r#"{"size_when_done":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"size_when_done":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "semver 6.0.0 size when done negative"
 )]
 
@@ -1317,8 +1310,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "semver 6.0.0 total size zero"
 )]
-#[test_case(r#"{"total_size":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"total_size":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "semver 6.0.0 total size negative"
 )]
 
@@ -1657,8 +1649,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "semver 6.0.0 uploaded ever zero"
 )]
-#[test_case(r#"{"uploaded_ever":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"uploaded_ever":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "semver 6.0.0 uploaded ever negative"
 )]
 
@@ -1736,9 +1727,9 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ]
     }"# => Torrent {
         webseeds: Some(vec![
-            "https://cdimage.debian.org/debian-cd/".into(),
-            "https://dl.example.com/foo/".into(),
-            "https://bar.example.com/".into(),
+            Url::parse("https://cdimage.debian.org/debian-cd/").expect("valid url"),
+            Url::parse("https://dl.example.com/foo/").expect("valid url"),
+            Url::parse("https://bar.example.com/").expect("valid url"),
         ]),
         ..Default::default()
     } ; "semver 6.0.0 webseeds"
@@ -1748,8 +1739,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "semver 6.0.0 webseeds empty"
 )]
-#[test_case(r#"{"webseeds":["malformed"]}"# => ignore["todo: Url"]
-    panics "relative URL without a base"
+#[test_case(r#"{"webseeds":["malformed"]}"# => panics "relative URL without a base"
     ; "semver 6.0.0 webseeds malformed"
 )]
 
@@ -1765,7 +1755,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
     Torrent {
         webseeds_ex: Some(vec![
             WebseedsEx {
-                url: "https://cdimage.debian.org/debian-cd/".into(),
+                url: Url::parse("https://cdimage.debian.org/debian-cd/").expect("valid url"),
                 is_downloading: true,
                 download_bytes_per_second: 0,
             },

@@ -657,8 +657,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "legacy left until done zero"
 )]
-#[test_case(r#"{"leftUntilDone":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"leftUntilDone":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "legacy left until done negative"
 )]
 
@@ -910,8 +909,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "legacy peers connected zero"
 )]
-#[test_case(r#"{"peersConnected": -1}"# => ignore["todo: u16"]
-    panics "invalid value: integer `-1`, expected u16"
+#[test_case(r#"{"peersConnected": -1}"# => panics "invalid value: integer `-1`, expected u16"
     ; "legacy peers connected negative"
 )]
 
@@ -950,8 +948,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "legacy peers getting from us zero"
 )]
-#[test_case(r#"{"peersGettingFromUs": -1}"# => ignore["todo: u16"]
-    panics "invalid value: integer `-1`, expected u16"
+#[test_case(r#"{"peersGettingFromUs": -1}"# => panics "invalid value: integer `-1`, expected u16"
     ; "legacy peers getting from us negative"
 )]
 
@@ -965,8 +962,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "legacy peers sending to us zero"
 )]
-#[test_case(r#"{"peersSendingToUs": -1}"# => ignore["todo: u16"]
-    panics "invalid value: integer `-1`, expected u16"
+#[test_case(r#"{"peersSendingToUs": -1}"# => panics "invalid value: integer `-1`, expected u16"
     ; "legacy peers sending to us negative"
 )]
 
@@ -1109,8 +1105,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "legacy rate download zero"
 )]
-#[test_case(r#"{"rateDownload":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"rateDownload":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "legacy rate download negative"
 )]
 
@@ -1124,8 +1119,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "legacy rate upload zero"
 )]
-#[test_case(r#"{"rateUpload":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"rateUpload":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "legacy rate upload negative"
 )]
 
@@ -1174,8 +1168,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "legacy seconds seeding zero"
 )]
-#[test_case(r#"{"secondsSeeding":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"secondsSeeding":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "legacy seconds seeding negative"
 )]
 
@@ -1239,8 +1232,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "legacy size when done zero"
 )]
-#[test_case(r#"{"sizeWhenDone":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"sizeWhenDone":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "legacy size when done negative"
 )]
 
@@ -1292,8 +1284,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "legacy total size zero"
 )]
-#[test_case(r#"{"totalSize":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"totalSize":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "legacy total size negative"
 )]
 
@@ -1629,8 +1620,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "legacy uploaded ever zero"
 )]
-#[test_case(r#"{"uploadedEver":-1}"# => ignore["todo: u64"]
-    panics "invalid value: integer `-1`, expected u64"
+#[test_case(r#"{"uploadedEver":-1}"# => panics "invalid value: integer `-1`, expected u64"
     ; "legacy uploaded ever negative"
 )]
 
@@ -1708,9 +1698,9 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ]
     }"# => Torrent {
         webseeds: Some(vec![
-            "https://cdimage.debian.org/debian-cd/".into(),
-            "https://dl.example.com/foo/".into(),
-            "https://bar.example.com/".into(),
+            Url::parse("https://cdimage.debian.org/debian-cd/").expect("valid url"),
+            Url::parse("https://dl.example.com/foo/").expect("valid url"),
+            Url::parse("https://bar.example.com/").expect("valid url"),
         ]),
         ..Default::default()
     } ; "legacy webseeds"
@@ -1720,8 +1710,7 @@ fn torrents_deserialize_multiple() -> Result<()> {
         ..Default::default()
     } ; "legacy webseeds empty"
 )]
-#[test_case(r#"{"webseeds":["malformed"]}"# => ignore["todo: Url"]
-    panics "relative URL without a base"
+#[test_case(r#"{"webseeds":["malformed"]}"# => panics "relative URL without a base"
     ; "legacy webseeds malformed"
 )]
 

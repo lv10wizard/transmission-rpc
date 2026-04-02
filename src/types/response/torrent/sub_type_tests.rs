@@ -78,7 +78,7 @@ fn error_type_deserialize(repr: &str) -> ErrorType {
         "bytesCompleted": -1,
         "length": 4567,
         "name": "foo.bar.gif"
-    }"# => ignore["todo i64 -> u64"] panics "invalid value: integer `-1`, expected u64"
+    }"# => panics "invalid value: integer `-1`, expected u64"
     ; "legacy bytes completed negative"
 )]
 #[test_case(
@@ -86,7 +86,7 @@ fn error_type_deserialize(repr: &str) -> ErrorType {
         "bytesCompleted": 1234,
         "length": -1,
         "name": "foo.bar.gif"
-    }"# => ignore["todo i64 -> u64"] panics "invalid value: integer `-1`, expected u64"
+    }"# => panics "invalid value: integer `-1`, expected u64"
     ; "legacy length negative"
 )]
 
@@ -187,7 +187,7 @@ fn error_type_deserialize(repr: &str) -> ErrorType {
         "end_piece": 42,
         "length": 4567,
         "name": "foo.bar.gif"
-    }"# => ignore["todo i64 -> u64"] panics "invalid value: integer `-1`, expected u64"
+    }"# => panics "invalid value: integer `-1`, expected u64"
     ; "semver 6.0.0 bytes completed negative"
 )]
 #[test_case(
@@ -197,7 +197,7 @@ fn error_type_deserialize(repr: &str) -> ErrorType {
         "end_piece": 42,
         "length": -1,
         "name": "foo.bar.gif"
-    }"# => ignore["todo i64 -> u64"] panics "invalid value: integer `-1`, expected u64"
+    }"# => panics "invalid value: integer `-1`, expected u64"
     ; "semver 6.0.0 length negative"
 )]
 #[test_case(
@@ -241,7 +241,7 @@ fn file_deserialize(file_data: &str) -> File {
         "bytesCompleted": -1,
         "priority": 1,
         "wanted": true
-    }"# => ignore["todo: i64 -> u64"] panics "invalid value: integer `-1`, expected u64"
+    }"# => panics "invalid value: integer `-1`, expected u64"
     ; "legacy bytes completed negative"
 )]
 fn file_stat_deserialize(stat_data: &str) -> FileStat {
@@ -870,8 +870,7 @@ fn tracker_deserialize(tracker_data: &str) -> Tracker {
 #[test_case(r#"1"# => TrackerState::Waiting ; "waiting")]
 #[test_case(r#"2"# => TrackerState::Queued ; "queued")]
 #[test_case(r#"3"# => TrackerState::Active ; "active")]
-#[test_case(r#"-1"# => ignore["todo: u8"]
-    panics "invalid value: integer `-1`,  expected u8 at line 1 column 2"
+#[test_case(r#"-1"# => panics "invalid value: integer `-1`, expected u8 at line 1 column 2"
     ; "invalid negative")]
 #[test_case(r#"4"# => panics "invalid value: 4, expected one of: 0, 1, 2, 3"
     ; "invalid positive")]
@@ -884,7 +883,7 @@ fn tracker_state_deserialize(state_data: &str) -> TrackerState {
         "is_downloading": true,
         "download_bytes_per_second": 20000
     }"# => WebseedsEx {
-        url: "https://iso.example.com:8080/download".into(),
+        url: Url::parse("https://iso.example.com:8080/download").expect("valid url"),
         is_downloading: true,
         download_bytes_per_second: 20000,
     } ; "ok"
@@ -894,7 +893,7 @@ fn tracker_state_deserialize(state_data: &str) -> TrackerState {
         "is_downloading": false,
         "download_bytes_per_second": 0
     }"# => WebseedsEx {
-        url: "https://iso.example.com:8080/download".into(),
+        url: Url::parse("https://iso.example.com:8080/download").expect("valid url"),
         is_downloading: false,
         download_bytes_per_second: 0,
     } ; "download bytes per second zero"
@@ -903,8 +902,7 @@ fn tracker_state_deserialize(state_data: &str) -> TrackerState {
         "url": "malformed",
         "is_downloading": true,
         "download_bytes_per_second": 0
-    }"# => ignore["todo: Url"]
-    panics "relative URL without a base"
+    }"# => panics "relative URL without a base"
     ; "url malformed"
 )]
 #[test_case(r#"{

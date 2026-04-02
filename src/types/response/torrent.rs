@@ -186,7 +186,7 @@ pub struct Torrent {
     ///
     /// [`size_when_done`]: Self::size_when_done
     #[serde(alias = "left_until_done")]
-    pub left_until_done: Option<i64>, // TODO? u64
+    pub left_until_done: Option<u64>,
     /// The torrent's [magnet link].
     ///
     /// > Added in Transmission 1.80 (`rpc-version-semver` 3.0.0, `rpc-version`: 7)
@@ -234,7 +234,7 @@ pub struct Torrent {
     ///
     /// [`peers`]: Self::peers
     #[serde(alias = "peers_connected")]
-    pub peers_connected: Option<i64>, // TODO? u16
+    pub peers_connected: Option<u16>,
     /// How many connected [`peers`] we found out about from various sources.
     ///
     /// [`peers`]: Self::peers
@@ -244,12 +244,12 @@ pub struct Torrent {
     ///
     /// [`peers`]: Self::peers
     #[serde(alias = "peers_getting_from_us")]
-    pub peers_getting_from_us: Option<i64>, // TODO? u16
+    pub peers_getting_from_us: Option<u16>,
     /// Number of [`peers`] that are sending data to us.
     ///
     /// [`peers`]: Self::peers
     #[serde(alias = "peers_sending_to_us")]
-    pub peers_sending_to_us: Option<i64>, // TODO? u16
+    pub peers_sending_to_us: Option<u16>,
     /// How much has been downloaded of the entire torrent. Range is [0, 1].
     ///
     /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
@@ -304,10 +304,10 @@ pub struct Torrent {
     pub queue_position: Option<usize>,
     /// The rate we are receiving data for this torrent in `B/s`.
     #[serde(alias = "rate_download")]
-    pub rate_download: Option<i64>, // TODO? u64
+    pub rate_download: Option<u64>,
     /// The rate we are sending data for this torrent in `B/s`.
     #[serde(alias = "rate_upload")]
-    pub rate_upload: Option<i64>, // TODO? u64
+    pub rate_upload: Option<u64>,
     /// When [`status`] is [`TorrentStatus::Verifying`] or [`TorrentStatus::QueuedToVerify`], this
     /// is the percentage of how much of the files has been verified. When it gets to `1.0`, the
     /// verify process is done. Range is [0, 1].
@@ -320,7 +320,7 @@ pub struct Torrent {
     pub seconds_downloading: Option<u64>,
     /// Cumulative seconds the torrent's ever spent seeding.
     #[serde(alias = "seconds_seeding")]
-    pub seconds_seeding: Option<i64>, // TODO? u64
+    pub seconds_seeding: Option<u64>,
     /// Number of minutes seeding inactivity until the torrent is paused based on its
     /// [`seed_idle_mode`].
     ///
@@ -329,7 +329,7 @@ pub struct Torrent {
     /// [`seed_idle_mode`]: Self::seed_idle_mode
     /// [`is_stalled`]: Self::is_stalled
     #[serde(alias = "seed_idle_limit")]
-    pub seed_idle_limit: Option<u64>, // Can this be negative? // TODO? u16
+    pub seed_idle_limit: Option<u64>,
     /// How [`seed_idle_limit`] is treated for this torrent.
     ///
     /// [`seed_idle_limit`]: Self::seed_idle_limit
@@ -370,7 +370,7 @@ pub struct Torrent {
     ///
     /// [`total_size`]: Self::total_size
     #[serde(alias = "size_when_done")]
-    pub size_when_done: Option<i64>, // TODO? u64
+    pub size_when_done: Option<u64>,
     /// When the torrent was last started. Will be [`DateTime::UNIX_EPOCH`] if the torrent has
     /// never been started.
     #[serde(deserialize_with = "from_ts_option", default)]
@@ -385,7 +385,7 @@ pub struct Torrent {
     pub torrent_file: Option<String>,
     /// Total size of the torrent, in bytes.
     #[serde(alias = "total_size")]
-    pub total_size: Option<i64>, // TODO: u64
+    pub total_size: Option<u64>,
     /// Array of the torrent's tracker data. This information is a subset of [`tracker_stats`].
     ///
     /// [`tracker_stats`]: Self::tracker_stats
@@ -404,7 +404,7 @@ pub struct Torrent {
     pub tracker_stats: Option<Vec<TrackerStat>>,
     /// Byte count of all data you've ever uploaded for this torrent.
     #[serde(alias = "uploaded_ever")]
-    pub uploaded_ever: Option<i64>, // TODO? u64
+    pub uploaded_ever: Option<u64>,
     #[serde(alias = "upload_limit")]
     pub upload_limit: Option<u64>, // Can this be negative?
     #[serde(alias = "upload_limited")]
@@ -431,7 +431,7 @@ pub struct Torrent {
     ///
     /// [webseed]: <https://www.bittorrent.org/beps/bep_0019.html>
     /// [`webseeds_ex`]: Self::webseeds_ex
-    pub webseeds: Option<Vec<String>>, // TODO: Url
+    pub webseeds: Option<Vec<Url>>,
     /// A list of [webseed] data.
     ///
     /// > Added in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?)
@@ -472,10 +472,10 @@ pub enum ErrorType {
 #[serde(rename_all = "camelCase")]
 pub struct File {
     /// The total size of the file.
-    pub length: i64, // TODO: u64
+    pub length: u64,
     /// The current size of the file, i.e. how much we've downloaded.
     #[serde(alias = "bytes_completed")]
-    pub bytes_completed: i64, // TODO: u64
+    pub bytes_completed: u64,
     /// This file's name. Includes the full subpath in the torrent.
     pub name: String,
     /// Piece index where this file starts.
@@ -500,7 +500,7 @@ pub struct File {
 pub struct FileStat {
     /// The current size of the file, i.e. how much we've downloaded.
     #[serde(alias = "bytes_completed")]
-    pub bytes_completed: i64, // TODO: u64
+    pub bytes_completed: u64,
     /// The file's priority.
     pub priority: Priority,
     /// Do we want to download this file?
@@ -826,7 +826,7 @@ pub struct TrackerStat {
 
 /// Represents the state of a torrent [`Tracker`].
 #[derive(Deserialize_repr, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(i8)] // TODO: u8
+#[repr(u8)]
 pub enum TrackerState {
     /// We won't (announce,scrape) this torrent to this tracker because the torrent is stopped, or
     /// because of an error, or whatever.
@@ -845,7 +845,7 @@ pub enum TrackerState {
 #[serde(rename_all = "snake_case")] // Added after semver-6.0.0.
 pub struct WebseedsEx {
     /// The url to download from.
-    pub url: String, // TODO: Url
+    pub url: Url,
     /// Can be true even if speed is 0, e.g. slow download
     pub is_downloading: bool,
     /// Current download speed
