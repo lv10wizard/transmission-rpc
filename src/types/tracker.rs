@@ -28,12 +28,16 @@ impl Display for TrackerTier {
     }
 }
 
-impl<I> From<I> for TrackerTier
+impl<I, S> From<I> for TrackerTier
 where
-    I: IntoIterator<Item = Url>,
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
 {
     fn from(value: I) -> Self {
-        Self(value.into_iter().collect())
+        let urls = value.into_iter()
+            .filter_map(|s| Url::parse(s.as_ref()).ok())
+            .collect();
+        Self(urls)
     }
 }
 
@@ -67,6 +71,7 @@ where
     fn from(value: I) -> Self {
         let tiers = value.into_iter()
             .map(Into::into)
+            .filter(|tier| !tier.0.is_empty())
             .collect();
         Self(tiers)
     }
@@ -132,6 +137,8 @@ impl<'de> Visitor<'de> for TrackerListVisitor {
 #[cfg(test)]
 mod serde_tests {
     use serde_json;
+    use test_case::test_case;
+
     use crate::types::Result;
     use super::*;
 
@@ -218,6 +225,20 @@ mod serde_tests {
             https://six.example.com:6666/\\n\
             https://seven.example.com:7777/\\n\"");
         Ok(())
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    #[test_case(r#" "" "# => TrackerList::from(vec![[""]]) ; "from")]
+    #[test_case(r#" "" "# => TrackerList(vec![]) ; "instantiate")]
+    fn tracker_list_deserialize_empty_str(data: &str) -> TrackerList {
+        match serde_json::from_str(data) {
+            Ok(deserialized) => {
+                println!("< {:#?}", &deserialized);
+                deserialized
+            },
+            Err(err) => panic!("{err}"),
+        }
     }
 
     #[test]

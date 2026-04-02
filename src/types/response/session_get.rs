@@ -1,6 +1,8 @@
+use semver::Version;
 use serde::Deserialize;
+use url::Url;
 
-use crate::types::{AltSpeedDay, Encryption, Transport};
+use crate::types::{AltSpeedDay, Encryption, TrackerList, Transport};
 
 /// Represents the response argument of a successful [`session_get`] request.
 ///
@@ -12,7 +14,7 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     #[serde(alias = "alt_speed_down")]
-    pub alt_speed_down: Option<i32>, // TODO: u64
+    pub alt_speed_down: Option<u64>,
     /// `true` means use the alt speeds (ie, turtle mode).
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
@@ -22,7 +24,7 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     #[serde(alias = "alt_speed_time_begin")]
-    pub alt_speed_time_begin: Option<i32>, // TODO: u32
+    pub alt_speed_time_begin: Option<u64>,
     /// What day(s) to turn on alt speeds (ie. turtle mode).
     #[serde(alias = "alt_speed_time_day")]
     pub alt_speed_time_day: Option<AltSpeedDay>,
@@ -35,22 +37,23 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     #[serde(alias = "alt_speed_time_end")]
-    pub alt_speed_time_end: Option<i32>, // TODO: u32
+    pub alt_speed_time_end: Option<u64>,
     /// Max global upload speed (kB/s).
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     #[serde(alias = "alt_speed_up")]
-    pub alt_speed_up: Option<i32>, // TODO: u64
+    pub alt_speed_up: Option<u64>,
     /// `true` means to enable a basic brute force protection for RPC server..
     ///
-    /// > Added in Transmission ???
+    /// > (?) Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
     #[serde(alias = "anti_brute_force_enabled")]
     pub anti_brute_force_enabled: Option<bool>,
     /// Basic brute force protection threshold in an unknown unit.
     ///
-    /// > Added in Transmission ??? [NOT DOCUMENTED IN RPC-SPEC]
+    /// > (?) Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18) [NOT
+    /// DOCUMENTED IN RPC-SPEC]
     #[serde(alias = "anti_brute_force_threshold")]
-    pub anti_brute_force_threshold: Option<i32>, // TODO: u64
+    pub anti_brute_force_threshold: Option<u64>,
     /// `true` means block peers based on the configured blocklist (see: [blocklists.md]).
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
@@ -65,12 +68,12 @@ pub struct SessionGet {
     ///
     /// [blocklists]: <https://github.com/transmission/transmission/blob/main/docs/Blocklists.md>
     #[serde(alias = "blocklist_size")]
-    pub blocklist_size: Option<i32>, // TODO: u64
+    pub blocklist_size: Option<u64>,
     /// location of the blocklist to use for `blocklist-update`.
     ///
     /// > Added in Transmission 2.12 (`rpc-version-semver` 3.5.0, `rpc-version`: 11)
     #[serde(alias = "blocklist_url")]
-    pub blocklist_url: Option<String>, // TODO: url::Url
+    pub blocklist_url: Option<Url>,
     /// Maximum size of the disk cache (MiB). Pieces are guaranteed to be written to filesystem if
     /// sequential download is enabled. Otherwise, data might still be in cache only.
     ///
@@ -86,7 +89,7 @@ pub struct SessionGet {
     ///   should stop using this key.
     #[serde(alias = "cache_size_mib")]
     #[serde(alias = "cache_size_mb")]
-    pub cache_size_mb: Option<i32>, // TODO: u64
+    pub cache_size_mb: Option<u64>,
     /// Location of transmission's configuration directory.
     ///
     /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
@@ -98,7 +101,7 @@ pub struct SessionGet {
     ///
     /// [tiers]: https://www.bittorrent.org/beps/bep_0012.html
     #[serde(alias = "default_trackers")]
-    pub default_trackers: Option<String>, // TODO: TrackerList
+    pub default_trackers: Option<TrackerList>,
     /// `true` means allow [DHT] in public torrents.
     ///
     /// [DHT]: https://wikipedia.org/wiki/Distributed_hash_table
@@ -124,7 +127,7 @@ pub struct SessionGet {
     ///
     /// [`download_queue_enabled`]: Self::download_queue_enabled
     #[serde(alias = "download_queue_size")]
-    pub download_queue_size: Option<i32>, // TODO: u64
+    pub download_queue_size: Option<u64>,
     /// The encryption type for peer connections.
     #[serde(alias = "encryption")]
     pub encryption: Option<Encryption>,
@@ -137,7 +140,7 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
     #[serde(alias = "idle_seeding_limit")]
-    pub idle_seeding_limit: Option<i32>, // TODO: u64? u32?
+    pub idle_seeding_limit: Option<u64>,
     /// `true` means keep torrents in [`incomplete_dir`] until done.
     ///
     /// > Added in Transmission 1.80 (`rpc-version-semver` 3.0.0, `rpc-version`: 7)
@@ -158,12 +161,12 @@ pub struct SessionGet {
     /// > Renamed from `peer-limit` to `peer-limit-global` in Transmission 1.60
     /// (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     #[serde(alias = "peer_limit_global")]
-    pub peer_limit_global: Option<i32>, // TODO: u64
+    pub peer_limit_global: Option<u64>,
     /// Default maximum number of peers per torrent.
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
     #[serde(alias = "peer_limit_per_torrent")]
-    pub peer_limit_per_torrent: Option<i32>, // TODO: u64
+    pub peer_limit_per_torrent: Option<u64>,
     /// `true` means pick a random peer port on launch.
     #[serde(alias = "peer_port_random_on_start")]
     pub peer_port_random_on_start: Option<bool>,
@@ -209,7 +212,7 @@ pub struct SessionGet {
     /// [`seed_queue_size`]: Self::seed_queue_size
     /// [`download-queue-size`]: Self::download-queue-size
     #[serde(alias = "queue_stalled_minutes")]
-    pub queue_stalled_minutes: Option<i32>, // TODO: u64? u32?
+    pub queue_stalled_minutes: Option<u64>,
     /// `true` means append `.part` to incomplete files.
     /// 
     /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
@@ -219,7 +222,7 @@ pub struct SessionGet {
     ///
     /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
     #[serde(alias = "reqq")]
-    pub reqq: Option<i32>, // TODO: u64? u32?
+    pub reqq: Option<u64>,
     /// The minimum RPC API version supported by the RPC server. It changes when a new version of
     /// Transmission changes the RPC interface in a way that is not backwards compatible.
     ///
@@ -233,7 +236,7 @@ pub struct SessionGet {
     ///
     /// [semver]: https://semver.org/
     #[serde(alias = "rpc_version_semver")]
-    pub rpc_version_semver: Option<String>, // TODO: semver::Version
+    pub rpc_version_semver: Option<Version>,
     /// the current RPC API version.
     ///
     /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
@@ -292,7 +295,7 @@ pub struct SessionGet {
     ///
     /// [seed_queue_enabled]: Self::seed_queue_enabled
     #[serde(alias = "seed_queue_size")]
-    pub seed_queue_size: Option<i32>, // TODO: u64
+    pub seed_queue_size: Option<u64>,
     /// The default seed ratio for torrents to use.
     ///
     /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
@@ -323,13 +326,13 @@ pub struct SessionGet {
     pub speed_limit_down_enabled: Option<bool>,
     /// Max global download speed (kB/s).
     #[serde(alias = "speed_limit_down")]
-    pub speed_limit_down: Option<i32>, // TODO: u64
+    pub speed_limit_down: Option<u64>,
     /// `true` means limit global upload speed.
     #[serde(alias = "speed_limit_up_enabled")]
     pub speed_limit_up_enabled: Option<bool>,
     /// Max global upload speed (kB/s).
     #[serde(alias = "speed_limit_up")]
-    pub speed_limit_up: Option<i32>, // TODO: u64
+    pub speed_limit_up: Option<u64>,
     /// `true` means added torrents will be started right away.
     ///
     /// > Added in Transmission 2.00 (`rpc-version-semver` 3.3.0, `rpc-version`: 9)
@@ -407,7 +410,9 @@ pub struct SessionGetUnits {
 
 #[cfg(test)]
 mod serde_tests {
-    use serde_json;
+    use semver::Version;
+    use test_case::test_case;
+    use url::Url;
 
     use crate::{
         json_rpc::JsonRpcResponse,
@@ -416,6 +421,90 @@ mod serde_tests {
             response::{SessionGet, SessionGetUnits},
         },
     };
+
+    #[test_case(r#"{ "alt-speed-down": -1 }"# => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy alt speed down negative"
+    )]
+    #[test_case(r#"{ "alt-speed-time-begin": -1 }"#
+        => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy alt speed time begin negative"
+    )]
+    #[test_case(r#"{ "alt-speed-time-end": -1 }"#
+        => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy alt speed time end negative"
+    )]
+    #[test_case(r#"{ "alt-speed-up": -1 }"# => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy alt speed up negative"
+    )]
+
+    // NOTE: No legacy anti_brute_force_enabled test: doesn't exist pre- semver-6.0.0.
+    // NOTE: No legacy anti_brute_force_threshold test: doesn't exist pre- semver-6.0.0.
+
+    #[test_case(r#"{ "blocklist-size": -1 }"# => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy blocklist size negative"
+    )]
+    #[test_case(r#"{ "blocklist-url": "malformed" }"# => panics "relative URL without a base"
+        ; "legacy blocklist url malformed"
+    )]
+
+    #[test_case(r#"{ "cache-size-mb": -1 }"# => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy cache size mb negative"
+    )]
+
+    #[test_case(r#"{ "download-queue-size": -1 }"#
+        => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy download queue size negative"
+    )]
+
+    #[test_case(r#"{ "idle-seeding-limit": -1 }"#
+        => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy idle seeding limit negative"
+    )]
+
+    #[test_case(r#"{ "peer-limit-global": -1 }"#
+        => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy peer limit global negative"
+    )]
+    #[test_case(r#"{ "peer-limit-per-torrent": -1 }"#
+        => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy peer limit per torrent negative"
+    )]
+
+    #[test_case(r#"{ "queue-stalled-minutes": -1 }"#
+        => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy queue stalled minutes negative"
+    )]
+
+    // NOTE: No legacy reqq test: doesn't exist pre- semver-6.0.0.
+
+    #[test_case(r#"{ "seed-queue-size": -1 }"#
+        => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy seed queue size negative"
+    )]
+
+    #[test_case(r#"{ "speed_limit_down": -1 }"#
+        => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy speed limit down negative"
+    )]
+    #[test_case(r#"{ "speed_limit_up": -1 }"#
+        => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy speed limit up negative"
+    )]
+
+    fn session_get_deserialize(data: &str) -> SessionGet {
+        let formatted = format!("{{\
+            \"arguments\": {data},\
+            \"result\":\"success\"\
+        }}");
+        println!("data>      {data}");
+        println!("formatted> {formatted}");
+        match serde_json::from_str::<RpcResponse<_>>(&formatted) {
+            Ok(resp) => resp.arguments,
+            Err(err) => panic!("{err}"),
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
 
     #[test]
     fn session_get_v300() -> Result<()> {
@@ -517,7 +606,10 @@ mod serde_tests {
 
         assert_eq!(resp.arguments.blocklist_enabled, Some(false));
         assert_eq!(resp.arguments.blocklist_size, Some(0));
-        assert_eq!(resp.arguments.blocklist_url, Some("http://www.example.com/blocklist".to_string()));
+        assert_eq!(
+            resp.arguments.blocklist_url,
+            Some(Url::parse("http://www.example.com/blocklist")?)
+        );
 
         assert_eq!(resp.arguments.cache_size_mb, Some(16));
         assert_eq!(resp.arguments.config_dir, Some("/config".to_string()));
@@ -724,11 +816,17 @@ mod serde_tests {
 
         assert_eq!(resp.arguments.blocklist_enabled, Some(false));
         assert_eq!(resp.arguments.blocklist_size, Some(0));
-        assert_eq!(resp.arguments.blocklist_url, Some("http://www.example.com/blocklist".to_string()));
+        assert_eq!(
+            resp.arguments.blocklist_url,
+            Some(Url::parse("http://www.example.com/blocklist")?)
+        );
 
         assert_eq!(resp.arguments.cache_size_mb, Some(16));
         assert_eq!(resp.arguments.config_dir, Some("/config".to_string()));
-        assert_eq!(resp.arguments.default_trackers, Some("".to_string()));
+        assert_eq!(
+            resp.arguments.default_trackers,
+            Some(vec![[""]].into())
+        );
         assert_eq!(resp.arguments.dht_enabled, Some(false));
 
         assert_eq!(resp.arguments.download_dir, Some("/downloads".to_string()));
@@ -758,7 +856,10 @@ mod serde_tests {
         assert_eq!(resp.arguments.reqq, Some(2000));
 
         assert_eq!(resp.arguments.rpc_version_minimum, Some(14));
-        assert_eq!(resp.arguments.rpc_version_semver, Some("6.0.1".to_string()));
+        assert_eq!(
+            resp.arguments.rpc_version_semver,
+            Some(Version::parse("6.0.1")?)
+        );
         assert_eq!(resp.arguments.rpc_version, Some(19));
 
         assert_eq!(resp.arguments.script_torrent_added_enabled, Some(false));
