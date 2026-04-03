@@ -316,6 +316,42 @@ mod serde_tests {
 
     use super::*;
 
+    #[test_case(AltSpeedDay::SUNDAY => "1" ; "sunday")]
+    #[test_case(AltSpeedDay::MONDAY => "2" ; "monday")]
+    #[test_case(AltSpeedDay::TUESDAY => "4" ; "tuesday")]
+    #[test_case(AltSpeedDay::WEDNESDAY => "8" ; "wednesday")]
+    #[test_case(AltSpeedDay::THURSDAY => "16" ; "thursday")]
+    #[test_case(AltSpeedDay::FRIDAY => "32" ; "friday")]
+    #[test_case(AltSpeedDay::SATURDAY => "64" ; "saturday")]
+    #[test_case(AltSpeedDay::WEEKDAY => "62" ; "all weekdays")]
+    #[test_case(AltSpeedDay::WEEKEND => "65" ; "weekend")]
+    #[test_case(AltSpeedDay::all() => "127" ; "every day")]
+    #[test_case(AltSpeedDay::empty() => "0" ; "empty")]
+    fn alt_speed_day_serialize(day: AltSpeedDay) -> String {
+        match serde_json::to_string(&day) {
+            Ok(s) => s,
+            Err(err) => panic!("{err}"),
+        }
+    }
+
+    #[test_case("1" => AltSpeedDay::SUNDAY ; "sunday")]
+    #[test_case("2" => AltSpeedDay::MONDAY ; "monday")]
+    #[test_case("4" => AltSpeedDay::TUESDAY ; "tuesday")]
+    #[test_case("8" => AltSpeedDay::WEDNESDAY ; "wednesday")]
+    #[test_case("16" => AltSpeedDay::THURSDAY ; "thursday")]
+    #[test_case("32" => AltSpeedDay::FRIDAY ; "friday")]
+    #[test_case("64" => AltSpeedDay::SATURDAY ; "saturday")]
+    #[test_case("62" => AltSpeedDay::WEEKDAY ; "all weekdays")]
+    #[test_case("65" => AltSpeedDay::WEEKEND ; "weekend")]
+    #[test_case("127" => AltSpeedDay::all() ; "every day")]
+    #[test_case("0" => AltSpeedDay::empty() ; "empty")]
+    fn alt_speed_day_deserialize(num: &str) -> AltSpeedDay {
+        match serde_json::from_str(num) {
+            Ok(day) => day,
+            Err(err) => panic!("{err}"),
+        }
+    }
+
     #[test]
     fn ip_protocol_v4_serialize() -> Result<()> {
         assert_eq!(serde_json::to_string(&IpProtocol::Ipv4)?, "\"ipv4\"");
