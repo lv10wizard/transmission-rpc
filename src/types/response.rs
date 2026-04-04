@@ -94,7 +94,7 @@ pub struct BlocklistUpdate {
     ///
     /// [blocklist]: <https://github.com/transmission/transmission/blob/main/docs/Blocklists.md>
     #[serde(alias = "blocklist_size")]
-    pub blocklist_size: Option<i32>, // TODO: Option<_> -> u64
+    pub blocklist_size: u64,
 }
 impl RpcResponseArgument for BlocklistUpdate {}
 
@@ -224,12 +224,12 @@ mod serde_tests {
     use crate::{
         json_rpc::JsonRpcResponse,
         types::{
-            BlocklistUpdate, FreeSpace, IpProtocol, PortTest, Result, RpcResponse,
-            TorrentAddedOrDuplicate,
+            JSON_RPC_VERSION_2_0, BlocklistUpdate, FreeSpace, IpProtocol, PortTest, Result,
+            RpcResponse, TorrentAddedOrDuplicate,
         },
     };
-    use serde_json;
-    use serde_json::Value;
+    use serde_json::{Result as SerdeResult, Value};
+    use test_case::test_case;
 
     #[test]
     fn test_torrent_added_failure_with_torrent_added_or_duplicate() {
@@ -286,6 +286,55 @@ mod serde_tests {
 
     // ---------------------------------------------------------------------------------------------
 
+    #[test_case(None, r#"{ "blocklist-size": 1234 }"# => BlocklistUpdate {
+            blocklist_size: 1234,
+        } ; "legacy blocklist update"
+    )]
+    #[test_case(None, r#"{ "blocklist-size": 0 }"# => BlocklistUpdate {
+            blocklist_size: 0,
+        } ; "legacy blocklist update zero"
+    )]
+    #[test_case(None, r#"{ "blocklist-size": -1 }"#
+        => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy blocklist update negative"
+    )]
+
+    #[test_case(Some(JSON_RPC_VERSION_2_0), r#"{ "blocklist_size": 1234 }"# => BlocklistUpdate {
+            blocklist_size: 1234,
+        } ; "semver 6.0.0 blocklist update"
+    )]
+    #[test_case(Some(JSON_RPC_VERSION_2_0), r#"{ "blocklist_size": 0 }"# => BlocklistUpdate {
+            blocklist_size: 0,
+        } ; "semver 6.0.0 blocklist update zero"
+    )]
+    #[test_case(Some(JSON_RPC_VERSION_2_0), r#"{ "blocklist_size": -1 }"#
+        => panics "invalid value: integer `-1`, expected u64"
+        ; "semver 6.0.0 blocklist update negative"
+    )]
+
+    fn blocklist_update_deserialize(jsonrpc: Option<&str>, data: &str) -> BlocklistUpdate {
+        let resp: SerdeResult<RpcResponse<_>> = match jsonrpc {
+            Some(version) => {
+                serde_json::from_str::<JsonRpcResponse<_>>(&format!("{{\
+                    \"id\": 0,\
+                    \"jsonrpc\": \"{version}\",\
+                    \"result\": {data}\
+                }}"))
+                .map(Into::into)
+            },
+            None => {
+                serde_json::from_str(&format!("{{\
+                    \"arguments\": {data},\
+                    \"result\": \"success\"
+                }}"))
+            },
+        };
+        match resp {
+            Ok(resp) => resp.arguments,
+            Err(err) => panic!("{err}"),
+        }
+    }
+
     #[test]
     fn blocklist_update_v300() -> Result<()> {
         let resp = serde_json::from_str::<RpcResponse<BlocklistUpdate>>(
@@ -303,7 +352,7 @@ mod serde_tests {
         println!("{resp:#?}");
         assert!(resp.is_ok());
 
-        assert_eq!(resp.arguments.blocklist_size, Some(1023));
+        assert_eq!(resp.arguments.blocklist_size, 1023);
         Ok(())
     }
 
@@ -325,7 +374,7 @@ mod serde_tests {
         println!("{resp:#?}");
         assert!(resp.is_ok());
 
-        assert_eq!(resp.arguments.blocklist_size, Some(2041));
+        assert_eq!(resp.arguments.blocklist_size, 2041);
         Ok(())
     }
 
