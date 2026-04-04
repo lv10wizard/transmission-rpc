@@ -848,7 +848,7 @@ mod serde_tests {
         assert_eq!(resp.arguments.peer_port, Some(55555));
         assert_eq!(resp.arguments.pex_enabled, Some(false));
         assert_eq!(resp.arguments.port_forwarding_enabled, Some(false));
-        let transports = vec![Transport::UTP, Transport::TCP];
+        let transports = vec![Transport::Utp, Transport::Tcp];
         assert_eq!(resp.arguments.preferred_transports, Some(transports));
         assert_eq!(resp.arguments.queue_stalled_enabled, Some(true));
         assert_eq!(resp.arguments.queue_stalled_minutes, Some(30));

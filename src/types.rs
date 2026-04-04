@@ -227,18 +227,18 @@ impl<'de> Deserialize<'de> for AltSpeedDay {
 pub enum Transport {
     /// [Transmission control
     /// protocol](https://en.wikipedia.org/wiki/Transmission_Control_Protocol)
-    TCP,
+    Tcp,
 
     /// [Micro Transport Protocol](https://en.wikipedia.org/wiki/Micro_Transport_Protocol) (aka
     /// "μTP" or "uTP")
-    UTP,
+    Utp,
 }
 
 impl Display for Transport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", match self {
-            Self::TCP => "tcp",
-            Self::UTP => "utp",
+            Self::Tcp => "tcp",
+            Self::Utp => "utp",
         })
     }
 }
@@ -377,6 +377,27 @@ mod serde_tests {
     fn ratio_mode_deserialize(repr: &str) -> RatioMode {
         match serde_json::from_str(repr) {
             Ok(prio) => prio,
+            Err(err) => panic!("{err}"),
+        }
+    }
+
+    #[test_case(Transport::Tcp => "\"tcp\"" ; "tcp")]
+    #[test_case(Transport::Utp => "\"utp\"" ; "utp")]
+    fn transport_serialize(transport: Transport) -> String {
+        match serde_json::to_string(&transport) {
+            Ok(s) => s,
+            Err(err) => panic!("{err}"),
+        }
+    }
+
+    #[test_case("\"tcp\"" => Transport::Tcp ; "tcp")]
+    #[test_case("\"utp\"" => Transport::Utp ; "utp")]
+    #[test_case("\"unimplemented foo bar\""
+        => panics "unknown variant `unimplemented foo bar`, expected `tcp` or `utp`"
+        ; "unimplemented")]
+    fn transport_deserialize(repr: &str) -> Transport {
+        match serde_json::from_str(repr) {
+            Ok(transport) => transport,
             Err(err) => panic!("{err}"),
         }
     }

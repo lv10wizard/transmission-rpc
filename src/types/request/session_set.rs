@@ -832,7 +832,7 @@ mod serde_tests {
     #[test]
     fn request_session_set_legacy_preferred_transports() -> Result<()> {
         let session_set_args = SessionSetArgs {
-            preferred_transports: Some(vec![Transport::UTP, Transport::TCP]),
+            preferred_transports: Some(vec![Transport::Utp, Transport::Tcp]),
             ..Default::default()
         };
         // `preferred_transports` only exists post- semver-6.0.0.
@@ -842,7 +842,7 @@ mod serde_tests {
     #[test]
     fn request_session_set_semver_600_preferred_transports() -> Result<()> {
         let session_set_args = SessionSetArgs {
-            preferred_transports: Some(vec![Transport::UTP, Transport::TCP]),
+            preferred_transports: Some(vec![Transport::Utp, Transport::Tcp]),
             ..Default::default()
         };
         verify(
