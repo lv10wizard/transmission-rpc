@@ -112,14 +112,14 @@ pub struct FreeSpace {
     ///
     /// [`path`]: Self::path
     #[serde(alias = "size_bytes")]
-    pub size_bytes: i64, // TODO: u64
+    pub size_bytes: u64,
     /// The total capacity, in bytes, of the [`path`] directory.
     ///
     /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
     ///
     /// [`path`]: Self::path
     #[serde(alias = "total_size")]
-    pub total_size: Option<i64>, // TODO: Option<u64>
+    pub total_size: Option<u64>,
 }
 impl RpcResponseArgument for FreeSpace {}
 
@@ -221,6 +221,7 @@ impl RpcResponseArgument for Vec<GroupGet> {}
 
 #[cfg(test)]
 mod serde_tests {
+    use super::RpcResponseArgument;
     use crate::{
         json_rpc::JsonRpcResponse,
         types::{
@@ -228,6 +229,7 @@ mod serde_tests {
             RpcResponse, TorrentAddedOrDuplicate,
         },
     };
+    use serde::de::DeserializeOwned;
     use serde_json::{Result as SerdeResult, Value};
     use test_case::test_case;
 
@@ -284,6 +286,32 @@ mod serde_tests {
         "#
     }
 
+    fn deserialize_test<T>(jsonrpc: Option<&str>, data: &str) -> T
+    where
+        T: DeserializeOwned + RpcResponseArgument,
+    {
+        let resp: SerdeResult<RpcResponse<_>> = match jsonrpc {
+            Some(version) => {
+                serde_json::from_str::<JsonRpcResponse<_>>(&format!("{{\
+                    \"id\": 0,\
+                    \"jsonrpc\": \"{version}\",\
+                    \"result\": {data}\
+                }}"))
+                .map(Into::into)
+            },
+            None => {
+                serde_json::from_str(&format!("{{\
+                    \"arguments\": {data},\
+                    \"result\": \"success\"
+                }}"))
+            },
+        };
+        match resp {
+            Ok(resp) => resp.arguments,
+            Err(err) => panic!("{err}"),
+        }
+    }
+
     // ---------------------------------------------------------------------------------------------
 
     #[test_case(None, r#"{ "blocklist-size": 1234 }"# => BlocklistUpdate {
@@ -313,26 +341,7 @@ mod serde_tests {
     )]
 
     fn blocklist_update_deserialize(jsonrpc: Option<&str>, data: &str) -> BlocklistUpdate {
-        let resp: SerdeResult<RpcResponse<_>> = match jsonrpc {
-            Some(version) => {
-                serde_json::from_str::<JsonRpcResponse<_>>(&format!("{{\
-                    \"id\": 0,\
-                    \"jsonrpc\": \"{version}\",\
-                    \"result\": {data}\
-                }}"))
-                .map(Into::into)
-            },
-            None => {
-                serde_json::from_str(&format!("{{\
-                    \"arguments\": {data},\
-                    \"result\": \"success\"
-                }}"))
-            },
-        };
-        match resp {
-            Ok(resp) => resp.arguments,
-            Err(err) => panic!("{err}"),
-        }
+        deserialize_test(jsonrpc, data)
     }
 
     #[test]
@@ -376,6 +385,120 @@ mod serde_tests {
 
         assert_eq!(resp.arguments.blocklist_size, 2041);
         Ok(())
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    #[test_case(None, r#"{
+            "path": "/home/user/downloads",
+            "size-bytes": 1234,
+            "total_size": 12340
+        }"# => FreeSpace {
+            path: "/home/user/downloads".into(),
+            size_bytes: 1234,
+            total_size: Some(12340),
+        } ; "legacy free space"
+    )]
+    #[test_case(None, r#"{
+            "path": "/home/user/downloads",
+            "size-bytes": 0,
+            "total_size": 12340
+        }"# => FreeSpace {
+            path: "/home/user/downloads".into(),
+            size_bytes: 0,
+            total_size: Some(12340),
+        } ; "legacy free space size bytes zero"
+    )]
+    #[test_case(None, r#"{
+            "path": "/home/user/downloads",
+            "size-bytes": -1,
+            "total_size": 12340
+        }"# => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy free space size bytes negative"
+    )]
+    #[test_case(None, r#"{
+            "path": "/home/user/downloads",
+            "size-bytes": 1234
+        }"# => FreeSpace {
+            path: "/home/user/downloads".into(),
+            size_bytes: 1234,
+            total_size: None,
+        } ; "legacy free space total size missing"
+    )]
+    #[test_case(None, r#"{
+            "path": "/home/user/downloads",
+            "size-bytes": 1234,
+            "total_size": 0
+        }"# => FreeSpace {
+            path: "/home/user/downloads".into(),
+            size_bytes: 1234,
+            total_size: Some(0),
+        } ; "legacy free space total size zero"
+    )]
+    #[test_case(None, r#"{
+            "path": "/home/user/downloads",
+            "size-bytes": 1234,
+            "total_size": -1
+        }"# => panics "invalid value: integer `-1`, expected u64"
+        ; "legacy free space total size negative"
+    )]
+
+    #[test_case(Some(JSON_RPC_VERSION_2_0), r#"{
+            "path": "/home/user/downloads",
+            "size_bytes": 1234,
+            "total_size": 12340
+        }"# => FreeSpace {
+            path: "/home/user/downloads".into(),
+            size_bytes: 1234,
+            total_size: Some(12340),
+        } ; "semver 6.0.0 free space"
+    )]
+    #[test_case(Some(JSON_RPC_VERSION_2_0), r#"{
+            "path": "/home/user/downloads",
+            "size_bytes": 0,
+            "total_size": 12340
+        }"# => FreeSpace {
+            path: "/home/user/downloads".into(),
+            size_bytes: 0,
+            total_size: Some(12340),
+        } ; "semver 6.0.0 free space size bytes zero"
+    )]
+    #[test_case(Some(JSON_RPC_VERSION_2_0), r#"{
+            "path": "/home/user/downloads",
+            "size_bytes": -1,
+            "total_size": 12340
+        }"# => panics "invalid value: integer `-1`, expected u64"
+        ; "semver 6.0.0 free space size bytes negative"
+    )]
+    #[test_case(Some(JSON_RPC_VERSION_2_0), r#"{
+            "path": "/home/user/downloads",
+            "size_bytes": 1234
+        }"# => FreeSpace {
+            path: "/home/user/downloads".into(),
+            size_bytes: 1234,
+            total_size: None,
+        } ; "semver 6.0.0 free space total size missing"
+    )]
+    #[test_case(Some(JSON_RPC_VERSION_2_0), r#"{
+            "path": "/home/user/downloads",
+            "size_bytes": 1234,
+            "total_size": 0
+        }"# => FreeSpace {
+            path: "/home/user/downloads".into(),
+            size_bytes: 1234,
+            total_size: Some(0),
+        } ; "semver 6.0.0 free space total size zero"
+    )]
+    #[test_case(Some(JSON_RPC_VERSION_2_0), r#"{
+            "path": "/home/user/downloads",
+            "size_bytes": 1234,
+            "total_size": -1
+        }"# => panics "invalid value: integer `-1`, expected u64"
+        ; "semver 6.0.0 free space total size negative"
+    )]
+
+    fn free_space_deserialize(jsonrpc: Option<&str>, data: &str) -> FreeSpace {
+        deserialize_test(jsonrpc, data)
     }
 
     #[test]
