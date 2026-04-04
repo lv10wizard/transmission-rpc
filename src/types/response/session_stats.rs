@@ -14,13 +14,13 @@ pub struct SessionStats {
     /// > Added in Transmission 1.50 (`rpc-version-semver` 1.3.0, `rpc-version`: 4)
     #[serde(alias = "cumulative-stats")]
     #[serde(alias = "cumulative_stats")]
-    pub cumulative_stats: Stats, // TODO: Option<_>
+    pub cumulative_stats: Stats,
     /// [`Stats`] counts that the transmission instance has tracked since it was started.
     ///
     /// > Added in Transmission 1.50 (`rpc-version-semver` 1.3.0, `rpc-version`: 4)
     #[serde(alias = "current-stats")]
     #[serde(alias = "current_stats")]
-    pub current_stats: Stats, // TODO: Option<_>
+    pub current_stats: Stats,
     /// The current overall download speed.
     #[serde(alias = "download_speed")]
     pub download_speed: u64,
@@ -244,35 +244,6 @@ mod legacy_deser_tests {
             torrent_count: 444,
             upload_speed: 10,
         } ; "legacy session stats ok"
-    )]
-
-    #[test_case(r#"{
-            "activeTorrentCount": 123,
-            "downloadSpeed": 4200,
-            "pausedTorrentCount": 321,
-            "torrentCount": 444,
-            "uploadSpeed": 10
-        }"# => ignore["todo: Option<Stats>"] SessionStats {
-            active_torrent_count: 123,
-            cumulative_stats: Stats {
-                downloaded_bytes: 104,
-                files_added: 666,
-                seconds_active: 456000123,
-                session_count: 1024,
-                uploaded_bytes: 123000456,
-            },
-            current_stats: Stats {
-                downloaded_bytes: 50,
-                files_added: 1,
-                seconds_active: 444,
-                session_count: 1,
-                uploaded_bytes: 9999,
-            },
-            download_speed: 4200,
-            paused_torrent_count: 321,
-            torrent_count: 444,
-            upload_speed: 10,
-        } ; "legacy session stats cumulative-stats, current-stats missing"
     )]
 
     #[test_case(r#"{
