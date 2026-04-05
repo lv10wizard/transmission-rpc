@@ -6,10 +6,16 @@ pub struct Symbol(&'static str);
 
 pub(crate) const COMPAT_PREFIX: &'static str = "__semver_600_compat_";
 
-pub(crate) const COMPAT_ATTR: Symbol = Symbol("compat");
+pub(crate) const ATTR_ADDED: Symbol = Symbol("added");
+pub(crate) const ATTR_CHANGED: Symbol = Symbol("changed");
+pub(crate) const ATTR_COMPAT: Symbol = Symbol("compat");
+pub(crate) const ATTR_DEPRECATED: Symbol = Symbol("deprecated"); // TODO? requires custom ser
+pub(crate) const ATTR_REMOVED: Symbol = Symbol("removed");
+
 pub(crate) const PLACEHOLDER: Symbol = Symbol("placeholder");
 pub(crate) const MAP: Symbol = Symbol("map");
 pub(crate) const NAME: Symbol = Symbol("name");
+pub(crate) const SEMVER: Symbol = Symbol("semver");
 pub(crate) const TYPE: Symbol = Symbol("type");
 
 impl PartialEq<Symbol> for Ident {

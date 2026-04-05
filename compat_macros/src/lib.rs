@@ -6,6 +6,7 @@ use syn::{Data, DeriveInput, parse_macro_input};
 
 use generate::{generate_compat_enum, generate_compat_struct};
 
+mod compat;
 mod generate;
 mod placeholder;
 mod symbols;
@@ -196,7 +197,7 @@ mod symbols;
 /// ```
 ///
 /// [`type = ...`]: derive.GenerateCompat.html#compattype--type
-#[proc_macro_derive(GenerateCompat, attributes(compat))]
+#[proc_macro_derive(GenerateCompat, attributes(compat))] // TODO: rename: include `request`
 pub fn generate_semver_600_compat(input: TokenStream) -> TokenStream {
     // REF: https://compilenrun.com/docs/language/rust/rust-advanced-features/rust-derive-macros/
     // REF: https://docs.rs/quote/latest/quote/macro.quote.html#indexing-into-a-tuple-struct

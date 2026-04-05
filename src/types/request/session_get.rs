@@ -94,6 +94,11 @@ pub enum SessionGetField {
     /// 5.0.0 to avoid client breakage, but it will be otherwise unused in libtransmission. Clients
     ///   should stop using this key.
     #[compat(name = CacheSizeMib)]
+    /*
+    #[added(semver = "3.4.0")]
+    #[changed(semver = "6.0.0", name = CacheSizeMib)]
+    #[deprecated(semver = "6.1.0", reason = "The memory cache is being removed, making this setting moot. The setting will still be gettable and settable via RPC session_get and session_set until Transmission 5.0.0 to avoid client breakage, but it will be otherwise unused in libtransmission. Clients should stop using this key.")]
+    */
     CacheSizeMb,
     ConfigDir,
     DefaultTrackers,

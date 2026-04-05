@@ -157,6 +157,7 @@ pub enum Encryption {
     ///
     /// > Renamed from `tolerated` to `allowed` in Transmission 4.1.0.
     #[serde(alias = "allowed")]
+    //#[changed(semver = "6.0.0", name = Allowed)]
     Tolerated,
 }
 

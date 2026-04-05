@@ -1,5 +1,7 @@
 extern crate proc_macro;
 
+use std::collections::HashMap;
+
 use proc_macro2::Span;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
@@ -10,8 +12,9 @@ use syn::{
 };
 
 use crate::{
+    compat::parse_version_attr,
     placeholder::replace_compat_placeholder,
-    symbols::{COMPAT_ATTR, COMPAT_PREFIX, PLACEHOLDER, MAP, NAME, TYPE},
+    symbols::{ATTR_COMPAT, COMPAT_PREFIX, PLACEHOLDER, MAP, NAME, TYPE},
 };
 
 const NAMED_FIELDS_ONLY: &'static str = "GenerateCompat only supports structs with named fields.";
@@ -35,7 +38,26 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     // Stores the conversion function, if any, for each of the legacy struct's fields.
     let mut conv: Vec<Option<Path>> = Vec::with_capacity(data.fields.len());
 
+    let mut added = HashMap::new();
+    let mut changed = HashMap::new();
+    let mut removed = HashMap::new();
+
     for field in data.fields.iter() {
+        match parse_version_attr(field.into()) {
+            Ok(data) => {
+                if let Some(data) = data.added {
+                    added.insert(data.0, data.1);
+                }
+                if let Some(data) = data.changed {
+                    changed.insert(data.0, data.1);
+                }
+                if let Some(data) = data.removed {
+                    removed.insert(data.0, data.1);
+                }
+            },
+            Err(err) => return err.into_compile_error(),
+        }
+
         let ty = Some(&field.ty);
         let parsed_attr = match parse_field_compat_attr(&field.attrs, ty, &parsed_outer) {
             Err(err) => return format_compat_attr_err(err).into_compile_error(),
@@ -115,6 +137,7 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
 
         #[automatically_derived]
         impl #orig_struct_id {
+            //TODO: pub fn into_compat(self, semver: Version) -> #compat_struct_id { ... }
             /// Converts the legacy struct into its semver-6.0.0 compatible serialization helper
             /// type.
             pub fn into_compat(self) -> #compat_struct_id {
@@ -193,6 +216,7 @@ pub(crate) fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum)
                     .into_compile_error();
             },
         };
+        // TODO: store HashMap<Version, ParsedFieldAttr> for each attr: added,changed,depr,removed
         let parsed_attr = match parse_field_compat_attr(&var.attrs, orig_type, &parsed_outer) {
             Err(err) => return format_compat_attr_err(err).into_compile_error(),
             Ok(parsed) => parsed,
@@ -297,7 +321,7 @@ struct ParsedFieldAttr {
 }
 
 fn format_compat_attr_err(err: Error) -> Error {
-    let msg = format!("Failed to parse #[{COMPAT_ATTR}] args: {err}");
+    let msg = format!("Failed to parse #[{ATTR_COMPAT}] args: {err}");
     Error::new(err.span(), msg)
 }
 
@@ -322,15 +346,16 @@ where
     let mut mapping = None;
 
     // TODO: ----- Generate a compat container (struct/enum) for each semver
-    // TODO: #[compat(added = "VERSION")] => include only for compat versions >=
-    // TODO: (?) #[compat(deprecated = "VERSION")] => one-time warn + a way to disable
-    // TODO: #[compat(removed = "VERSION")] => do not include for compat versions >=
-    // TODO: #[compat(changed = "VERSION", name = "...", type = ("TYPE"[, "MAP"]))] => 
+    // TODO: #[added(semver = "VERSION")] => include only for compat versions >=
+    // TODO: (?) #[deprecated(semver = "VERSION", reason = "...")]
+    // TODO-    => one-time warn + a way to disable -- needs custom Serialize impl tho
+    // TODO: #[removed(semver = "VERSION")] => do not include for compat versions >=
+    // TODO: #[changed(semver = "VERSION", name = "...", type = ("TYPE"[, "MAP"]))] => 
     // TODO-    ver >= "VERSION" => transform generated container field/variant
     // TODO: ----- 
 
     for attr in attributes.into_iter() {
-        if attr.path() != COMPAT_ATTR {
+        if attr.path() != ATTR_COMPAT {
             continue;
         }
 
@@ -403,7 +428,7 @@ where
     let mut placeholder = None;
 
     for ast_attr in attributes.into_iter() {
-        if ast_attr.path() != COMPAT_ATTR {
+        if ast_attr.path() != ATTR_COMPAT {
             continue;
         }
 
