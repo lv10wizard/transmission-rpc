@@ -1,7 +1,7 @@
 use syn::{Error, GenericArgument, Ident, PathArguments, Result, Type};
 use quote::{ToTokens, format_ident, quote};
 
-use crate::symbols::COMPAT_PREFIX;
+use crate::symbols::compat_prefix;
 
 /// Recursively replaces [`Ident`]s found in `meta` matching `placeholder` with the compat-type's
 /// [`Ident`] (ie. [`COMPAT_PREFIX`] + `orig`).
@@ -64,7 +64,10 @@ pub(crate) fn replace_compat_placeholder(orig: &Type, meta: &mut Type, placehold
                     match &meta.ident == placeholder {
                         // The segment's type identifier is the compat placeholder.
                         true => {
-                            (*meta).ident = format_ident!("{COMPAT_PREFIX}{}", orig.ident);
+                            (*meta).ident = {
+                                let tmp = semver::Version::new(6, 0, 0);
+                                format_ident!("{}{}", compat_prefix(&tmp), orig.ident)
+                            };
                             Ok(())
                         },
 

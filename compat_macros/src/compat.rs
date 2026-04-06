@@ -1,4 +1,6 @@
-use quote::format_ident;
+use std::collections::HashMap;
+
+use proc_macro2::Span;
 use semver::Version;
 use syn::{
     Attribute, Error, Field, Fields, Ident, LitStr, Result, Type, Variant,
@@ -6,25 +8,73 @@ use syn::{
     spanned::Spanned as _
 };
 
-use crate::symbols::{ATTR_ADDED, ATTR_CHANGED, ATTR_REMOVED, NAME, SEMVER};
+use crate::{
+    parse::parse_ident,
+    symbols::{ATTR_ADDED, ATTR_REMOVED, ATTR_RENAMED, NAME, SEMVER},
+};
 
-/// Holds compat data for a struct field or enum variant parsed from its attributes.
-#[derive(Default, Debug, Clone)]
-pub(crate) struct CompatData<'a> {
-    pub(crate) added: Option<(Version, FieldOrVar<'a>)>,
-    pub(crate) changed: Option<(Version, ChangeData<'a>)>,
-    pub(crate) removed: Option<(Version, FieldOrVar<'a>)>,
+/// Represents the change to a struct field or enum variant for a specific transmission semver.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum Kind {
+    /// The struct field or enum variant was added.
+    Added,
+    // TODO? Deprecated,
+    /// The struct field or enum variant was removed.
+    Removed,
+    /// The struct field or enum variant was renamed. The [`Ident`] field is the new name of the
+    /// field or varaint.
+    Renamed(Ident),
 }
 
-/// Stores how the struct field or enum variant changed in a particular version.
+/// Holds compat data for a struct field or enum variant parsed from its attributes.
 #[derive(Debug, Clone)]
-pub(crate) struct ChangeData<'a> {
-    pub(crate) field: FieldOrVar<'a>,
-    pub(crate) new_name: Ident,
+struct ParsedAttr {
+    /// What changed in this version.
+    kind: Kind,
+    /// The location of source code of the parsed attribute that this `ParsedAttr` corresponds to.
+    span: Span,
+}
+
+impl From<ParsedAttr> for Kind {
+    fn from(value: ParsedAttr) -> Self {
+        value.kind
+    }
+}
+
+/// Helper wrapper over [`HashMap`] to handle duplicate changes for the same transmission semver
+/// for a given struct field or enum variant.
+#[derive(Default, Debug, Clone)]
+struct CompatData {
+    map: HashMap<Version, ParsedAttr>,
+}
+
+impl CompatData {
+    /// Inserts the semver compat change into the inner [`HashMap`], returning an `Err` if
+    /// `version` already exists.
+    fn insert<'a>(&mut self, attr: &'a Attribute, version: Version, kind: Kind) -> Result<()> {
+        let parsed = ParsedAttr {
+            kind,
+            span: attr.span(),
+        };
+        if let Some(existing) = self.map.insert(version.clone(), parsed) {
+            let span = attr.span().located_at(existing.span);
+            return Err(Error::new(span, format!("multiple changes defined for {version}")));
+        }
+        Ok(())
+    }
+}
+
+impl From<CompatData> for HashMap<Version, Kind> {
+    fn from(value: CompatData) -> Self {
+        value.map
+            .into_iter()
+            .map(|(k, v)| (k, v.into()))
+            .collect()
+    }
 }
 
 /// Either a struct field or enum variant.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum FieldOrVar<'a> {
     Field(&'a Field),
     Variant(&'a Variant),
@@ -99,47 +149,39 @@ fn parse_semver<'a>(meta: &'a ParseNestedMeta<'_>) -> Result<Option<Version>> {
 }
 
 /// Parses a struct field or enum variant's attributes for semver compat data.
-pub(crate) fn parse_version_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData<'a>> {
+pub(crate) fn parse_version_attr<'a>(fv: FieldOrVar<'a>) -> Result<HashMap<Version, Kind>> {
     let mut data = CompatData::default();
 
     for attr in fv.attributes().iter() {
-        if attr.path() == ATTR_ADDED { // #[added(semver = ...)]
+        if attr.path() == ATTR_ADDED { // #[added(semver = "...")]
             attr.parse_nested_meta(|meta| {
                 if let Some(semver) = parse_semver(&meta)? {
-                    data.added = Some((semver, fv.clone()));
+                    data.insert(attr, semver, Kind::Added)?;
                 }
                 Ok(())
             })?;
 
-        } else if attr.path() == ATTR_REMOVED { // #[removed(semver = ...)]
+        } else if attr.path() == ATTR_REMOVED { // #[removed(semver = "...")]
             attr.parse_nested_meta(|meta| {
                 if let Some(semver) = parse_semver(&meta)? {
-                    data.removed = Some((semver, fv.clone()));
+                    data.insert(attr, semver, Kind::Removed)?;
                 }
                 Ok(())
             })?;
 
-        } else if attr.path() == ATTR_CHANGED { // #[changed(semver = ..., name = ...)]
+        } else if attr.path() == ATTR_RENAMED { // #[renamed(semver = "...", name = ...)]
             let mut new_name: Option<Ident> = None;
             let mut semver: Option<Version> = None;
 
+            // Parse each argument first to ensure both `semver` and `name` are specified.
             attr.parse_nested_meta(|meta| {
                 if let Some(ver) = parse_semver(&meta)? {
                     semver = Some(ver);
                 }
 
                 if meta.path == NAME {
-                    let meta_val = meta.value()?;
-                    new_name = match meta_val.parse::<LitStr>() {
-                        Ok(s) => Some(format_ident!("{}", s.value())),
-                        Err(_) => meta_val.parse::<Ident>()
-                            .map(Some)
-                            .map_err(|_| {
-                                let msg = format!("#[{ATTR_CHANGED}({NAME} = ...)] \
-                                    value must be either a string literal or valid Ident");
-                                meta.error(msg)
-                            })?,
-                    }
+                    new_name = parse_ident(meta.value()?)
+                        .map(Some)?;
                 }
 
                 Ok(())
@@ -147,16 +189,12 @@ pub(crate) fn parse_version_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData<'a
 
             match (semver, new_name) {
                 (Some(semver), Some(new_name)) => {
-                    data.changed = Some((semver, ChangeData {
-                        field: fv.clone(),
-                        new_name,
-                    }));
+                    data.insert(attr, semver, Kind::Renamed(new_name))?;
                 },
 
                 (..) => {
                     return Err({
-                        let msg = format!("#[{ATTR_CHANGED}] \
-                            requires both \"{SEMVER}\" and \"{NAME}\" arguments");
+                        let msg = format!("expected both \"{SEMVER}\" and \"{NAME}\" arguments");
                         Error::new(attr.span(), msg)
                     });
                 },
@@ -168,5 +206,5 @@ pub(crate) fn parse_version_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData<'a
         }
     }
 
-    Ok(data)
+    Ok(data.into())
 }

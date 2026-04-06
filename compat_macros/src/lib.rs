@@ -8,6 +8,7 @@ use generate::{generate_compat_enum, generate_compat_struct};
 
 mod compat;
 mod generate;
+mod parse;
 mod placeholder;
 mod symbols;
 

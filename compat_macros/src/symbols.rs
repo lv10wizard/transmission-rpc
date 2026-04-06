@@ -1,16 +1,23 @@
 use std::fmt::{self, Display};
+
+use quote::format_ident;
 use syn::{Ident, Path};
+use semver::Version;
+
+/// Formats a (hopefully) unique prefix suitable for generated struct and enum names from the given
+/// transmission semver, `v`.
+pub(crate) fn compat_prefix(v: &Version) -> Ident {
+    format_ident!("__semver_{}{}{}_compat_", v.major, v.minor, v.patch)
+}
 
 #[derive(Copy, Clone)]
 pub struct Symbol(&'static str);
 
-pub(crate) const COMPAT_PREFIX: &'static str = "__semver_600_compat_";
-
 pub(crate) const ATTR_ADDED: Symbol = Symbol("added");
-pub(crate) const ATTR_CHANGED: Symbol = Symbol("changed");
 pub(crate) const ATTR_COMPAT: Symbol = Symbol("compat");
 pub(crate) const ATTR_DEPRECATED: Symbol = Symbol("deprecated"); // TODO? requires custom ser
 pub(crate) const ATTR_REMOVED: Symbol = Symbol("removed");
+pub(crate) const ATTR_RENAMED: Symbol = Symbol("renamed");
 
 pub(crate) const PLACEHOLDER: Symbol = Symbol("placeholder");
 pub(crate) const MAP: Symbol = Symbol("map");

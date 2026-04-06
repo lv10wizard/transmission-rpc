@@ -2,10 +2,9 @@ extern crate proc_macro;
 
 use std::collections::HashMap;
 
-use proc_macro2::Span;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
-    Attribute, DataEnum, DataStruct, DeriveInput, Error, Expr, Fields, Ident, Lit, Meta, Path,
+    Attribute, DataEnum, DataStruct, DeriveInput, Error, Fields, Meta, Path,
     Result, Token, Type,
     punctuated::Punctuated,
     spanned::Spanned as _
@@ -13,8 +12,8 @@ use syn::{
 
 use crate::{
     compat::parse_version_attr,
-    placeholder::replace_compat_placeholder,
-    symbols::{ATTR_COMPAT, COMPAT_PREFIX, PLACEHOLDER, MAP, NAME, TYPE},
+    parse::{parse_field_compat_attr, parse_outer_compat_attr},
+    symbols::{MAP, compat_prefix},
 };
 
 const NAMED_FIELDS_ONLY: &'static str = "GenerateCompat only supports structs with named fields.";
@@ -38,29 +37,19 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     // Stores the conversion function, if any, for each of the legacy struct's fields.
     let mut conv: Vec<Option<Path>> = Vec::with_capacity(data.fields.len());
 
-    let mut added = HashMap::new();
-    let mut changed = HashMap::new();
-    let mut removed = HashMap::new();
+    let mut semver_compat = HashMap::new();
 
     for field in data.fields.iter() {
         match parse_version_attr(field.into()) {
-            Ok(data) => {
-                if let Some(data) = data.added {
-                    added.insert(data.0, data.1);
-                }
-                if let Some(data) = data.changed {
-                    changed.insert(data.0, data.1);
-                }
-                if let Some(data) = data.removed {
-                    removed.insert(data.0, data.1);
-                }
+            Ok(data) => if !data.is_empty() {
+                semver_compat.insert(field, data);
             },
             Err(err) => return err.into_compile_error(),
         }
 
         let ty = Some(&field.ty);
         let parsed_attr = match parse_field_compat_attr(&field.attrs, ty, &parsed_outer) {
-            Err(err) => return format_compat_attr_err(err).into_compile_error(),
+            Err(err) => return err.into_compile_error(),
             Ok(parsed) => parsed,
         };
 
@@ -119,7 +108,10 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     };
 
     let orig_struct_id = &ast.ident;
-    let compat_struct_id = format_ident!("{COMPAT_PREFIX}{}", orig_struct_id);
+    let compat_struct_id = {
+        let tmp = semver::Version::new(6, 0, 0);
+        format_ident!("{}{}", compat_prefix(&tmp), orig_struct_id)
+    };
     let generics = &ast.generics;
     let semi_token = data.semi_token;
     // TODO: let compat_doc = format!("TODO");
@@ -162,7 +154,10 @@ pub(crate) fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum)
 {
     let orig_enum_id = &ast.ident;
     let generics = &ast.generics;
-    let compat_enum_id = format_ident!("{COMPAT_PREFIX}{}", orig_enum_id);
+    let compat_enum_id = {
+        let tmp = semver::Version::new(6, 0, 0);
+        format_ident!("{}{}", compat_prefix(&tmp), orig_enum_id)
+    };
 
     let parsed_outer = match parse_outer_compat_attr(&ast.attrs) {
         Ok(parsed) => parsed,
@@ -218,7 +213,7 @@ pub(crate) fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum)
         };
         // TODO: store HashMap<Version, ParsedFieldAttr> for each attr: added,changed,depr,removed
         let parsed_attr = match parse_field_compat_attr(&var.attrs, orig_type, &parsed_outer) {
-            Err(err) => return format_compat_attr_err(err).into_compile_error(),
+            Err(err) => return err.into_compile_error(),
             Ok(parsed) => parsed,
         };
 
@@ -309,167 +304,6 @@ pub(crate) fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum)
             }
         }
     }
-}
-
-// ------------------------------------------------------------------------------------------------
-
-struct ParsedFieldAttr {
-    span: Option<Span>,
-    name: Option<Ident>,
-    ty: Option<Type>,
-    map_fn: Option<Path>,
-}
-
-fn format_compat_attr_err(err: Error) -> Error {
-    let msg = format!("Failed to parse #[{ATTR_COMPAT}] args: {err}");
-    Error::new(err.span(), msg)
-}
-
-/// Parses the #[compat(...)] helper attribute on struct fields or enum variants.
-///
-/// eg.
-/// ```
-/// #[derive(GenerateCompat)]
-/// struct Foo {
-///     #[compat(name = xyzzy)] // <<< Parses this
-///     bar: i32,
-/// }
-/// ```
-fn parse_field_compat_attr<'a, I>(attributes: I, orig_type: Option<&Type>, outer: &ParsedOuterAttr)
-    -> Result<ParsedFieldAttr>
-where
-    I: IntoIterator<Item = &'a Attribute>,
-{
-    let mut span = None;
-    let mut attr_name = None;
-    let mut attr_type = None;
-    let mut mapping = None;
-
-    // TODO: ----- Generate a compat container (struct/enum) for each semver
-    // TODO: #[added(semver = "VERSION")] => include only for compat versions >=
-    // TODO: (?) #[deprecated(semver = "VERSION", reason = "...")]
-    // TODO-    => one-time warn + a way to disable -- needs custom Serialize impl tho
-    // TODO: #[removed(semver = "VERSION")] => do not include for compat versions >=
-    // TODO: #[changed(semver = "VERSION", name = "...", type = ("TYPE"[, "MAP"]))] => 
-    // TODO-    ver >= "VERSION" => transform generated container field/variant
-    // TODO: ----- 
-
-    for attr in attributes.into_iter() {
-        if attr.path() != ATTR_COMPAT {
-            continue;
-        }
-
-        attr.parse_nested_meta(|meta| {
-            // #[compat(name = foo)]
-            if meta.path == NAME {
-                let value = meta.value()?;
-                span = Some(value.span());
-                attr_name = Some(value.parse()?);
-
-            // #[compat(type = Option<i32>)]
-            } else if meta.path == TYPE {
-                match orig_type {
-                    None => {
-                        let msg = format!("\"{TYPE}\" missing original field or enum variant \
-                            type");
-                        return Err(meta.error(msg));
-                    },
-
-                    Some(orig_type) => {
-                        let value = meta.value()?;
-                        span = Some(value.span());
-                        let mut meta_type: Type = value.parse()?;
-                        if let Some(placeholder) = outer.placeholder.as_ref() {
-                            replace_compat_placeholder(
-                                orig_type,
-                                &mut meta_type,
-                                placeholder)?;
-                        }
-                        attr_type = Some(meta_type);
-                    },
-                }
-
-            // #[compat(map = Option::map)]
-            } else if meta.path == MAP {
-                let value = meta.value()?;
-                span = Some(value.span());
-                mapping = Some(value.parse()?);
-            }
-            Ok(())
-        })?;
-    }
-
-    Ok(ParsedFieldAttr {
-        span,
-        name: attr_name,
-        ty: attr_type,
-        map_fn: mapping,
-    })
-}
-
-struct ParsedOuterAttr {
-    placeholder: Option<Ident>,
-}
-
-/// Parses the #[compat(...)] helper attribute on the outer struct or enum definition.
-///
-/// eg.
-/// ```
-/// #[derive(GenerateCompat)]
-/// #[compat(placeholder = P)] // <<< Parses this
-/// struct Foo {
-///     bar: i32,
-/// }
-/// ```
-fn parse_outer_compat_attr<'a, I>(attributes: I) -> Result<ParsedOuterAttr>
-where
-    I: IntoIterator<Item = &'a Attribute>,
-{
-    let mut placeholder = None;
-
-    for ast_attr in attributes.into_iter() {
-        if ast_attr.path() != ATTR_COMPAT {
-            continue;
-        }
-
-        let parser = Punctuated::<Meta, Token![,]>::parse_terminated;
-        let nested = ast_attr.parse_args_with(parser)?;
-        for meta in nested.iter() {
-            if meta.path() == PLACEHOLDER {
-                match &meta.require_name_value()?.value {
-                    Expr::Path(expr) => {
-                        placeholder = expr.path.require_ident()?
-                            .clone()
-                            .into();
-                    },
-
-                    Expr::Lit(expr) => match &expr.lit {
-                        Lit::Str(s) => {
-                            placeholder = Some(s.parse()?);
-                        },
-
-                        lit => {
-                            let msg = format!("unexpected \"{PLACEHOLDER}\": {lit:?}");
-                            return Err({
-                                let err = Error::new(meta.span(), msg);
-                                format_compat_attr_err(err)
-                            });
-                        },
-                    },
-
-                    expr => {
-                        let msg = format!("unexpected \"{PLACEHOLDER}\": {expr:?}");
-                        return Err({
-                            let err = Error::new(meta.span(), msg);
-                            format_compat_attr_err(err)
-                        });
-                    },
-                }
-            }
-        }
-    }
-
-    Ok(ParsedOuterAttr { placeholder })
 }
 
 /// Parses the original enum-level attributes for the `#[serde(untagged)]` attribute.
