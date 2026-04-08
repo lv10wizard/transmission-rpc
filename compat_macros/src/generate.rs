@@ -3,17 +3,18 @@ extern crate proc_macro;
 use std::collections::HashMap;
 
 use quote::{format_ident, quote, quote_spanned};
+use semver::Version;
 use syn::{
-    Attribute, DataEnum, DataStruct, DeriveInput, Error, Fields, Meta, Path,
+    Attribute, DataEnum, DataStruct, DeriveInput, Error, Field, Fields, Meta, MetaList, Path,
     Result, Token, Type,
     punctuated::Punctuated,
-    spanned::Spanned as _
+    spanned::Spanned as _,
 };
 
 use crate::{
-    compat::parse_version_attr,
-    parse::{parse_field_compat_attr, parse_outer_compat_attr},
-    symbols::{MAP, compat_prefix},
+    compat::{Kind, parse_attr},
+    parse::{parse_field_compat_attr, parse_serde_attr, parse_outer_compat_attr},
+    symbols::{MAP, compat_id},
 };
 
 const NAMED_FIELDS_ONLY: &'static str = "GenerateCompat only supports structs with named fields.";
@@ -27,6 +28,138 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         Err(err) => return err.into_compile_error(),
     };
 
+    let mut need_base_version = false;
+    let mut semver_compat = HashMap::new();
+    let mut struct_fields = Vec::with_capacity(data.fields.len());
+
+    for field in data.fields.iter() {
+        struct_fields.push(field);
+
+        match parse_attr(field.into()) {
+            Ok(parsed) => if !parsed.changes.is_empty() {
+                for (version, kind) in parsed.changes.into_iter() {
+                    // Determine if we need to include a faked "0.0.0" version to handle
+                    // compatibility with versions missing newly added fields.
+                    need_base_version = need_base_version || kind == Kind::Added;
+
+                    // Duplicates should be handled by `parse_attr`.
+                    semver_compat.entry(version)
+                        .or_insert(HashMap::<&Field, Kind>::default())
+                        .insert(field, kind);
+                }
+            },
+            Err(err) => return err.into_compile_error(),
+        }
+    }
+
+    // Build out which versions we need to generate.
+    let mut versions: Vec<_> = semver_compat.keys()
+        .map(|version| version.clone())
+        .collect();
+    let semver_600 = Version::new(6, 0, 0);
+    if !semver_compat.contains_key(&semver_600) {
+        versions.push(semver_600);
+    }
+    if need_base_version {
+        // Force a "0.0.0" version to handle transmission versions older than any added fields.
+        versions.push(Version::new(0, 0, 0));
+    }
+    versions.sort(); // Sort the versions so we can find the nearest-lower version.
+
+    // TODO: generate compat structs, orig ->into-> compat-version
+    // TODO: generate `.into_compat<T>(v: &Version) -> T` on original struct
+
+    let orig_struct_id = &ast.ident;
+    let generics = &ast.generics;
+    let semi_token = data.semi_token;
+    let compat_structs: HashMap<_, _> = versions
+        .iter()
+        .map(|version| {
+            let struct_id = compat_id(version, orig_struct_id);
+
+            let field_ident = struct_fields.iter().map(|f| {
+                f.ident.as_ref().expect(NAMED_FIELDS_ONLY)
+            });
+            let field_type = struct_fields.iter().map(|f| {
+                match parse_field_compat_attr(&f.attrs, Some(&f.ty), &parsed_outer) {
+                    Ok(parsed) => {
+                        let ty = parsed.ty.as_ref()
+                            .unwrap_or(&f.ty);
+                        quote_spanned! {f.ty.span()=> ty }
+                    },
+                    Err(err) => return err.into_compile_error(),
+                }
+            });
+
+            let mut field_serde = Vec::with_capacity(struct_fields.len());
+            for f in struct_fields.iter() {
+                field_serde.push(parse_serde_attr(f.attrs.iter()));
+            }
+
+            let mut container_serde: Vec<_> = parse_serde_attr(ast.attrs.iter())
+                .into_iter()
+                .map(Clone::clone)
+                .collect();
+            if version >= &Version::new(6, 0, 0) {
+                // Drop any field-level #[serde(...)] attributes for versions post-
+                // semver-6.0.0.
+                for attrs in field_serde.iter_mut() {
+                    attrs.clear();
+                }
+
+                // NOTE: Any #[serde(...)] attributes defined on the container are implicitly
+                // NOTE- dropped to avoid duplicate `rename_all = ...` arguments.
+                // TODO: parse and include all but `rename_all`.
+
+                // Search for the `#[serde(rename_all = ...)]` attribute and drop it if defined to
+                // avoid generating a duplicate `rename_all` serde attribute for post-
+                // semver-6.0.0.
+                let mut serde_attrs = Vec::with_capacity(container_serde.len());
+                for attr in container_serde.into_iter() {
+                    // Parse each #[serde] argument.
+                    // eg. #[serde(rename_all = "...", untagged, ...)]
+                    //             ^^^^^^^^^^^^^^^^^^  ^^^^^^^^  ^^^
+                    let parser = Punctuated::<Meta, Token![,]>::parse_terminated;
+                    let nested = match attr.parse_args_with(parser) {
+                        Ok(parsed) => parsed,
+                        Err(err) => {
+                            let msg = format!("unexpected #[serde] attribute: {err}");
+                            return (version, Error::new(attr.span(), msg).into_compile_error());
+                        }
+                    };
+
+                    let mut args = Vec::with_capacity(nested.len());
+                    for meta in nested.iter() {
+                        // Only keep non-`rename_all` serde args.
+                        if !meta.path().is_ident("rename_all") {
+                            args.push(quote! { meta });
+                        }
+                    }
+                    
+                    // Reconstruct the attribute.
+                    serde_attrs.push({
+                        let meta = MetaList {
+                            path: syn::parse2(quote! { serde }).expect(""),
+                            delimiter: , // TODO: how to get this? what is this exactly?
+                            tokens: quote_spanned! {attr.span()=>
+                                #(#args),*
+                            },
+                        }.into();
+                        Attribute { meta, ..attr }
+                    });
+                }
+                container_serde = serde_attrs;
+            }
+
+            (version, quote! {
+            })
+        })
+        .collect();
+
+
+
+    // ----- OLD
+
     // Stores the compat struct's field names where the index into the Vec corresponds to the
     // original (legacy) struct's field's name.
     //
@@ -37,16 +170,7 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     // Stores the conversion function, if any, for each of the legacy struct's fields.
     let mut conv: Vec<Option<Path>> = Vec::with_capacity(data.fields.len());
 
-    let mut semver_compat = HashMap::new();
-
     for field in data.fields.iter() {
-        match parse_version_attr(field.into()) {
-            Ok(data) => if !data.is_empty() {
-                semver_compat.insert(field, data);
-            },
-            Err(err) => return err.into_compile_error(),
-        }
-
         let ty = Some(&field.ty);
         let parsed_attr = match parse_field_compat_attr(&field.attrs, ty, &parsed_outer) {
             Err(err) => return err.into_compile_error(),
@@ -110,7 +234,7 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     let orig_struct_id = &ast.ident;
     let compat_struct_id = {
         let tmp = semver::Version::new(6, 0, 0);
-        format_ident!("{}{}", compat_prefix(&tmp), orig_struct_id)
+        compat_id(&tmp, orig_struct_id)
     };
     let generics = &ast.generics;
     let semi_token = data.semi_token;
@@ -156,7 +280,7 @@ pub(crate) fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum)
     let generics = &ast.generics;
     let compat_enum_id = {
         let tmp = semver::Version::new(6, 0, 0);
-        format_ident!("{}{}", compat_prefix(&tmp), orig_enum_id)
+        compat_id(&tmp, orig_enum_id)
     };
 
     let parsed_outer = match parse_outer_compat_attr(&ast.attrs) {

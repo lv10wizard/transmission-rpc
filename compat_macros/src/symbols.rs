@@ -4,10 +4,10 @@ use quote::format_ident;
 use syn::{Ident, Path};
 use semver::Version;
 
-/// Formats a (hopefully) unique prefix suitable for generated struct and enum names from the given
-/// transmission semver, `v`.
-pub(crate) fn compat_prefix(v: &Version) -> Ident {
-    format_ident!("__semver_{}{}{}_compat_", v.major, v.minor, v.patch)
+/// Formats a (hopefully) unique name prefixed with the given transmission semver, `v`, for the
+/// specified `id`.
+pub(crate) fn compat_id(v: &Version, id: &Ident) -> Ident {
+    format_ident!("__semver_{}{}{}_compat_{id}", v.major, v.minor, v.patch)
 }
 
 #[derive(Copy, Clone)]

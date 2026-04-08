@@ -5,12 +5,12 @@ use semver::Version;
 use syn::{
     Attribute, Error, Field, Fields, Ident, LitStr, Result, Type, Variant,
     meta::ParseNestedMeta,
-    spanned::Spanned as _
+    spanned::Spanned as _,
 };
 
 use crate::{
     parse::parse_ident,
-    symbols::{ATTR_ADDED, ATTR_REMOVED, ATTR_RENAMED, NAME, SEMVER},
+    symbols::{ATTR_ADDED, ATTR_COMPAT, ATTR_REMOVED, ATTR_RENAMED, NAME, SEMVER, TYPE},
 };
 
 /// Represents the change to a struct field or enum variant for a specific transmission semver.
@@ -26,7 +26,6 @@ pub(crate) enum Kind {
     Renamed(Ident),
 }
 
-/// Holds compat data for a struct field or enum variant parsed from its attributes.
 #[derive(Debug, Clone)]
 struct ParsedAttr {
     /// What changed in this version.
@@ -41,35 +40,42 @@ impl From<ParsedAttr> for Kind {
     }
 }
 
-/// Helper wrapper over [`HashMap`] to handle duplicate changes for the same transmission semver
-/// for a given struct field or enum variant.
+/// Holds compat data for a struct field or enum variant parsed from its attributes.
 #[derive(Default, Debug, Clone)]
-struct CompatData {
-    map: HashMap<Version, ParsedAttr>,
+pub(crate) struct CompatData {
+    /// Helper map to handle [`Kind`] collision for the same [`Version`] key.
+    inner: HashMap<Version, ParsedAttr>,
+
+    /// What changed about the struct field or enum variant in a particular [`Version`].
+    pub(crate) changes: HashMap<Version, Kind>,
+    /// The struct field's type replacement.
+    pub(crate) replace_type: Option<Type>,
 }
 
 impl CompatData {
     /// Inserts the semver compat change into the inner [`HashMap`], returning an `Err` if
     /// `version` already exists.
+    ///
+    /// Any given semver should only change a struct field or enum variant once. (eg. It doesn't
+    /// make sense for a field or variant to be both added and renamed in the same semver.)
     fn insert<'a>(&mut self, attr: &'a Attribute, version: Version, kind: Kind) -> Result<()> {
         let parsed = ParsedAttr {
             kind,
             span: attr.span(),
         };
-        if let Some(existing) = self.map.insert(version.clone(), parsed) {
+        if let Some(existing) = self.inner.insert(version.clone(), parsed) {
             let span = attr.span().located_at(existing.span);
             return Err(Error::new(span, format!("multiple changes defined for {version}")));
         }
         Ok(())
     }
-}
 
-impl From<CompatData> for HashMap<Version, Kind> {
-    fn from(value: CompatData) -> Self {
-        value.map
-            .into_iter()
-            .map(|(k, v)| (k, v.into()))
-            .collect()
+    fn into_kind_map(mut self) -> Self {
+        self.changes = self.inner
+            .drain()
+            .map(|(version, parsed)| (version, parsed.into()))
+            .collect();
+        self
     }
 }
 
@@ -149,7 +155,10 @@ fn parse_semver<'a>(meta: &'a ParseNestedMeta<'_>) -> Result<Option<Version>> {
 }
 
 /// Parses a struct field or enum variant's attributes for semver compat data.
-pub(crate) fn parse_version_attr<'a>(fv: FieldOrVar<'a>) -> Result<HashMap<Version, Kind>> {
+///
+/// Among various parsing errors, this will also fail if multiple change attributes (#\[added\],
+/// #\[removed\], #\[renamed\]) are specified for the same `semver`.
+pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
     let mut data = CompatData::default();
 
     for attr in fv.attributes().iter() {
@@ -203,8 +212,30 @@ pub(crate) fn parse_version_attr<'a>(fv: FieldOrVar<'a>) -> Result<HashMap<Versi
         // TODO? } else if attr.path() == ATTR_DEPRECATED {
         // TODO- deprecated handling requires hand-rolled Serialize impl
 
+        } else if attr.path() == ATTR_COMPAT { // #[compat(type = ...)]
+            attr.parse_nested_meta(|meta| {
+                if meta.path == TYPE {
+                    match fv {
+                        FieldOrVar::Field(_) => {
+                            data.replace_type = meta.value()?
+                                .parse()
+                                .map(Some)?;
+                        },
+
+                        FieldOrVar::Variant(_) => {
+                            return Err({
+                                let msg = format!("unsupported \"{TYPE}\" argument \
+                                    on enum variant");
+                                meta.error(msg)
+                            });
+                        },
+                    }
+                }
+
+                Ok(())
+            })?;
         }
     }
 
-    Ok(data.into())
+    Ok(data)
 }

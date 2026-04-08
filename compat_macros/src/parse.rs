@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use proc_macro2::Span;
 use syn::{
     Attribute, Error, Expr, Ident, Lit, LitStr, Meta, Path, Result, Token, Type,
@@ -45,7 +47,7 @@ pub(crate) fn parse_ident<'a>(buffer: &'a ParseBuffer<'_>) -> Result<Ident> {
 ///     bar: i32,
 /// }
 /// ```
-pub(crate) fn parse_field_compat_attr<'a, I>(
+pub(crate) fn parse_field_compat_attr<'a, I>( // TODO: DELETE
     attributes: I,
     orig_type: Option<&Type>,
     outer: &ParsedOuterAttr,
@@ -151,26 +153,40 @@ where
                             .clone()
                             .into();
                     },
-
                     Expr::Lit(expr) => match &expr.lit {
-                        Lit::Str(s) => {
-                            placeholder = Some(s.parse()?);
-                        },
-
-                        lit => {
-                            let msg = format!("unexpected \"{PLACEHOLDER}\": {lit:?}");
-                            return Err(Error::new(meta.span(), msg));
-                        },
+                        Lit::Str(s) => placeholder = Some(s.parse()?),
+                        lit => return Err(placeholder_err(expr.span(), lit)),
                     },
 
-                    expr => {
-                        let msg = format!("unexpected \"{PLACEHOLDER}\": {expr:?}");
-                        return Err(Error::new(meta.span(), msg));
-                    },
+                    expr => return Err(placeholder_err(expr.span(), expr)),
                 }
+
+                break;
             }
         }
     }
 
     Ok(ParsedOuterAttr { placeholder })
+}
+
+fn placeholder_err<T: Debug>(span: Span, got: T) -> Error {
+    let msg = format!("\"{PLACEHOLDER}\" expected string literal or Ident, got: {got:?}");
+    Error::new(span, msg)
+}
+
+/// Searches `attributes` for any #\[serde(...)\] attributes.
+///
+/// Returns a [`Vec`] containing only `serde` attributes. (This returns a [`Vec`] in case
+/// #\[serde(...)\] is specified multiple times.)
+pub(crate) fn parse_serde_attr<'a, I>(attributes: I) -> Vec<&'a Attribute>
+where
+    I: IntoIterator<Item = &'a Attribute>,
+{
+    let mut serde_attrs = vec![];
+    for attr in attributes.into_iter() {
+        if attr.path().is_ident("serde") {
+            serde_attrs.push(attr);
+        }
+    }
+    serde_attrs
 }

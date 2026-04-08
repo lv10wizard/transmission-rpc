@@ -10,6 +10,7 @@ mod compat;
 mod generate;
 mod parse;
 mod placeholder;
+mod r#struct;
 mod symbols;
 
 /// Generates a helper struct or enum for request serialization compatibility with Transmission

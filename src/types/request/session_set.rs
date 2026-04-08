@@ -70,6 +70,10 @@ pub struct SessionSetArgs {
     /// avoid client breakage, but it will be otherwise unused in libtransmission. Clients should
     /// stop using this key.
     #[compat(name = cache_size_mib)]
+    //TODO: #[added(semver = "3.4.0")]
+    //TODO: #[renamed(semver = "6.0.0", name = cache_size_mib)]
+    //TODO? #[deprecated(semver = "6.1.0")]
+    //TODO: #[removed(semver = "???")]
     pub cache_size_mb: Option<i32>,
 
     /// Announce URLs, one per line, and a blank line between [tiers].
