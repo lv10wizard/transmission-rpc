@@ -31,8 +31,9 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         Err(err) => return err.into_compile_error(),
     };
 
-    let mut need_base_version = false;
+    let mut has_added_field = false;
     let mut semver_compat = HashMap::new();
+    let mut versions = vec![];
     let mut struct_fields = Vec::with_capacity(data.fields.len());
 
     for field in data.fields.iter() {
@@ -43,31 +44,30 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
                 for (version, kind) in parsed.changes.into_iter() {
                     // Determine if we need to include a faked "0.0.0" version to handle
                     // compatibility with versions missing newly added fields.
-                    need_base_version = need_base_version || kind == Kind::Added;
+                    has_added_field = has_added_field || kind == Kind::Added;
 
-                    // Duplicates should be handled by `parse_attr`.
-                    semver_compat.entry(version)
-                        .or_insert(HashMap::<&Field, Kind>::default())
-                        .insert(field, kind);
+                    // No need to worry about duplicate versions; they should be handled by
+                    // `parse_attr`.
+                    semver_compat.entry(field)
+                        .or_insert(HashMap::<_, _>::default())
+                        .insert(version.clone(), kind);
+                    versions.push(version);
                 }
             },
             Err(err) => return err.into_compile_error(),
         }
     }
 
-    // Build out which versions we need to generate.
-    let mut versions: Vec<_> = semver_compat.keys()
-        .map(|version| version.clone())
-        .collect();
-    let semver_600 = Version::new(6, 0, 0);
-    if !semver_compat.contains_key(&semver_600) {
-        versions.push(semver_600);
-    }
-    if need_base_version {
+    // Always include semver-6.0.0 since we need to force snake_case serialization.
+    versions.push(Version::new(6, 0, 0));
+    if has_added_field {
         // Force a "0.0.0" version to handle transmission versions older than any added fields.
         versions.push(Version::new(0, 0, 0));
     }
-    versions.sort(); // Sort the versions so we can find the nearest-lower version.
+    // Sort the versions so we can find the nearest-lower version to convert from the
+    // source-defined struct to its corresponding version-compat version.
+    versions.sort();
+    versions.dedup(); // Remove duplicate semver-6.0.0 if needed.
 
     // TODO: generate compat structs, orig ->into-> compat-version
     // TODO: generate `.into_compat<T>(v: &Version) -> T` on original struct
@@ -80,23 +80,48 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         .map(|version| {
             let struct_id = compat_id(version, orig_struct_id);
 
-            let field_ident = struct_fields.iter().map(|f| {
-                f.ident.as_ref().expect(NAMED_FIELDS_ONLY)
-            });
+            let mut field_ident = Vec::with_capacity(struct_fields.len());
+            for &f in struct_fields.iter() {
+                field_ident.push({
+                    let mut include = true;
+                    let mut ident = f.ident.clone()
+                        .expect(NAMED_FIELDS_ONLY);
+                    if let Some(changes) = semver_compat.get(f) {
+                        for (change_version, kind) in changes.iter() {
+                            match kind {
+                                // NOTE: We don't blindly set `include`, eg.
+                                // NOTE- `include = version >= change_version`,
+                                // NOTE- to prevent incorrectly defining a field for a version
+                                // NOTE- where it should not exist (before it was added or after it
+                                // NOTE- was removed).
+                                Kind::Added => if version < change_version {
+                                    include = false;
+                                },
+                                Kind::Removed => if version >= change_version {
+                                    include = false;
+                                },
+                                Kind::Renamed(id) => ident = id.clone(),
+                            }
+                        }
+                    }
+                    include.then_some(ident)
+                });
+            }
+
             let field_type = struct_fields.iter()
                 .map(|f| {
                     match parse_field_compat_attr(&f.attrs, Some(&f.ty), &parsed_outer) {
                         Ok(parsed) => {
                             let ty = parsed.ty.as_ref()
                                 .unwrap_or(&f.ty);
-                            quote_spanned! {f.ty.span()=> ty }
+                            quote_spanned! {f.ty.span()=> #ty }
                         },
                         Err(err) => return err.into_compile_error(),
                     }
                 });
 
             let field_serde: Vec<_> = struct_fields.iter()
-                .map(|&f| parse_serde_field_attr(version, &f.into()))
+                .map(|&f| parse_serde_field_attr(version, f.into()))
                 .collect();
             let container_serde = match parse_serde_container_attr(version, ast) {
                 Ok(parsed) => parsed,

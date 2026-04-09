@@ -201,7 +201,7 @@ where
 /// This always returns an empty [`Vec`] if `version` >= `Version::new(6, 0, 0)` because we
 /// specifically want to ignore any `rename` serde attributes since transmission unified all rpc
 /// strings to snake_case in semver-6.0.0.
-pub(crate) fn parse_serde_field_attr<'a>(version: &Version, fv: &'a FieldOrVar<'a>)
+pub(crate) fn parse_serde_field_attr<'a>(version: &Version, fv: FieldOrVar<'a>)
     -> Vec<&'a Attribute>
 {
     if version >= &Version::new(6, 0, 0) {
@@ -209,9 +209,13 @@ pub(crate) fn parse_serde_field_attr<'a>(version: &Version, fv: &'a FieldOrVar<'
     }
 
     parse_serde_attr(fv.attributes())
+    // TODO: parse nested arguments => strip out `rename`
 }
 
+/// Linearly searches the container-level attributes for any #\[serde(...)\] attributes.
 ///
+/// Returns a [`Vec`] containing only `serde` attributes. If `version` >= Version::new(6, 0, 0),
+/// the `rename_all = ...` serde argument will be stripped out (if it was defined).
 pub(crate) fn parse_serde_container_attr(version: &Version, ast: &DeriveInput)
     -> Result<Vec<Attribute>>
 {
@@ -252,7 +256,7 @@ pub(crate) fn parse_serde_container_attr(version: &Version, ast: &DeriveInput)
                 true => {
                     // Reconstruct the attribute but without the `rename_all` argument.
                     let meta = match &attr.meta {
-                        // #[serde(untagged, rename_all = "...")]
+                        // eg. #[serde(untagged, rename_all = "...")]
                         Meta::List(ml) => { // I think this is the only possible case.
                             MetaList {
                                 tokens: quote_spanned! {attr.span()=>
@@ -262,7 +266,7 @@ pub(crate) fn parse_serde_container_attr(version: &Version, ast: &DeriveInput)
                             }.into()
                         },
 
-                        // #[serde = ...] or #[serde]
+                        // eg. #[serde = ...] or #[serde]
                         // I don't think this can happen.
                         meta => return Err({
                             let msg = format!("unexpected serde attribute: {meta:?}");
