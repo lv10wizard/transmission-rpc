@@ -1,14 +1,18 @@
 use std::fmt::Debug;
 
 use proc_macro2::Span;
+use quote::{quote, quote_spanned};
+use semver::Version;
 use syn::{
-    Attribute, Error, Expr, Ident, Lit, LitStr, Meta, Path, Result, Token, Type,
+    Attribute, DeriveInput, Error, Expr, Ident, Lit, LitStr, Meta, MetaList, Path, Result, Token,
+    Type,
     parse::ParseBuffer,
     punctuated::Punctuated,
     spanned::Spanned as _,
 };
 
 use crate::{
+    compat::FieldOrVar,
     placeholder::replace_compat_placeholder,
     symbols::{ATTR_COMPAT, NAME, PLACEHOLDER, TYPE, MAP},
 };
@@ -174,11 +178,9 @@ fn placeholder_err<T: Debug>(span: Span, got: T) -> Error {
     Error::new(span, msg)
 }
 
-/// Searches `attributes` for any #\[serde(...)\] attributes.
-///
-/// Returns a [`Vec`] containing only `serde` attributes. (This returns a [`Vec`] in case
-/// #\[serde(...)\] is specified multiple times.)
-pub(crate) fn parse_serde_attr<'a, I>(attributes: I) -> Vec<&'a Attribute>
+/// Linearly searches `attributes` for #\[serde(...)\] attributes, returning a [`Vec`] of matching
+/// [`Attribute`]s.
+fn parse_serde_attr<'a, I>(attributes: I) -> Vec<&'a Attribute>
 where
     I: IntoIterator<Item = &'a Attribute>,
 {
@@ -189,4 +191,90 @@ where
         }
     }
     serde_attrs
+}
+
+/// Linearly searches the attributes of `fv` for any #\[serde(...)\] attributes.
+///
+/// Returns a [`Vec`] containing only `serde` attributes (`Vec` in case multiple #\[serde(...)\]
+/// attributes are defined).
+///
+/// This always returns an empty [`Vec`] if `version` >= `Version::new(6, 0, 0)` because we
+/// specifically want to ignore any `rename` serde attributes since transmission unified all rpc
+/// strings to snake_case in semver-6.0.0.
+pub(crate) fn parse_serde_field_attr<'a>(version: &Version, fv: &'a FieldOrVar<'a>)
+    -> Vec<&'a Attribute>
+{
+    if version >= &Version::new(6, 0, 0) {
+        return Vec::new();
+    }
+
+    parse_serde_attr(fv.attributes())
+}
+
+///
+pub(crate) fn parse_serde_container_attr(version: &Version, ast: &DeriveInput)
+    -> Result<Vec<Attribute>>
+{
+    let mut container_serde: Vec<_> = parse_serde_attr(ast.attrs.iter())
+        .into_iter()
+        .map(ToOwned::to_owned)
+        .collect();
+
+    if version >= &Version::new(6, 0, 0) {
+        // Search for any `#[serde(rename_all = ...)]` attribute; if found, drop it to avoid
+        // generating a duplicate `rename_all` serde attribute for post- semver-6.0.0.
+        let mut serde_attrs = Vec::with_capacity(container_serde.len());
+        for attr in container_serde.into_iter() {
+            // Parse each #[serde] argument.
+            // eg. #[serde(rename_all = "...", untagged, ...)]
+            //             ^^^^^^^^^^^^^^^^^^  ^^^^^^^^  ^^^
+            let parser = Punctuated::<Meta, Token![,]>::parse_terminated;
+            let nested = match attr.parse_args_with(parser) {
+                Ok(parsed) => parsed,
+                Err(err) => return Err({
+                    let msg = format!("unexpected #[serde] attribute: {err}");
+                    Error::new(attr.span(), msg)
+                }),
+            };
+
+            let mut needs_new_attr = false;
+            let mut args = Vec::with_capacity(nested.len());
+            for meta in nested.iter() {
+                match meta.path().is_ident("rename_all") {
+                    // Flag that we need to construct a new attribute.
+                    true => needs_new_attr = true,
+                    // Only keep non-`rename_all` serde args.
+                    false => args.push(quote! { meta }),
+                }
+            }
+            
+            serde_attrs.push(match needs_new_attr {
+                true => {
+                    // Reconstruct the attribute but without the `rename_all` argument.
+                    let meta = match &attr.meta {
+                        // #[serde(untagged, rename_all = "...")]
+                        Meta::List(ml) => { // I think this is the only possible case.
+                            MetaList {
+                                tokens: quote_spanned! {attr.span()=>
+                                    #(#args),*
+                                },
+                                ..ml.clone()
+                            }.into()
+                        },
+
+                        // #[serde = ...] or #[serde]
+                        // I don't think this can happen.
+                        meta => return Err({
+                            let msg = format!("unexpected serde attribute: {meta:?}");
+                            Error::new(attr.span(), msg)
+                        }),
+                    };
+                    Attribute { meta, ..attr }
+                },
+                false => attr,
+            });
+        }
+        container_serde = serde_attrs;
+    }
+    Ok(container_serde)
 }

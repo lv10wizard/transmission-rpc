@@ -87,7 +87,7 @@ pub(crate) enum FieldOrVar<'a> {
 }
 
 impl FieldOrVar<'_> {
-    fn require_ident(&self) -> Result<&Ident> {
+    pub(crate) fn require_ident(&self) -> Result<&Ident> {
         match self {
             Self::Field(f) => f.ident
                 .as_ref()
@@ -96,7 +96,7 @@ impl FieldOrVar<'_> {
         }
     }
 
-    fn ty(&self) -> Result<Option<&Type>> {
+    pub(crate) fn ty(&self) -> Result<Option<&Type>> {
         match self {
             Self::Field(f) => Ok(Some(&f.ty)),
             Self::Variant(v) => match &v.fields {
@@ -116,14 +116,14 @@ impl FieldOrVar<'_> {
         }
     }
 
-    fn attributes(&self) -> &Vec<Attribute> {
+    pub(crate) fn attributes(&self) -> &Vec<Attribute> {
         match self {
             Self::Field(f) => &f.attrs,
             Self::Variant(v) => &v.attrs,
         }
     }
 
-    fn span(&self) -> proc_macro2::Span {
+    pub(crate) fn span(&self) -> proc_macro2::Span {
         match self {
             Self::Field(f) => f.span(),
             Self::Variant(v) => v.span(),
