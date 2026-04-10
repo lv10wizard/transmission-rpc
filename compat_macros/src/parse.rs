@@ -13,8 +13,7 @@ use syn::{
 
 use crate::{
     compat::FieldOrVar,
-    placeholder::replace_compat_placeholder,
-    symbols::{ATTR_COMPAT, NAME, PLACEHOLDER, TYPE, MAP},
+    symbols::{ATTR_COMPAT, PLACEHOLDER},
 };
 
 pub(crate) struct ParsedFieldAttr {
@@ -24,7 +23,7 @@ pub(crate) struct ParsedFieldAttr {
     pub(crate) map_fn: Option<Path>,
 }
 
-pub(crate) struct ParsedOuterAttr {
+pub(crate) struct ParsedContainerAttr {
     pub(crate) placeholder: Option<Ident>,
 }
 
@@ -41,92 +40,7 @@ pub(crate) fn parse_ident<'a>(buffer: &'a ParseBuffer<'_>) -> Result<Ident> {
     }
 }
 
-/// Parses the #\[compat(...)\] helper attribute on struct fields or enum variants.
-///
-/// eg.
-/// ```
-/// #[derive(GenerateCompat)]
-/// struct Foo {
-///     #[compat(name = xyzzy)] // <<< Parses this
-///     bar: i32,
-/// }
-/// ```
-pub(crate) fn parse_field_compat_attr<'a, I>( // TODO: DELETE
-    attributes: I,
-    orig_type: Option<&Type>,
-    outer: &ParsedOuterAttr,
-) -> Result<ParsedFieldAttr>
-where
-    I: IntoIterator<Item = &'a Attribute>,
-{
-    let mut span = None;
-    let mut attr_name = None;
-    let mut attr_type = None;
-    let mut mapping = None;
-
-    // TODO: ----- Generate a compat container (struct/enum) for each semver
-    // TODO: #[added(semver = "VERSION")] => include only for compat versions >=
-    // TODO: (?) #[deprecated(semver = "VERSION", reason = "...")]
-    // TODO-    => one-time warn + a way to disable -- needs custom Serialize impl tho
-    // TODO: #[removed(semver = "VERSION")] => do not include for compat versions >=
-    // TODO: #[renamed(semver = "VERSION", name = "...")] => 
-    // TODO-    ver >= "VERSION" => transform generated container field/variant
-    // TODO: ----- 
-
-    for attr in attributes.into_iter() {
-        if attr.path() != ATTR_COMPAT {
-            continue;
-        }
-
-        attr.parse_nested_meta(|meta| {
-            // #[compat(name = foo)]
-            if meta.path == NAME {
-                let value = meta.value()?;
-                span = Some(value.span());
-                attr_name = Some(value.parse()?);
-
-            // #[compat(type = Option<i32>)]
-            } else if meta.path == TYPE {
-                match orig_type {
-                    None => {
-                        let msg = format!("\"{TYPE}\" missing original field or enum variant \
-                            type");
-                        return Err(meta.error(msg));
-                    },
-
-                    Some(orig_type) => {
-                        let value = meta.value()?;
-                        span = Some(value.span());
-                        let mut meta_type: Type = value.parse()?;
-                        if let Some(placeholder) = outer.placeholder.as_ref() {
-                            replace_compat_placeholder(
-                                orig_type,
-                                &mut meta_type,
-                                placeholder)?;
-                        }
-                        attr_type = Some(meta_type);
-                    },
-                }
-
-            // #[compat(map = Option::map)]
-            } else if meta.path == MAP {
-                let value = meta.value()?;
-                span = Some(value.span());
-                mapping = Some(value.parse()?);
-            }
-            Ok(())
-        })?;
-    }
-
-    Ok(ParsedFieldAttr {
-        span,
-        name: attr_name,
-        ty: attr_type,
-        map_fn: mapping,
-    })
-}
-
-/// Parses the #\[compat(...)\] helper attribute on the outer struct or enum definition.
+/// Parses the #\[compat(...)\] helper attribute on the struct or enum definition.
 ///
 /// eg.
 /// ```
@@ -136,7 +50,7 @@ where
 ///     bar: i32,
 /// }
 /// ```
-pub(crate) fn parse_outer_compat_attr<'a, I>(attributes: I) -> Result<ParsedOuterAttr>
+pub(crate) fn parse_container_compat_attr<'a, I>(attributes: I) -> Result<ParsedContainerAttr>
 where
     I: IntoIterator<Item = &'a Attribute>,
 {
@@ -170,7 +84,7 @@ where
         }
     }
 
-    Ok(ParsedOuterAttr { placeholder })
+    Ok(ParsedContainerAttr { placeholder })
 }
 
 fn placeholder_err<T: Debug>(span: Span, got: T) -> Error {

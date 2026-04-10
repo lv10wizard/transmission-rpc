@@ -3,7 +3,7 @@ use std::{cmp::Ordering, collections::HashMap, fmt::{self, Display}};
 use proc_macro2::Span;
 use semver::Version;
 use syn::{
-    Attribute, Error, ExprAssign, Field, Fields, Ident, LitStr, Result, Type, Variant,
+    Attribute, Error, ExprAssign, Field, Fields, Ident, LitStr, Path, Result, Type, Variant,
     meta::ParseNestedMeta,
     spanned::Spanned as _,
 };
@@ -55,8 +55,8 @@ struct InternalCompatData {
     /// Helper map to handle [`Kind`] collision for the same [`Version`] key.
     map: HashMap<Version, ParsedAttr>,
 
-    /// The struct field's type replacement.
     replace_type: Option<Type>,
+    replace_map: Option<Path>,
 }
 
 impl InternalCompatData {
@@ -146,6 +146,8 @@ pub(crate) struct CompatData {
     pub(crate) changes: HashMap<Version, Kind>,
     /// The struct field's type replacement.
     pub(crate) replace_type: Option<Type>,
+    /// The struct field's type replacement conversion function.
+    pub(crate) replace_map: Option<Path>,
 }
 
 impl From<InternalCompatData> for CompatData {
@@ -156,6 +158,7 @@ impl From<InternalCompatData> for CompatData {
                 .map(|(version, parsed)| (version, parsed.into()))
                 .collect(),
             replace_type: value.replace_type,
+            replace_map: value.replace_map,
         }
     }
 }
@@ -310,7 +313,6 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
                 if meta.path == TYPE {
                     match fv {
                         FieldOrVar::Field(_) => {
-                            // TODO: parse & replace with placeholder if needed
                             data.replace_type = meta.value()?
                                 .parse()
                                 .map(Some)?;

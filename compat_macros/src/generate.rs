@@ -5,19 +5,19 @@ use std::collections::HashMap;
 use quote::{format_ident, quote, quote_spanned};
 use semver::Version;
 use syn::{
-    Attribute, DataEnum, DataStruct, DeriveInput, Error, Field, Fields, Meta, MetaList, Path,
-    Result, Token, Type,
+    Attribute, DataEnum, DataStruct, DeriveInput, Error, Fields, Meta, Path, Result, Token, Type,
     punctuated::Punctuated,
     spanned::Spanned as _,
 };
 
 use crate::{
     compat::{Kind, parse_attr},
- parse::{
-        parse_field_compat_attr, parse_outer_compat_attr, parse_serde_container_attr,
-        parse_serde_field_attr,
+    parse::{parse_container_compat_attr, parse_serde_container_attr, parse_serde_field_attr},
+    placeholder::{
+        determine_which_into_func, gen_into_wrapper_func, gen_opt_vec_into_func, gen_vec_into_func,
+        ident_into_wrapper, replace_compat_placeholder
     },
- placeholder::replace_compat_placeholder, symbols::{MAP, compat_id}
+    symbols::{MAP, compat_id}
 };
 
 const NAMED_FIELDS_ONLY: &'static str = "GenerateCompat only supports structs with named fields.";
@@ -26,7 +26,7 @@ const NAMED_FIELDS_ONLY: &'static str = "GenerateCompat only supports structs wi
 pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     -> proc_macro2::TokenStream
 {
-    let parsed_outer = match parse_outer_compat_attr(&ast.attrs) {
+    let parsed_container = match parse_container_compat_attr(&ast.attrs) {
         Ok(parsed) => parsed,
         Err(err) => return err.into_compile_error(),
     };
@@ -41,7 +41,7 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         struct_fields.push(field);
 
         match parse_attr(field.into()) {
-            Ok(mut parsed) => if !parsed.changes.is_empty() {
+            Ok(parsed) => if !parsed.changes.is_empty() {
                 for (version, kind) in parsed.changes.into_iter() {
                     // Determine if we need to include a faked "0.0.0" version to handle
                     // compatibility with versions missing newly added fields.
@@ -82,10 +82,11 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         .iter()
         .map(|version| {
             let struct_id = compat_id(version, orig_struct_id);
+            let from_arg_ident = format_ident!("orig");
 
             let mut field_ident = Vec::with_capacity(struct_fields.len());
-            let mut orig_ident = Vec::with_capacity(struct_fields.len());
             let mut field_type = Vec::with_capacity(struct_fields.len());
+            let mut field_into = Vec::with_capacity(struct_fields.len());
             for (i, &f) in struct_fields.iter().enumerate() {
                 let mut include = true;
                 let mut ident = None;
@@ -112,13 +113,10 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
                     ident.unwrap_or_else(|| f.ident.clone().expect(NAMED_FIELDS_ONLY))
                 );
                 field_ident.push(ident);
-                orig_ident.push(include.then_some({
-                    f.ident.as_ref().expect(NAMED_FIELDS_ONLY)
-                }));
 
                 // Try to replace the field's type if it has a placeholder type attribute.
                 let mut ty = None;
-                if let Some(placeholder) = parsed_outer.placeholder.as_ref()
+                if let Some(placeholder) = parsed_container.placeholder.as_ref()
                     && let Some(mut attr_type) = struct_replace_types
                         .get(i)
                         .map(Clone::clone)
@@ -130,6 +128,34 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
                         Err(err) => return (version, err.into_compile_error()),
                     }
                 }
+                field_into.push({
+                    include.then(|| {
+                        let map_func = match ty.as_ref()
+                            .map(determine_which_into_func)
+                            .map(|result| match result {
+                                Ok(path) => quote! { #path },
+                                Err(err) => err.into_compile_error(),
+                            })
+                        {
+                            // Convert the source-defined field -> placeholder-replaced field with
+                            // the parsed conversion function.
+                            Some(func) => func,
+
+                            // Fallback to `Into::into` if the field has no placeholder replacement
+                            // type (effectively: move the original field into the compat struct's
+                            // field).
+                            None => {
+                                let into_wrapper = ident_into_wrapper();
+                                quote! { #into_wrapper }
+                            },
+                        };
+
+                        let orig_field = f.ident.as_ref().expect(NAMED_FIELDS_ONLY);
+                        quote! {
+                            #map_func(#from_arg_ident.#orig_field, Into::into)
+                        }
+                    })
+                });
                 field_type.push(include.then(|| {
                     ty.unwrap_or(f.ty.clone())
                 }));
@@ -152,22 +178,34 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
                 #[derive(serde::Serialize, Debug, Clone)]
                 #(#container_serde)*
                 pub(crate) struct #struct_id #generics {
-                    #( #(#field_serde )* #field_ident: #field_type ),*
+                    #( #( #field_serde )* #field_ident: #field_type ),*
                 } #semi_token
             };
+            let into_func_defn = [
+                gen_into_wrapper_func(),
+                gen_opt_vec_into_func(),
+                gen_vec_into_func(),
+            ];
 
             (version, quote!{
                 #compat_struct
 
                 impl From<#orig_struct_id> for #struct_id {
-                    fn from(orig: #orig_struct_id) -> Self {
-                        // TODO: need to convert if type was replaced.
-                        #( #field_ident: orig.#orig_ident ),*
+                    fn from(#from_arg_ident: #orig_struct_id) -> Self {
+                        // Define the helper conversion functions which may or may not be used.
+                        #[automatically_derived]
+                        #( #into_func_defn )*
+
+                        Self {
+                            #( #field_ident: #field_into ),*
+                        }
                     }
                 }
             })
         })
         .collect();
+
+
 
 
 
@@ -185,7 +223,7 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
 
     for field in data.fields.iter() {
         let ty = Some(&field.ty);
-        let parsed_attr = match parse_field_compat_attr(&field.attrs, ty, &parsed_outer) {
+        let parsed_attr = match parse_field_compat_attr(&field.attrs, ty, &parsed_container) {
             Err(err) => return err.into_compile_error(),
             Ok(parsed) => parsed,
         };
@@ -296,7 +334,7 @@ pub(crate) fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum)
         compat_id(&tmp, orig_enum_id)
     };
 
-    let parsed_outer = match parse_outer_compat_attr(&ast.attrs) {
+    let parsed_container = match parse_container_compat_attr(&ast.attrs) {
         Ok(parsed) => parsed,
         Err(err) => return err.into_compile_error(),
     };
@@ -349,7 +387,7 @@ pub(crate) fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum)
             },
         };
         // TODO: store HashMap<Version, ParsedFieldAttr> for each attr: added,changed,depr,removed
-        let parsed_attr = match parse_field_compat_attr(&var.attrs, orig_type, &parsed_outer) {
+        let parsed_attr = match parse_field_compat_attr(&var.attrs, orig_type, &parsed_container) {
             Err(err) => return err.into_compile_error(),
             Ok(parsed) => parsed,
         };
