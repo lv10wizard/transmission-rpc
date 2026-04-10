@@ -1,10 +1,11 @@
+use semver::Version;
 use syn::{Error, GenericArgument, Ident, PathArguments, Result, Type};
 use quote::{ToTokens, quote};
 
 use crate::symbols::compat_id;
 
-/// Recursively replaces [`Ident`]s found in `meta` matching `placeholder` with the compat-type's
-/// [`Ident`] with [`compat_id`].
+/// Recursively replaces [`Ident`]s found in `meta` matching `placeholder` with the `orig` type's
+/// corresponding compat type (via [`compat_id`]).
 ///
 /// The `orig` and `meta` [`Type`]s must match forms:
 ///
@@ -51,9 +52,12 @@ use crate::symbols::compat_id;
 ///
 /// [`Ident`]: struct@syn::Ident
 /// [`GenerateCompat`]: crate::GenerateCompat
-pub(crate) fn replace_compat_placeholder(orig: &Type, meta: &mut Type, placeholder: &Ident)
-    -> Result<()>
-{
+pub(crate) fn replace_compat_placeholder(
+    version: &Version,
+    orig: &Type,
+    meta: &mut Type,
+    placeholder: &Ident,
+) -> Result<()> {
     match (orig, meta) {
         (Type::Path(orig_path), Type::Path(meta_path)) => {
             // We only care about the last item in the path, eg.
@@ -64,10 +68,7 @@ pub(crate) fn replace_compat_placeholder(orig: &Type, meta: &mut Type, placehold
                     match &meta.ident == placeholder {
                         // The segment's type identifier is the compat placeholder.
                         true => {
-                            (*meta).ident = {
-                                let tmp = semver::Version::new(6, 0, 0);
-                                compat_id(&tmp, &orig.ident)
-                            };
+                            (*meta).ident = compat_id(version, &orig.ident);
                             Ok(())
                         },
 

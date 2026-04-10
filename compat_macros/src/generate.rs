@@ -13,11 +13,11 @@ use syn::{
 
 use crate::{
     compat::{Kind, parse_attr},
-    parse::{
+ parse::{
         parse_field_compat_attr, parse_outer_compat_attr, parse_serde_container_attr,
         parse_serde_field_attr,
     },
-    symbols::{MAP, compat_id},
+ placeholder::replace_compat_placeholder, symbols::{MAP, compat_id}
 };
 
 const NAMED_FIELDS_ONLY: &'static str = "GenerateCompat only supports structs with named fields.";
@@ -35,12 +35,13 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     let mut semver_compat = HashMap::new();
     let mut versions = vec![];
     let mut struct_fields = Vec::with_capacity(data.fields.len());
+    let mut struct_replace_types = Vec::with_capacity(data.fields.len());
 
     for field in data.fields.iter() {
         struct_fields.push(field);
 
         match parse_attr(field.into()) {
-            Ok(parsed) => if !parsed.changes.is_empty() {
+            Ok(mut parsed) => if !parsed.changes.is_empty() {
                 for (version, kind) in parsed.changes.into_iter() {
                     // Determine if we need to include a faked "0.0.0" version to handle
                     // compatibility with versions missing newly added fields.
@@ -53,7 +54,9 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
                         .insert(version.clone(), kind);
                     versions.push(version);
                 }
+                struct_replace_types.push(parsed.replace_type);
             },
+
             Err(err) => return err.into_compile_error(),
         }
     }
@@ -81,44 +84,56 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
             let struct_id = compat_id(version, orig_struct_id);
 
             let mut field_ident = Vec::with_capacity(struct_fields.len());
-            for &f in struct_fields.iter() {
-                field_ident.push({
-                    let mut include = true;
-                    let mut ident = f.ident.clone()
-                        .expect(NAMED_FIELDS_ONLY);
-                    if let Some(changes) = semver_compat.get(f) {
-                        for (change_version, kind) in changes.iter() {
-                            match kind {
-                                // NOTE: We don't blindly set `include`, eg.
-                                // NOTE- `include = version >= change_version`,
-                                // NOTE- to prevent incorrectly defining a field for a version
-                                // NOTE- where it should not exist (before it was added or after it
-                                // NOTE- was removed).
-                                Kind::Added => if version < change_version {
-                                    include = false;
-                                },
-                                Kind::Removed => if version >= change_version {
-                                    include = false;
-                                },
-                                Kind::Renamed(id) => ident = id.clone(),
-                            }
+            let mut orig_ident = Vec::with_capacity(struct_fields.len());
+            let mut field_type = Vec::with_capacity(struct_fields.len());
+            for (i, &f) in struct_fields.iter().enumerate() {
+                let mut include = true;
+                let mut ident = None;
+                if let Some(changes) = semver_compat.get(f) {
+                    for (change_version, kind) in changes.iter() {
+                        match kind {
+                            // NOTE: We don't blindly set `include`, eg.
+                            // NOTE- `include = version >= change_version`,
+                            // NOTE- to prevent incorrectly defining a field for a version
+                            // NOTE- where it should not exist (before it was added or after it
+                            // NOTE- was removed).
+                            Kind::Added => if version < change_version {
+                                include = false;
+                            },
+                            Kind::Removed => if version >= change_version {
+                                include = false;
+                            },
+                            Kind::Renamed(id) => ident = Some(id.clone()),
                         }
                     }
-                    include.then_some(ident)
-                });
-            }
+                }
 
-            let field_type = struct_fields.iter()
-                .map(|f| {
-                    match parse_field_compat_attr(&f.attrs, Some(&f.ty), &parsed_outer) {
-                        Ok(parsed) => {
-                            let ty = parsed.ty.as_ref()
-                                .unwrap_or(&f.ty);
-                            quote_spanned! {f.ty.span()=> #ty }
-                        },
-                        Err(err) => return err.into_compile_error(),
+                ident = include.then_some(
+                    ident.unwrap_or_else(|| f.ident.clone().expect(NAMED_FIELDS_ONLY))
+                );
+                field_ident.push(ident);
+                orig_ident.push(include.then_some({
+                    f.ident.as_ref().expect(NAMED_FIELDS_ONLY)
+                }));
+
+                // Try to replace the field's type if it has a placeholder type attribute.
+                let mut ty = None;
+                if let Some(placeholder) = parsed_outer.placeholder.as_ref()
+                    && let Some(mut attr_type) = struct_replace_types
+                        .get(i)
+                        .map(Clone::clone)
+                        .flatten()
+                {
+                    match replace_compat_placeholder(version, &f.ty, &mut attr_type, placeholder) {
+                        // TODO: need to detect Option< or Vec< and generate conversion func/tokens
+                        Ok(()) => ty = Some(attr_type),
+                        Err(err) => return (version, err.into_compile_error()),
                     }
-                });
+                }
+                field_type.push(include.then(|| {
+                    ty.unwrap_or(f.ty.clone())
+                }));
+            }
 
             let field_serde: Vec<_> = struct_fields.iter()
                 .map(|&f| parse_serde_field_attr(version, f.into()))
@@ -127,9 +142,29 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
                 Ok(parsed) => parsed,
                 Err(err) => return (version, err.into_compile_error()),
             };
+            let struct_doc = format!("Transmission semver-{version} compatible \
+                request serialization helper type");
+            let compat_struct = quote! {
+                #[doc = #struct_doc]
+                #[automatically_derived]
+                #[allow(non_camel_case_types)]
+                #[serde_with::skip_serializing_none]
+                #[derive(serde::Serialize, Debug, Clone)]
+                #(#container_serde)*
+                pub(crate) struct #struct_id #generics {
+                    #( #(#field_serde )* #field_ident: #field_type ),*
+                } #semi_token
+            };
 
-            (version, quote! {
-                // TODO
+            (version, quote!{
+                #compat_struct
+
+                impl From<#orig_struct_id> for #struct_id {
+                    fn from(orig: #orig_struct_id) -> Self {
+                        // TODO: need to convert if type was replaced.
+                        #( #field_ident: orig.#orig_ident ),*
+                    }
+                }
             })
         })
         .collect();

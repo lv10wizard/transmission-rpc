@@ -5,7 +5,7 @@ use quote::{quote, quote_spanned};
 use semver::Version;
 use syn::{
     Attribute, DeriveInput, Error, Expr, Ident, Lit, LitStr, Meta, MetaList, Path, Result, Token,
-    Type,
+    Type, parse_quote,
     parse::ParseBuffer,
     punctuated::Punctuated,
     spanned::Spanned as _,
@@ -279,6 +279,7 @@ pub(crate) fn parse_serde_container_attr(version: &Version, ast: &DeriveInput)
             });
         }
         container_serde = serde_attrs;
+        container_serde.push(parse_quote!{ #[serde(rename_all = "snake_case")] });
     }
     Ok(container_serde)
 }
