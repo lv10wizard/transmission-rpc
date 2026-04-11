@@ -22,7 +22,8 @@ use crate::{
 
 const NAMED_FIELDS_ONLY: &'static str = "GenerateCompat only supports structs with named fields.";
 
-/// Generates a semver-6.0.0 compatible struct for serialization purposes.
+/// Generates compatible structs for each attribute-defined semver (eg. `#\[added(semver =
+/// "6.0.0")\]`).
 pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     -> proc_macro2::TokenStream
 {
@@ -71,9 +72,6 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     // source-defined struct to its corresponding version-compat version.
     versions.sort();
     versions.dedup(); // Remove duplicate semver-6.0.0 if needed.
-
-    // TODO: generate compat structs, orig ->into-> compat-version
-    // TODO: generate `.into_compat<T>(v: &Version) -> T` on original struct
 
     let orig_struct_id = &ast.ident;
     let generics = &ast.generics;
@@ -161,9 +159,13 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
                 }));
             }
 
-            let field_serde: Vec<_> = struct_fields.iter()
-                .map(|&f| parse_serde_field_attr(version, f.into()))
-                .collect();
+            let mut field_serde = Vec::with_capacity(struct_fields.len());
+            for &f in struct_fields.iter() {
+                match parse_serde_field_attr(version, f.into()) {
+                    Ok(attrs) => field_serde.push(attrs),
+                    Err(err) => return (version, err.into_compile_error()),
+                }
+            }
             let container_serde = match parse_serde_container_attr(version, ast) {
                 Ok(parsed) => parsed,
                 Err(err) => return (version, err.into_compile_error()),
@@ -223,7 +225,8 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
 
                 impl From<#orig_struct_id> for #struct_id {
                     fn from(#from_arg_ident: #orig_struct_id) -> Self {
-                        // Define the helper conversion functions which may or may not be used.
+                        // Define the helper field conversion functions which may or may not be
+                        // used.
                         #( #[automatically_derived] #into_func_defn )*
 
                         Self {
@@ -251,6 +254,8 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         #[doc = #compat_enum_doc]
         #[automatically_derived]
         #[allow(non_camel_case_types)]
+        #[derive(serde::Serialize, Debug, Clone)]
+        #[serde(untagged)]
         pub(crate) enum #compat_enum_ident {
             #( #variant_ident(#struct_ident) ),*
 
@@ -303,134 +308,37 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
                             compat_ver = Some(v);
                         }
 
-                        #compat_enum_ident::Base(self.into())
+                        #compat_enum_ident::Base(self)
                     },
                 }
             }
         }
     }
-
-
-
-
-
-    /* ----- OLD
-
-    // Stores the compat struct's field names where the index into the Vec corresponds to the
-    // original (legacy) struct's field's name.
-    //
-    // These will only differ when a field is flagged with #[compat(...)].
-    let mut compat_ident = Vec::with_capacity(data.fields.len());
-    // Stores the target type for each of the legacy struct's fields.
-    let mut type_defn: Vec<Type> = Vec::with_capacity(data.fields.len());
-    // Stores the conversion function, if any, for each of the legacy struct's fields.
-    let mut conv: Vec<Option<Path>> = Vec::with_capacity(data.fields.len());
-
-    for field in data.fields.iter() {
-        let ty = Some(&field.ty);
-        let parsed_attr = match parse_field_compat_attr(&field.attrs, ty, &parsed_container) {
-            Err(err) => return err.into_compile_error(),
-            Ok(parsed) => parsed,
-        };
-
-        compat_ident.push(parsed_attr.name
-            .or_else(|| field.ident.clone())
-            .expect(NAMED_FIELDS_ONLY)); // Only handle structs with named fields.
-        type_defn.push(parsed_attr.ty
-            .unwrap_or_else(|| field.ty.clone()));
-        conv.push(parsed_attr.map_fn);
-    }
-
-    // Generate the compat-struct `into_compat` field conversions.
-    let field_conv = {
-        let converted_field: Vec<_> = data.fields
-            .iter()
-            .enumerate()
-            .map(|(i, field)| {
-                let ident = field.ident.as_ref().expect(NAMED_FIELDS_ONLY);
-                const MSG: &'static str = "every field should have a `conv` item";
-                let converted = match conv.get(i).expect(MSG) {
-                    // eg. `Option::map(self.x, Into::into)`
-                    // NOTE: Probably won't work for non- `Option::map` methods.
-                    Some(conv) => quote_spanned! {field.span()=>
-                        #conv(self.#ident, Into::into)
-                    },
-                    // eg. `self.x.into()`
-                    None => quote_spanned! {field.span()=>
-                        self.#ident.into()
-                    },
-                };
-
-                // Move each field in `self` to its serialization helper type's corresponding
-                // field, converting it if required.
-                //
-                // eg.
-                // Orig   { x: i32, y: i32 }
-                // Compat { a: i32, b: i32 }
-                //
-                // // return Compat { a: self.x, b: self.y }
-                let compat = compat_ident.get(i);
-                quote_spanned! {field.span()=>
-                    #compat: #converted
-                }
-            })
-            .collect();
-
-        match &data.fields {
-            Fields::Named(f) => quote_spanned! {f.span()=>
-                { #( #converted_field, )* }
-            },
-            Fields::Unnamed(f) => quote_spanned! {f.span()=>
-                ( #( #converted_field, )* )
-            },
-            Fields::Unit => proc_macro2::TokenStream::new(),
-        }
-    };
-
-    let orig_struct_id = &ast.ident;
-    let compat_struct_id = {
-        let tmp = semver::Version::new(6, 0, 0);
-        compat_id(&tmp, orig_struct_id)
-    };
-    let generics = &ast.generics;
-    let semi_token = data.semi_token;
-    // TODO: let compat_doc = format!("TODO");
-    // TODO: Generate a compat struct for each transmission semver
-    quote! {
-        /// Semver-6.0.0 compatible serialization helper.
-        #[automatically_derived]
-        #[allow(non_camel_case_types)]
-        #[serde_with::skip_serializing_none] // I think this has appear before derive(Serialize).
-        #[derive(serde::Serialize, Debug, Clone)]
-        #[serde(rename_all = "snake_case")]
-        pub(crate) struct #compat_struct_id #generics {
-            #(#compat_ident: #type_defn),*
-        } #semi_token
-
-        #[automatically_derived]
-        impl #orig_struct_id {
-            //TODO: pub fn into_compat(self, semver: Version) -> #compat_struct_id { ... }
-            /// Converts the legacy struct into its semver-6.0.0 compatible serialization helper
-            /// type.
-            pub fn into_compat(self) -> #compat_struct_id {
-                #compat_struct_id #field_conv
-            }
-        }
-
-        // Helper `From` implementation for the legacy struct -> semver-6.0.0 compatible struct.
-        impl From<#orig_struct_id> for #compat_struct_id {
-            fn from(value: #orig_struct_id) -> Self {
-                value.into_compat()
-            }
-        }
-    }
-    */
 }
 
 // ------------------------------------------------------------------------------------------------
 
+/// Generates compatible enums for each attribute-defined semver (eg. `#\[renamed(semver = "6.0.0",
+/// name = "...")\]`).
+pub(crate) fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum) -> proc_macro2::TokenStream
+{
+    let parsed_container = match parse_container_compat_attr(&ast.attrs) {
+        Ok(parsed) => parsed,
+        Err(err) => return err.into_compile_error(),
+    };
+
+    let mut has_added_field = false;
+    let mut semver_compat = HashMap::new();
+    let mut versions = vec![];
+    let mut enum_variants = Vec::with_capacity(data.variants.len());
+
+    quote! {
+    }
+}
+
+/* TODO: DELETE (OLD)
 /// Generates a semver-6.0.0 compatible enum for serialization purposes.
-pub(crate) fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum)
+pub(crate) fn __OLD_generate_compat_enum(ast: &DeriveInput, data: &DataEnum)
     -> proc_macro2::TokenStream
 {
     let orig_enum_id = &ast.ident;
@@ -620,3 +528,4 @@ where
     }
     Ok(untagged)
 }
+*/

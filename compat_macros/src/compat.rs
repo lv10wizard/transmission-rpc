@@ -318,12 +318,33 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
                                 .map(Some)?;
                         },
 
-                        FieldOrVar::Variant(_) => {
-                            return Err({
-                                let msg = format!("unsupported \"{TYPE}\" argument \
-                                    on enum variant");
-                                meta.error(msg)
-                            });
+                        FieldOrVar::Variant(var) => {
+                            let enum_kind = match &var.fields {
+                                Fields::Unnamed(fields) => {
+                                    match fields.unnamed.len() {
+                                        0 => Some("zero-field tuple"), // Can this happen?
+                                        1 => {
+                                            data.replace_type = meta.value()?
+                                                .parse()
+                                                .map(Some)?;
+                                            None
+                                        },
+
+                                        _ => Some("multi-field tuple"),
+                                    }
+                                },
+
+                                Fields::Named(_) => Some("struct"),
+                                Fields::Unit => Some("unit"),
+                            };
+
+                            if let Some(enum_kind) = enum_kind {
+                                return Err({
+                                    let msg = format!("unsupported \"{TYPE}\" argument \
+                                        on {enum_kind} enum variant");
+                                    meta.error(msg)
+                                });
+                            }
                         },
                     }
                 }
