@@ -266,6 +266,7 @@ pub(crate) fn gen_into_wrapper_func() -> proc_macro2::TokenStream {
     }
 }
 
+
 /// Generates tokens defining a `vec_into` function to convert a `Vec<T>` into a `Vec<U>` by
 /// iterating over the input vec and applying `func` on each item.
 pub(crate) fn gen_vec_into_func() -> proc_macro2::TokenStream {

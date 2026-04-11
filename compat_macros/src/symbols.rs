@@ -1,13 +1,67 @@
 use std::fmt::{self, Display};
 
-use quote::format_ident;
-use syn::{Ident, Path};
+use proc_macro2::{Punct, Spacing};
+use quote::{ToTokens, TokenStreamExt as _, format_ident};
+use syn::{Ident, Path, parse_quote};
 use semver::Version;
 
 /// Formats a (hopefully) unique name prefixed with the given transmission semver, `v`, for the
 /// specified `id`.
 pub(crate) fn compat_id(v: &Version, id: &Ident) -> Ident {
-    format_ident!("__semver_{}{}{}_compat_{id}", v.major, v.minor, v.patch)
+    format_ident!("__semver_{}_compat_{id}", version_id(v))
+}
+
+pub(crate) fn version_id(v: &Version) -> Ident {
+    format_ident!("v{}{}{}", v.major, v.minor, v.patch)
+}
+
+/// [`semver::Version`] wrapper for use with [`quote::quote`].
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct CompatVersion(pub Version);
+
+impl ToTokens for CompatVersion {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let ctor: Path = parse_quote! { semver::Version::new };
+        ctor.to_tokens(tokens);
+
+        tokens.append(Punct::new('(', Spacing::Alone));
+        self.0.major.to_tokens(tokens);
+        tokens.append(Punct::new(',', Spacing::Alone));
+        self.0.minor.to_tokens(tokens);
+        tokens.append(Punct::new(',', Spacing::Alone));
+        self.0.patch.to_tokens(tokens);
+        tokens.append(Punct::new(')', Spacing::Alone));
+    }
+}
+
+impl From<CompatVersion> for Version {
+    fn from(value: CompatVersion) -> Self {
+        value.0
+    }
+}
+
+impl PartialEq<Version> for CompatVersion {
+    fn eq(&self, other: &Version) -> bool {
+        self.0.eq(other)
+    }
+}
+
+impl PartialEq<&Version> for CompatVersion {
+    fn eq(&self, other: &&Version) -> bool {
+        self.0.eq(other)
+    }
+}
+
+impl PartialOrd<Version> for CompatVersion {
+    fn partial_cmp(&self, other: &Version) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(other)
+    }
+}
+
+impl PartialOrd<&Version> for CompatVersion {
+    fn partial_cmp(&self, other: &&Version) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(other)
+    }
 }
 
 #[derive(Copy, Clone)]
