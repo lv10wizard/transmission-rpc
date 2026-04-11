@@ -120,6 +120,10 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
                         .map(Clone::clone)
                         .flatten()
                 {
+                    // TODO: FIXME: only works if field has a semver attr (eg. #[added(semver = ...)])
+                    // TODO- FIXME- ... doesn't work for inner type conversions (if the field
+                    // TODO- FIXME- itself isn't tagged with a semver attr but the field's type
+                    // TODO- FIXME- does have compat versions - eg. Encryption).
                     match replace_compat_placeholder(version, &f.ty, &mut attr_type, placeholder) {
                         // TODO: need to detect Option< or Vec< and generate conversion func/tokens
                         Ok(()) => ty = Some(attr_type),
