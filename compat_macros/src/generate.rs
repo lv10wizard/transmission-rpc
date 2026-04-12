@@ -5,19 +5,19 @@ use std::collections::HashMap;
 use quote::{format_ident, quote, quote_spanned};
 use semver::Version;
 use syn::{
-    Attribute, DataEnum, DataStruct, DeriveInput, Error, Fields, Meta, Path, Result, Token, Type,
+    Data, DataEnum, DataStruct, DeriveInput, Result, Type,
     punctuated::Punctuated,
     spanned::Spanned as _,
 };
 
 use crate::{
-    compat::{Kind, parse_attr},
+    compat::{FieldOrVar, Kind, parse_attr},
     parse::{parse_container_compat_attr, parse_serde_container_attr, parse_serde_field_attr},
     placeholder::{
         determine_which_into_func, gen_into_wrapper_func, gen_opt_vec_into_func, gen_vec_into_func,
         ident_into_wrapper, replace_compat_placeholder
     },
-    symbols::{CompatVersion, MAP, compat_id, version_id}
+    symbols::{compat_id, version_id}
 };
 
 const NAMED_FIELDS_ONLY: &'static str = "GenerateCompat only supports structs with named fields.";
@@ -56,14 +56,56 @@ fn supported_versions() -> Vec<Version> {
     versions
 }
 
+pub(crate) struct StructOrEnum<'a> {
+    inner: &'a Data,
+}
+
+impl<'a> StructOrEnum<'a> {
+    #[allow(unused)]
+    pub(crate) fn new(data: &'a Data) -> Self {
+        data.into()
+    }
+
+    fn keyword(&self) -> proc_macro2::TokenStream {
+        match &self.inner {
+            Data::Enum(e) => {
+                let token = e.enum_token;
+                quote! { #token }
+            },
+            Data::Struct(s) => {
+                let token = s.struct_token;
+                quote! { #token }
+            },
+            kind => panic!("unsupported type: {kind:?}"),
+        }
+    }
+
+    fn fields(&self) -> Vec<FieldOrVar<'_>> {
+        match &self.inner {
+            Data::Enum(e) => e.variants.iter().map(Into::into).collect(),
+            Data::Struct(s) => s.fields.iter().map(Into::into).collect(),
+            kind => panic!("unsupported type: {kind:?}"),
+        }
+    }
+}
+
+impl<'a> From<&'a Data> for StructOrEnum<'a> {
+    fn from(value: &'a Data) -> Self {
+        let inner = match value {
+            Data::Enum(_) => value,
+            Data::Struct(_) => value,
+            kind => panic!("unsupported type: {kind:?}"),
+        };
+        Self { inner }
+    }
+}
+
+/*
 /// Generates compatible structs for each supported (hardcoded) transmission rpc semver.
 pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
-    -> proc_macro2::TokenStream
+    -> Result<proc_macro2::TokenStream>
 {
-    let parsed_container = match parse_container_compat_attr(&ast.attrs) {
-        Ok(parsed) => parsed,
-        Err(err) => return err.into_compile_error(),
-    };
+    let parsed_container = parse_container_compat_attr(&ast.attrs)?;
 
     let mut semver_compat = HashMap::new();
     let versions = supported_versions();
@@ -73,191 +115,174 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     for field in data.fields.iter() {
         struct_fields.push(field);
 
-        match parse_attr(field.into()) {
-            Ok(parsed) => if !parsed.changes.is_empty() {
-                for (version, kind) in parsed.changes.into_iter() {
-                    // No need to worry about duplicate versions; they should be handled by
-                    // `parse_attr`.
-                    semver_compat.entry(field)
-                        .or_insert(HashMap::<_, _>::default())
-                        .insert(version.clone(), kind);
-                }
-                struct_replace_types.push(parsed.replace_type);
-            },
-
-            Err(err) => return err.into_compile_error(),
+        let parsed = parse_attr(field.into())?;
+        if !parsed.changes.is_empty() {
+            for (version, kind) in parsed.changes.into_iter() {
+                // No need to worry about duplicate versions; they should be handled by
+                // `parse_attr`.
+                semver_compat.entry(field)
+                    .or_insert(HashMap::<_, _>::default())
+                    .insert(version.clone(), kind);
+            }
+            struct_replace_types.push(parsed.replace_type);
         }
     }
 
     let orig_struct_id = &ast.ident;
+    let keyword = &data.struct_token;
     let generics = &ast.generics;
-    let semi_token = data.semi_token;
-    let compat_structs: HashMap<_, _> = versions
-        .iter()
-        .map(|version| {
-            let struct_id = compat_id(version, orig_struct_id);
-            let from_arg_ident = format_ident!("orig");
+    let mut compat_structs = HashMap::new();
+    for version in versions.iter() {
+        let struct_id = compat_id(version, orig_struct_id);
+        let from_arg_ident = format_ident!("orig");
 
-            let mut field_ident = Vec::with_capacity(struct_fields.len());
-            let mut field_type = Vec::with_capacity(struct_fields.len());
-            let mut field_into = Vec::with_capacity(struct_fields.len());
-            for (i, &f) in struct_fields.iter().enumerate() {
-                let mut include = true;
-                let mut ident = None;
-                if let Some(changes) = semver_compat.get(f) {
-                    for (change_version, kind) in changes.iter() {
-                        match kind {
-                            // NOTE: We don't blindly set `include`, eg.
-                            // NOTE- `include = version >= change_version`,
-                            // NOTE- to prevent incorrectly defining a field for a version
-                            // NOTE- where it should not exist (before it was added or after it
-                            // NOTE- was removed).
-                            Kind::Added => if version < change_version {
-                                include = false;
-                            },
-                            Kind::Removed => if version >= change_version {
-                                include = false;
-                            },
-                            Kind::Renamed(id) => ident = Some(id.clone()),
-                        }
+        let mut field_ident = Vec::with_capacity(struct_fields.len());
+        let mut field_type = Vec::with_capacity(struct_fields.len());
+        let mut field_into = Vec::with_capacity(struct_fields.len());
+        for (i, &f) in struct_fields.iter().enumerate() {
+            let mut include = true;
+            let mut ident = None;
+            if let Some(changes) = semver_compat.get(f) {
+                for (change_version, kind) in changes.iter() {
+                    match kind {
+                        // NOTE: We don't blindly set `include`, eg.
+                        // NOTE- `include = version >= change_version`,
+                        // NOTE- to prevent incorrectly defining a field for a version
+                        // NOTE- where it should not exist (before it was added or after it
+                        // NOTE- was removed).
+                        Kind::Added => if version < change_version {
+                            include = false;
+                        },
+                        Kind::Removed => if version >= change_version {
+                            include = false;
+                        },
+                        Kind::Renamed(id) => ident = Some(id.clone()),
                     }
                 }
+            }
 
-                ident = include.then_some(
+            field_ident.push({
+                include.then_some(
                     ident.unwrap_or_else(|| f.ident.clone().expect(NAMED_FIELDS_ONLY))
-                );
-                field_ident.push(ident);
+                )
+            });
 
-                // Try to replace the field's type if it has a placeholder type attribute.
-                let mut ty = None;
-                if let Some(placeholder) = parsed_container.placeholder.as_ref()
-                    && let Some(mut attr_type) = struct_replace_types
-                        .get(i)
-                        .map(Clone::clone)
-                        .flatten()
-                {
-                    // TODO: FIXME: only works if field has a semver attr (eg. #[added(semver = ...)])
-                    // TODO- FIXME- ... doesn't work for inner type conversions (if the field
-                    // TODO- FIXME- itself isn't tagged with a semver attr but the field's type
-                    // TODO- FIXME- does have compat versions - eg. Encryption).
-                    match replace_compat_placeholder(version, &f.ty, &mut attr_type, placeholder) {
-                        // TODO: need to detect Option< or Vec< and generate conversion func/tokens
-                        Ok(()) => ty = Some(attr_type),
-                        Err(err) => return (version, err.into_compile_error()),
-                    }
-                }
-                field_into.push({
-                    include.then(|| {
-                        let map_func = match ty.as_ref()
-                            .map(determine_which_into_func)
-                            .map(|result| match result {
-                                Ok(path) => quote! { #path },
-                                Err(err) => err.into_compile_error(),
-                            })
-                        {
-                            // Convert the source-defined field -> placeholder-replaced field with
-                            // the parsed conversion function.
-                            Some(func) => func,
-
-                            // Fallback to `Into::into` if the field has no placeholder replacement
-                            // type (effectively: move the original field into the compat struct's
-                            // field).
-                            None => {
-                                let into_wrapper = ident_into_wrapper();
-                                quote! { #into_wrapper }
-                            },
-                        };
-
-                        let orig_field = f.ident.as_ref().expect(NAMED_FIELDS_ONLY);
-                        quote! {
-                            #map_func(#from_arg_ident.#orig_field, Into::into)
-                        }
+            // Try to replace the field's type if it has a placeholder type attribute.
+            let mut ty = None;
+            if let Some(placeholder) = parsed_container.placeholder.as_ref()
+                && let Some(mut attr_type) = struct_replace_types
+                    .get(i)
+                    .map(Clone::clone)
+                    .flatten()
+            {
+                replace_compat_placeholder(version, Some(&f.ty), &mut attr_type, placeholder)?;
+                ty = Some(attr_type);
+            }
+            let into_func = include.then(|| {
+                let map_func = match ty.as_ref()
+                    .map(determine_which_into_func)
+                    .map(|result| match result {
+                        Ok(path) => quote! { #path },
+                        Err(err) => err.into_compile_error(),
                     })
-                });
-                field_type.push(include.then(|| {
-                    ty.unwrap_or(f.ty.clone())
-                }));
-            }
+                {
+                    // Convert the source-defined field -> placeholder-replaced field with
+                    // the parsed conversion function.
+                    Some(func) => func,
 
-            let mut field_serde = Vec::with_capacity(struct_fields.len());
-            for &f in struct_fields.iter() {
-                match parse_serde_field_attr(version, f.into()) {
-                    Ok(attrs) => field_serde.push(attrs),
-                    Err(err) => return (version, err.into_compile_error()),
+                    // Fallback to `Into::into` if the field has no placeholder replacement
+                    // type (effectively: move the original field into the compat struct's
+                    // field).
+                    None => {
+                        let into_wrapper = ident_into_wrapper();
+                        quote! { #into_wrapper }
+                    },
+                };
+
+                let orig_field = f.ident.as_ref().expect(NAMED_FIELDS_ONLY);
+                quote! {
+                    #map_func(#from_arg_ident.#orig_field, Into::into)
                 }
-            }
-            let container_serde = match parse_serde_container_attr(version, ast) {
-                Ok(parsed) => parsed,
-                Err(err) => return (version, err.into_compile_error()),
-            };
-            let struct_doc = format!("Transmission semver-{version} compatible \
-                request serialization helper type");
-            // Build a vec of field definitions to avoid emitting stray ':'.
-            let fields = {
-                let mut fields = Vec::with_capacity(field_ident.len());
-                for ((id, ty), attr) in field_ident.iter()
-                    .zip(field_type.iter())
-                    .zip(field_serde.iter())
-                    {
-                        let (Some(id), Some(ty)) = (id, ty) else {
-                            continue
-                        };
-                        fields.push(quote! {
-                            #( #attr )*
-                            #id: #ty
-                        })
-                    }
-                fields
-            };
-            let compat_struct = quote! {
-                #[doc = #struct_doc]
-                #[automatically_derived]
-                #[allow(non_camel_case_types)]
-                #[serde_with::skip_serializing_none]
-                #[derive(serde::Serialize, Debug, Clone)]
-                #(#container_serde)*
-                pub(crate) struct #struct_id #generics {
-                    #( #fields ),*
-                } #semi_token
-            };
+            });
+            field_into.push(into_func);
+            field_type.push(include.then(|| {
+                ty.unwrap_or(f.ty.clone())
+            }));
+        }
 
-            let into_func_defn = [
-                gen_into_wrapper_func(),
-                gen_opt_vec_into_func(),
-                gen_vec_into_func(),
-            ];
-            // Build out each field's into-conversion to avoid emitting stray ':' if a field is not
-            // included.
-            let into_fields = {
-                let mut into = Vec::with_capacity(field_into.len());
-                for (id, field_into) in field_ident.iter().zip(field_into.iter()) {
-                    let (Some(id), Some(field_into)) = (id, field_into) else {
+        let mut field_serde = Vec::with_capacity(struct_fields.len());
+        for &f in struct_fields.iter() {
+            let attrs = parse_serde_field_attr(version, f.into())?;
+            field_serde.push(attrs);
+        }
+        let container_serde = parse_serde_container_attr(version, ast)?;
+        let struct_doc = format!("Transmission semver-{version} compatible \
+            request serialization helper type");
+        // Build a vec of field definitions to avoid emitting stray ':'.
+        let fields = {
+            let mut fields = Vec::with_capacity(field_ident.len());
+            for ((id, ty), attr) in field_ident.iter()
+                .zip(field_type.iter())
+                .zip(field_serde.iter())
+                {
+                    let (Some(id), Some(ty)) = (id, ty) else {
                         continue
                     };
-                    into.push(quote! {
-                        #id: #field_into
-                    });
+                    fields.push(quote! {
+                        #( #attr )*
+                        #id: #ty
+                    })
                 }
-                into
-            };
+            fields
+        };
+        let compat_struct = quote! {
+            #[doc = #struct_doc]
+            #[automatically_derived]
+            #[allow(non_camel_case_types)]
+            #[serde_with::skip_serializing_none]
+            #[derive(serde::Serialize, Debug, Clone)]
+            #(#container_serde)*
+            pub(crate) #keyword #struct_id #generics {
+                #( #fields ),*
+            }
+        };
 
-            (version, quote! {
-                #compat_struct
+        let into_func_defn = [
+            gen_into_wrapper_func(),
+            gen_opt_vec_into_func(),
+            gen_vec_into_func(),
+        ];
+        // Build out each field's into-conversion to avoid emitting stray ':' if a field is not
+        // included.
+        let into_fields = {
+            let mut into = Vec::with_capacity(field_into.len());
+            for (id, field_into) in field_ident.iter().zip(field_into.iter()) {
+                let (Some(id), Some(field_into)) = (id, field_into) else {
+                    continue
+                };
+                into.push(quote! {
+                    #id: #field_into
+                });
+            }
+            into
+        };
 
-                impl From<#orig_struct_id> for #struct_id {
-                    fn from(#from_arg_ident: #orig_struct_id) -> Self {
-                        // Define the helper field conversion functions which may or may not be
-                        // used.
-                        #( #[automatically_derived] #into_func_defn )*
+        compat_structs.insert(version, quote! {
+            #compat_struct
 
-                        Self {
-                            #( #into_fields ),*
-                        }
+            impl From<#orig_struct_id> for #struct_id {
+                fn from(#from_arg_ident: #orig_struct_id) -> Self {
+                    // Define the helper field conversion functions which may or may not be
+                    // used.
+                    #( #[automatically_derived] #into_func_defn )*
+
+                    Self {
+                        #( #into_fields ),*
                     }
                 }
-            })
-        })
-        .collect();
+            }
+        });
+    }
 
     let compat_enum_doc = format!("Holds every semver-compat struct generated for \
         {orig_struct_id}");
@@ -282,7 +307,7 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         })
         .collect();
 
-    quote! {
+    Ok(quote! {
         // Emit all of the generated struct definitions.
         #( #compat_struct_defn )*
 
@@ -308,27 +333,243 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
                 }
             }
         }
-    }
+    })
 }
+*/
 
 // ------------------------------------------------------------------------------------------------
 
-/// Generates compatible enums for each attribute-defined semver (eg. `#\[renamed(semver = "6.0.0",
-/// name = "...")\]`).
-pub(crate) fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum) -> proc_macro2::TokenStream
+/// Generates compatible structs or enums for each supported (hardcoded) transmission rpc semver.
+pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
+    -> Result<proc_macro2::TokenStream>
 {
-    let parsed_container = match parse_container_compat_attr(&ast.attrs) {
-        Ok(parsed) => parsed,
-        Err(err) => return err.into_compile_error(),
-    };
+    let parsed_container = parse_container_compat_attr(&ast.attrs)?;
 
-    let mut has_added_field = false;
+    let versions = supported_versions();
+    let container_fields = data.fields();
     let mut semver_compat = HashMap::new();
-    let mut versions = vec![];
-    let mut enum_variants = Vec::with_capacity(data.variants.len());
+    let mut replace_types = Vec::with_capacity(container_fields.len());
 
-    quote! {
+    for field in container_fields.iter() {
+        let parsed = parse_attr(*field)?;
+        if !parsed.changes.is_empty() {
+            for (version, kind) in parsed.changes.into_iter() {
+                semver_compat.entry(field)
+                    .or_insert(HashMap::<_, _>::default())
+                    .insert(version.clone(), kind);
+            }
+            replace_types.push(parsed.replace_type);
+        }
     }
+
+    let orig_container_id = &ast.ident;
+    let keyword = &data.keyword();
+    let generics = &ast.generics;
+    let mut generated_compat_types = HashMap::new();
+    for version in versions.iter() {
+        let container_id = compat_id(version, orig_container_id);
+        let from_arg_ident = format_ident!("orig");
+
+        let mut field_ident = Vec::with_capacity(container_fields.len());
+        let mut field_type = Vec::with_capacity(container_fields.len());
+        let mut field_into = Vec::with_capacity(container_fields.len());
+        for (i, field) in container_fields.iter().enumerate() {
+            let mut include = true;
+            let mut ident = None;
+            if let Some(changes) = semver_compat.get(field) {
+                for (change_version, kind) in changes.iter() {
+                    match kind {
+                        Kind::Added => if version < change_version {
+                            include = false;
+                        },
+                        Kind::Removed => if version >= change_version {
+                            include = false;
+                        },
+                        Kind::Renamed(id) => ident = Some(id.clone()),
+                    }
+                }
+            }
+
+            field_ident.push({
+                include.then_some(
+                    ident.unwrap_or(field.require_ident()?.clone())
+                )
+            });
+
+            let ty: Option<Type>;
+            if let Some(placeholder) = parsed_container.placeholder.as_ref()
+                && let Some(mut attr_type) = replace_types
+                    .get(i)
+                    .map(Clone::clone)
+                    .flatten()
+            {
+                let var_ident = field.require_ident()?;
+                let var_ty = field.ty()?;
+                replace_compat_placeholder(version, var_ty, &mut attr_type, placeholder)?;
+                ty = Some(attr_type);
+
+                let map_func = match ty.as_ref() {
+                    Some(ty) => {
+                        let func = determine_which_into_func(ty)?;
+                        quote! { #func }
+                    },
+                    None => {
+                        let into_wrapper = ident_into_wrapper();
+                        quote! { #into_wrapper }
+                    },
+                };
+                let into_func = include.then(|| quote! {
+                    #map_func(#from_arg_ident.#var_ident, Into::into)
+                });
+                field_into.push(into_func);
+                field_type.push(include.then_some(ty).flatten());
+            }
+        }
+
+        let mut field_serde = Vec::with_capacity(container_fields.len());
+        for field in container_fields.iter() {
+            let attrs = parse_serde_field_attr(version, *field)?;
+            field_serde.push(attrs);
+        }
+        let container_serde = parse_serde_container_attr(version, ast)?;
+        let container_doc = format!("Transmission semver-{version} compatible \
+            request serialization helper type");
+        let mut fields = Vec::with_capacity(field_ident.len());
+        for ((id, ty), attr) in field_ident.iter()
+            .zip(field_type.iter())
+            .zip(field_serde.iter())
+            {
+                let Some(id) = id else {
+                    continue
+                };
+                fields.push(match &data.inner {
+                    Data::Struct(_) => {
+                        let Some(ty) = ty else {
+                            continue
+                        };
+                        quote! {
+                            #( #attr )*
+                            #id: #ty
+                        }
+                    },
+                    Data::Enum(_) => {
+                        let mut tokens = quote! {
+                            #( #attr )*
+                            #id
+                        };
+                        // GenerateCompat only handles enums with either unit variants or unnamed
+                        // tuple variants with a single field.
+                        if let Some(ty) = ty {
+                            tokens = quote! {
+                                #tokens(#ty)
+                            };
+                        }
+                        tokens
+                    },
+
+                    // This shouldn't happen here (should be caught earlier).
+                    kind => panic!("unexpected type: {kind:?}"),
+                });
+            }
+
+        let compat_type = quote! {
+            #[doc = #container_doc]
+            #[automatically_derived]
+            #[allow(non_camel_case_types)]
+            #[serde_with::skip_serializing_none]
+            #[derive(serde::Serialize, Debug, Clone)]
+            #(#container_serde)*
+            pub(crate) #keyword #container_id #generics {
+                #( #fields ),*
+            }
+        };
+
+        let into_func_defn = [
+            gen_into_wrapper_func(),
+            gen_opt_vec_into_func(),
+            gen_vec_into_func(),
+        ];
+        let mut into_fields = Vec::with_capacity(field_into.len());
+        for (id, field_into) in field_ident.iter().zip(field_into.iter()) {
+            let (Some(id), Some(field_into)) = (id, field_into) else {
+                continue
+            };
+            into_fields.push(quote! {
+                #id: #field_into
+            });
+        }
+
+        generated_compat_types.insert(version, quote! {
+            #compat_type
+
+            impl From<#orig_container_id> for #container_id {
+                fn from(#from_arg_ident: #orig_container_id) -> Self {
+                    // Define the helper field conversion functions which may or may not be
+                    // used.
+                    #( #[automatically_derived] #into_func_defn )*
+
+                    Self {
+                        #( #into_fields ),*
+                    }
+                }
+            }
+        });
+    }
+
+    let compat_container_doc = format!("Holds every semver-compat type generated for \
+        {orig_container_id}");
+    let compat_container_ident = format_ident!("__{orig_container_id}_compat__");
+    let compat_type_defn = generated_compat_types.values();
+
+    let variant_ident: Vec<_> = versions.iter().map(version_id).collect();
+    let container_ident: Vec<_> = versions.iter()
+        .map(|v| compat_id(v, orig_container_id))
+        .collect();
+
+    let into_compat_doc = format!("Converts the source-defined `{orig_container_id}` into its \
+        generated `target` semver compatible type.\n\
+        \n\
+        Returns `None` if the `target` semver is unsupported.");
+    let into_compat_arm: Vec<_> = versions.iter()
+        .enumerate()
+        .map(|(i, version)| {
+            let variant = variant_ident.get(i).expect("variant ident should exist");
+            let (major, minor, patch) = (version.major, version.minor, version.patch);
+            quote! {
+                (#major, #minor, #patch) => Some(#compat_container_ident::#variant(self.into()))
+            }
+        })
+        .collect();
+
+    Ok(quote! {
+        // Emit all of the generated type definitions.
+        #( #compat_type_defn )*
+
+        // Define an enum to consolidate all of the generated structs or enums into a single type
+        // so that we can convert the source-defined original struct/enum into its corresponding
+        // compat struct/enum.
+        #[doc = #compat_container_doc]
+        #[automatically_derived]
+        #[allow(non_camel_case_types)]
+        #[derive(serde::Serialize, Debug, Clone)]
+        #[serde(untagged)]
+        pub(crate) enum #compat_container_ident {
+            #( #variant_ident(#container_ident) ),*
+        }
+
+        impl #orig_container_id {
+            #[doc = #into_compat_doc]
+            pub(crate) fn into_compat(self, target: &semver::Version)
+                -> Option<#compat_container_ident>
+            {
+                match (target.major, target.minor, target.patch) {
+                    #( #into_compat_arm ),*
+
+                    (..) => None,
+                }
+            }
+        }
+    })
 }
 
 /* TODO: DELETE (OLD)

@@ -164,7 +164,7 @@ impl From<InternalCompatData> for CompatData {
 }
 
 /// Either a struct field or enum variant.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum FieldOrVar<'a> {
     Field(&'a Field),
     Variant(&'a Variant),
@@ -175,7 +175,7 @@ impl<'a> FieldOrVar<'a> {
         match self {
             Self::Field(f) => f.ident
                 .as_ref()
-                .ok_or(Error::new(f.span(), "unnamed struct field has no ident")),
+                .ok_or(Error::new(f.span(), "struct field has no ident")),
             Self::Variant(v) => Ok(&v.ident),
         }
     }
@@ -187,13 +187,13 @@ impl<'a> FieldOrVar<'a> {
                 Fields::Unit => Ok(None),
                 Fields::Unnamed(fields) => match fields.unnamed.len() {
                     1 => Ok(fields.unnamed.get(0).map(|f| &f.ty)),
-                    _ => {
-                        let msg = "";
+                    n => {
+                        let msg = format!("unsupported: enum variant with #{n} unnamed fields");
                         Err(Error::new(v.span(), msg))
                     },
                 },
                 Fields::Named(_) => {
-                    let msg = "";
+                    let msg = "enum with struct variant unsupported";
                     Err(Error::new(v.span(), msg))
                 },
             },

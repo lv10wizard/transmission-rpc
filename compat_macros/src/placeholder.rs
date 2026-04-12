@@ -57,10 +57,14 @@ use crate::symbols::compat_id;
 /// [`GenerateCompat`]: crate::GenerateCompat
 pub(crate) fn replace_compat_placeholder(
     version: &Version,
-    orig: &Type,
+    orig: Option<&Type>,
     meta: &mut Type,
     placeholder: &Ident,
 ) -> Result<()> {
+    let Some(orig) = orig else {
+        return Ok(())
+    };
+
     match (orig, meta) {
         (Type::Path(orig_path), Type::Path(meta_path)) => {
             // We only care about the last item in the path, eg.
@@ -93,7 +97,7 @@ pub(crate) fn replace_compat_placeholder(
                                             {
                                                 replace_compat_placeholder(
                                                     version,
-                                                    orig,
+                                                    Some(orig),
                                                     meta,
                                                     placeholder)?;
                                             }
@@ -115,7 +119,7 @@ pub(crate) fn replace_compat_placeholder(
                                     {
                                         replace_compat_placeholder(
                                             version,
-                                            orig,
+                                            Some(orig),
                                             meta,
                                             placeholder)?;
                                     }
@@ -134,7 +138,7 @@ pub(crate) fn replace_compat_placeholder(
         (Type::Array(orig_array), Type::Array(meta_array)) => {
             replace_compat_placeholder(
                 version,
-                &orig_array.elem,
+                Some(&orig_array.elem),
                 &mut meta_array.elem,
                 placeholder)
         },
@@ -143,7 +147,7 @@ pub(crate) fn replace_compat_placeholder(
             for (orig, meta) in orig_tuple.elems.iter()
                 .zip(meta_tuple.elems.iter_mut())
                 {
-                    replace_compat_placeholder(version, orig, meta, placeholder)?;
+                    replace_compat_placeholder(version, Some(orig), meta, placeholder)?;
                 }
             Ok(())
         },
