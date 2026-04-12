@@ -1,7 +1,7 @@
 use semver::Version;
 use syn::{
-    Error, GenericArgument, Ident, Path, PathArguments, Result, Type, parse_quote,
-    spanned::Spanned as _,
+    Error, GenericArgument, Ident, Path, PathArguments, PathSegment, Result, Type, parse_quote,
+    spanned::Spanned,
 };
 use quote::{ToTokens, format_ident, quote};
 
@@ -193,31 +193,7 @@ pub(crate) fn determine_which_into_func(ty: &Type) -> Result<Path> {
                 .expect("type should have a last segment");
             
             if seg.ident == "Option" {
-                let span = ty.span(); // TODO: fix span (should be #[compat(type = ...)] span)
-                let PathArguments::AngleBracketed(bracketed) = &seg.arguments else {
-                    // Either a bare `Option` or `Option(T)`...
-                    return Err(Error::new(span, "unexpected Option arguments"))
-                };
-                if bracketed.args.len() != 1 {
-                    // This is some other kind of `Option`...
-                    return Err(Error::new(span, "unexpected custom Option type"));
-                }
-                let opt_arg = bracketed.args.last()
-                    // This can't happen. The previous checks should have filtered this case out.
-                    .expect("Option should have an argument type (how did this happen?)");
-                let GenericArgument::Type(opt_ty) = opt_arg else {
-                    // I don't think this can happen. Implies something like `Option<'a>`.
-                    return Err(Error::new(span, "unexpected Option generic argument"))
-                };
-                let Type::Path(opt_ty_path) = opt_ty else {
-                    // Only handle Option<T> Path types
-                    let msg = format!("unexpected Option type: {opt_ty:?}");
-                    return Err(Error::new(span, msg))
-                };
-
-                // Determine if we're using Option::map or `opt_vec_into`.
-                let seg = opt_ty_path.path.segments.last()
-                    .expect("Option<T> should have a last segment");
+                let seg = extract_option_arg_type_path(seg)?;
                 return Ok(match seg.ident == "Vec" {
                     true => {
                         let opt_vec_into = ident_opt_vec_into();
@@ -236,8 +212,37 @@ pub(crate) fn determine_which_into_func(ty: &Type) -> Result<Path> {
             Ok(parse_quote! { #into_wrapper })
         },
 
-        _ => Ok(parse_quote! { #into_wrapper }), // TODO: This might be an error instead?
+        // TODO: This might be an error instead? (Unexpected type)
+        _ => Ok(parse_quote! { #into_wrapper }),
     }
+}
+
+fn extract_option_arg_type_path(seg: &PathSegment) -> Result<&PathSegment> {
+    let span = seg.span(); // TODO: fix span (should be #[compat(type = ...)] span)
+    let PathArguments::AngleBracketed(bracketed) = &seg.arguments else {
+        // Either a bare `Option` or `Option(T)`...
+        return Err(Error::new(span, "unexpected Option arguments"))
+    };
+    if bracketed.args.len() != 1 {
+        // This is some other kind of `Option`...
+        return Err(Error::new(span, "unexpected custom Option type"));
+    }
+    let opt_arg = bracketed.args.last()
+        // This can't happen. The previous checks should have filtered this case out.
+        .expect("Option should have an argument type (how did this happen?)");
+    let GenericArgument::Type(opt_ty) = opt_arg else {
+        // I don't think this can happen. Implies something like `Option<'a>`.
+        return Err(Error::new(span, "unexpected Option generic argument"))
+    };
+    let Type::Path(opt_ty_path) = opt_ty else {
+        // Only handle Option<T> Path types
+        let msg = format!("unexpected Option type: {opt_ty:?}");
+        return Err(Error::new(span, msg))
+    };
+
+    // Determine if we're using Option::map or `opt_vec_into`.
+    opt_ty_path.path.segments.last()
+        .ok_or(Error::new(span, "Option<T> should have a last segment"))
 }
 
 pub(crate) fn ident_into_wrapper() -> Ident {

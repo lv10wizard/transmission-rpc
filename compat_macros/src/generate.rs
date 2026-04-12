@@ -22,8 +22,41 @@ use crate::{
 
 const NAMED_FIELDS_ONLY: &'static str = "GenerateCompat only supports structs with named fields.";
 
-/// Generates compatible structs for each attribute-defined semver (eg. `#\[added(semver =
-/// "6.0.0")\]`).
+fn supported_versions() -> Vec<Version> {
+    let mut versions = vec![
+        Version::new(1, 3, 0), // Transmission 1.50
+
+        Version::new(2, 0, 0), // Transmission 1.60
+        Version::new(2, 1, 0), // Transmission 1.70
+
+        Version::new(3, 0, 0), // Transmission 1.80
+        Version::new(3, 1, 0), // Transmission 1.90
+        Version::new(3, 2, 0), // Transmission 1.92
+        Version::new(3, 3, 0), // Transmission 2.00
+        Version::new(3, 4, 0), // Transmission 2.10
+        Version::new(3, 5, 0), // Transmission 2.12
+        Version::new(3, 6, 0), // Transmission 2.20
+
+        Version::new(4, 0, 0), // Transmission 2.30
+
+        Version::new(5, 0, 0), // Transmission 2.40
+        Version::new(5, 1, 0), // Transmission 2.80
+        Version::new(5, 2, 0), // Transmission 3.00
+        Version::new(5, 3, 0), // Transmission 4.0.0
+
+        Version::new(6, 0, 0), // Transmission 4.1.0
+        Version::new(6, 0, 1), // Transmission 4.1.1
+        // TODO: Version::new(6, 1, 0), // Transmission 4.2.0
+    ];
+
+    // Ensure the versions are sorted and unique.
+    versions.sort();
+    versions.dedup();
+
+    versions
+}
+
+/// Generates compatible structs for each supported (hardcoded) transmission rpc semver.
 pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
     -> proc_macro2::TokenStream
 {
@@ -32,9 +65,8 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         Err(err) => return err.into_compile_error(),
     };
 
-    let mut has_added_field = false;
     let mut semver_compat = HashMap::new();
-    let mut versions = vec![];
+    let versions = supported_versions();
     let mut struct_fields = Vec::with_capacity(data.fields.len());
     let mut struct_replace_types = Vec::with_capacity(data.fields.len());
 
@@ -44,16 +76,11 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         match parse_attr(field.into()) {
             Ok(parsed) => if !parsed.changes.is_empty() {
                 for (version, kind) in parsed.changes.into_iter() {
-                    // Determine if we need to include a faked "0.0.0" version to handle
-                    // compatibility with versions missing newly added fields.
-                    has_added_field = has_added_field || kind == Kind::Added;
-
                     // No need to worry about duplicate versions; they should be handled by
                     // `parse_attr`.
                     semver_compat.entry(field)
                         .or_insert(HashMap::<_, _>::default())
                         .insert(version.clone(), kind);
-                    versions.push(version);
                 }
                 struct_replace_types.push(parsed.replace_type);
             },
@@ -61,17 +88,6 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
             Err(err) => return err.into_compile_error(),
         }
     }
-
-    // Always include semver-6.0.0 since we need to force snake_case serialization.
-    versions.push(Version::new(6, 0, 0));
-    if has_added_field {
-        // Force a "0.0.0" version to handle transmission versions older than any added fields.
-        versions.push(Version::new(0, 0, 0));
-    }
-    // Sort the versions so we can find the nearest-lower version to convert from the
-    // source-defined struct to its corresponding version-compat version.
-    versions.sort();
-    versions.dedup(); // Remove duplicate semver-6.0.0 if needed.
 
     let orig_struct_id = &ast.ident;
     let generics = &ast.generics;
@@ -210,7 +226,8 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
                 gen_opt_vec_into_func(),
                 gen_vec_into_func(),
             ];
-            // Build a vec of field-into conversions to avoid emitting stray ':'.
+            // Build out each field's into-conversion to avoid emitting stray ':' if a field is not
+            // included.
             let into_fields = {
                 let mut into = Vec::with_capacity(field_into.len());
                 for (id, field_into) in field_ident.iter().zip(field_into.iter()) {
@@ -242,19 +259,35 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         })
         .collect();
 
-    let compat_enum_doc = format!("Holds every compat struct generated for {orig_struct_id}");
+    let compat_enum_doc = format!("Holds every semver-compat struct generated for \
+        {orig_struct_id}");
     let compat_enum_ident = format_ident!("__{orig_struct_id}_compat__");
     let compat_struct_defn = compat_structs.values();
 
     let variant_ident: Vec<_> = versions.iter().map(version_id).collect();
     let struct_ident: Vec<_> = versions.iter().map(|v| compat_id(v, orig_struct_id)).collect();
-    let versions: Vec<_> = versions.iter()
-        .map(|version| CompatVersion(version.clone()))
+
+    let into_compat_doc = format!("Converts the source-defined `{orig_struct_id}` into its \
+        generated `target` semver compatible struct.\n\
+        \n\
+        Returns `None` if the `target` semver is unsupported.");
+    let into_compat_arm: Vec<_> = versions.iter()
+        .enumerate()
+        .map(|(i, version)| {
+            let variant = variant_ident.get(i).expect("variant ident should exist");
+            let (major, minor, patch) = (version.major, version.minor, version.patch);
+            quote! {
+                (#major, #minor, #patch) => Some(#compat_enum_ident::#variant(self.into()))
+            }
+        })
         .collect();
 
     quote! {
+        // Emit all of the generated struct definitions.
         #( #compat_struct_defn )*
 
+        // Define an enum to consolidate all of the generated structs into a single type so that we
+        // can convert the source-defined original struct into its corresponding compat struct.
         #[doc = #compat_enum_doc]
         #[automatically_derived]
         #[allow(non_camel_case_types)]
@@ -262,58 +295,16 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
         #[serde(untagged)]
         pub(crate) enum #compat_enum_ident {
             #( #variant_ident(#struct_ident) ),*
-
-            Base(#orig_struct_id),
         }
 
         impl #orig_struct_id {
-            pub(crate) fn into_compat(self, target: &semver::Version) -> #compat_enum_ident {
-                let compat_map: std::collections::HashMap<_, _> = [
-                    #( (#versions, #compat_enum_ident::#variant_ident) ),*
-                ]
-                .into_iter()
-                .collect();
+            #[doc = #into_compat_doc]
+            pub(crate) fn into_compat(self, target: &semver::Version) -> Option<#compat_enum_ident>
+            {
+                match (target.major, target.minor, target.patch) {
+                    #( #into_compat_arm ),*
 
-                match compat_map.get(target) {
-                    // We generated a compat type for this version.
-                    Some(variant) => variant(self.into()),
-
-                    // We need to search for the compat type that corresponds to this version (the
-                    // nearest generated compat version that is less than the target version; this
-                    // compat version should encapsulate all of the transmission semver changes
-                    // that apply to the target version).
-                    //
-                    // eg. If we generated compat types for
-                    //          * 2.1.0
-                    //          * 5.0.0
-                    //          * 6.0.0
-                    //     and are serializing a request for semver `5.1.0`, we want the compat
-                    //     type generated for `5.0.0`.
-                    None => {
-                        let mut compat_ver = None;
-                        // This should iterate in sorted (lowest -> highest) order.
-                        // (The loop MUST iterate in sorted order.)
-                        for v in [ #( #versions ),* ] {
-                            if v >= target { // The `==` case should never happen.
-                                let Some(compat_ver) = compat_ver else {
-                                    // We did not generate a compat version lower than the target
-                                    // version so we can just use the base (source-defined) type.
-                                    break
-                                };
-                                // The previous iteration's version should be the correct compat
-                                // type for the target version.
-                                let variant = compat_map.get(&compat_ver)
-                                    .expect("request compat type should exist");
-                                return variant(self.into());
-                            }
-                            // Keep track of the previous iteration's version which could be the
-                            // version corresponding to the compat type we want (assuming we're
-                            // iterating in sorted order).
-                            compat_ver = Some(v);
-                        }
-
-                        #compat_enum_ident::Base(self)
-                    },
+                    (..) => None,
                 }
             }
         }
