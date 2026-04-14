@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use quote::{format_ident, quote, quote_spanned};
 use semver::Version;
 use syn::{
-    Data, DataEnum, DataStruct, DeriveInput, Result, Type,
+    Data, DataEnum, DataStruct, DeriveInput, Error, Result, Type,
     punctuated::Punctuated,
     spanned::Spanned as _,
 };
@@ -358,8 +358,8 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
                     .or_insert(HashMap::<_, _>::default())
                     .insert(version.clone(), kind);
             }
-            replace_types.push(parsed.replace_type);
         }
+        replace_types.push(parsed.replace_type);
     }
 
     let orig_container_id = &ast.ident;
@@ -396,34 +396,33 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
                 )
             });
 
-            let ty: Option<Type>;
+            let mut ty = None;
             if let Some(placeholder) = parsed_container.placeholder.as_ref()
                 && let Some(mut attr_type) = replace_types
                     .get(i)
                     .map(Clone::clone)
                     .flatten()
             {
-                let var_ident = field.require_ident()?;
-                let var_ty = field.ty()?;
-                replace_compat_placeholder(version, var_ty, &mut attr_type, placeholder)?;
+                replace_compat_placeholder(version, field.ty()?, &mut attr_type, placeholder)?;
                 ty = Some(attr_type);
-
-                let map_func = match ty.as_ref() {
-                    Some(ty) => {
-                        let func = determine_which_into_func(ty)?;
-                        quote! { #func }
-                    },
-                    None => {
-                        let into_wrapper = ident_into_wrapper();
-                        quote! { #into_wrapper }
-                    },
-                };
-                let into_func = include.then(|| quote! {
-                    #map_func(#from_arg_ident.#var_ident, Into::into)
-                });
-                field_into.push(into_func);
-                field_type.push(include.then_some(ty).flatten());
             }
+
+            let ident = field.require_ident()?;
+            let map_func = match ty.as_ref() {
+                Some(ty) => {
+                    let func = determine_which_into_func(ty)?;
+                    quote! { #func }
+                },
+                None => {
+                    let into_wrapper = ident_into_wrapper();
+                    quote! { #into_wrapper }
+                },
+            };
+            // TODO: `from.ident` only handles structs; need enum impl
+            field_into.push(include.then(|| quote! {
+                #map_func(#from_arg_ident.#ident, Into::into)
+            }));
+            field_type.push(include.then_some(ty).flatten());
         }
 
         let mut field_serde = Vec::with_capacity(container_fields.len());
@@ -435,42 +434,50 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
         let container_doc = format!("Transmission semver-{version} compatible \
             request serialization helper type");
         let mut fields = Vec::with_capacity(field_ident.len());
-        for ((id, ty), attr) in field_ident.iter()
-            .zip(field_type.iter())
-            .zip(field_serde.iter())
-            {
-                let Some(id) = id else {
-                    continue
-                };
-                fields.push(match &data.inner {
-                    Data::Struct(_) => {
-                        let Some(ty) = ty else {
-                            continue
+        for idx in 0..container_fields.len() {
+            let id = field_ident.get(idx).expect("field ident should have been parsed");
+            let Some(id) = id else {
+                // This version does not include the field/variant (either not yet added or was
+                // removed).
+                continue
+            };
+            let ty = field_type.get(idx).expect("field type should have been parsed");
+            let attr = field_serde.get(idx).expect("field serde attrs should have been parsed");
+            let span = container_fields.get(idx)
+                .expect("container field should exist")
+                .span();
+            fields.push(match &data.inner {
+                Data::Struct(_) => {
+                    let Some(ty) = ty else {
+                        return Err(Error::new(span, "struct field must have a type"));
+                    };
+                    quote! {
+                        #( #attr )*
+                        #id: #ty
+                    }
+                },
+                Data::Enum(_) => {
+                    let mut tokens = quote! {
+                        #( #attr )*
+                        #id
+                    };
+                    // GenerateCompat only handles enums with either unit variants or unnamed
+                    // tuple variants with a single field.
+                    if let Some(ty) = ty {
+                        tokens = quote! {
+                            #tokens(#ty)
                         };
-                        quote! {
-                            #( #attr )*
-                            #id: #ty
-                        }
-                    },
-                    Data::Enum(_) => {
-                        let mut tokens = quote! {
-                            #( #attr )*
-                            #id
-                        };
-                        // GenerateCompat only handles enums with either unit variants or unnamed
-                        // tuple variants with a single field.
-                        if let Some(ty) = ty {
-                            tokens = quote! {
-                                #tokens(#ty)
-                            };
-                        }
-                        tokens
-                    },
+                    }
+                    tokens
+                },
 
-                    // This shouldn't happen here (should be caught earlier).
-                    kind => panic!("unexpected type: {kind:?}"),
-                });
-            }
+                // This shouldn't happen here (should be caught earlier).
+                kind => {
+                    let msg = format!("unexpected container type: {kind:?}");
+                    return Err(Error::new(span, msg));
+                },
+            });
+        }
 
         let compat_type = quote! {
             #[doc = #container_doc]
@@ -490,14 +497,67 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
             gen_vec_into_func(),
         ];
         let mut into_fields = Vec::with_capacity(field_into.len());
-        for (id, field_into) in field_ident.iter().zip(field_into.iter()) {
-            let (Some(id), Some(field_into)) = (id, field_into) else {
-                continue
+        for idx in 0..container_fields.len() {
+            let field = container_fields.get(idx).expect("container field should exist");
+            let id = field_ident.get(idx).expect("field ident should have been parsed");
+            let field_into = field_into.get(idx)
+                .expect("field mapping func should have been parsed");
+            let (id, field_into) = match (id, field_into) {
+                (Some(id), Some(field_into)) => (id, field_into),
+                // The field/variant is not included (either not yet added or already removed in
+                // this version).
+                (None, None) => continue,
+
+                // id<->into conversion mapping mismatch.
+                // This shouldn't happen; it probably indicates either a bug with the `include`
+                // logic.
+                (..) => {
+                    let msg = "field ident/into-mapping mismatch (how did this happen?)";
+                    return Err(Error::new(field.span(), msg));
+                },
             };
-            into_fields.push(quote! {
-                #id: #field_into
+
+            // Format each field's orig->compat conversion based on container type.
+            into_fields.push(match &data.inner {
+                Data::Enum(_) => {
+                    let orig_var_id = field.require_ident()?;
+                    let ty = field_type.get(idx).expect("field type should have been parsed");
+                    match ty.as_ref() {
+                        // TODO: consolidate (assign each match arm part and emit single quote!{})
+                        // TODO- use field_into
+                        Some(_) => quote! {
+                            #orig_container_id::#orig_var_id(x) => Self::#id(x.into())
+                        },
+                        None => quote! {
+                            #orig_container_id::#orig_var_id => Self::#id
+                        },
+                    }
+                },
+                Data::Struct(_) => quote! {
+                    #id: #field_into
+                },
+
+                // This shouldn't happen here (should be caught earlier).
+                kind => {
+                    let msg = format!("unexpected container type: {kind:?}");
+                    return Err(Error::new(field.span(), msg));
+                },
             });
         }
+        // Format the `From` implementation based on container type.
+        let from_impl = match &data.inner {
+            Data::Enum(_) => quote! {
+                match #from_arg_ident {
+                    #( #into_fields ),*
+                }
+            },
+            Data::Struct(_) => quote! {
+                #( #into_fields ),*
+            },
+
+            // This shouldn't happen.
+            kind => panic!("unexpected container type: {kind:?}"),
+        };
 
         generated_compat_types.insert(version, quote! {
             #compat_type
@@ -508,9 +568,7 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
                     // used.
                     #( #[automatically_derived] #into_func_defn )*
 
-                    Self {
-                        #( #into_fields ),*
-                    }
+                    #from_impl
                 }
             }
         });

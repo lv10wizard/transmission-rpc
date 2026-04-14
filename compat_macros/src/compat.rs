@@ -347,6 +347,11 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
                             }
                         },
                     }
+
+                } else {
+                    let ident = meta.path.require_ident()?;
+                    let msg = format!("unexpected #[{ATTR_COMPAT}] argument: \"{ident}\"");
+                    return Err(meta.error(msg));
                 }
 
                 Ok(())

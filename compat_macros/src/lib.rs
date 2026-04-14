@@ -2,9 +2,9 @@
 //! (`rpc-version-semver` 6.0.0, `rpc-version`: 18) request serialization compatibility.
 
 use proc_macro::TokenStream;
-use syn::{Data, DeriveInput, parse_macro_input};
+use syn::{DeriveInput, parse_macro_input};
 
-use generate::{StructOrEnum, generate_compat_types};
+use generate::{generate_compat_types};
 
 mod compat;
 mod generate;
@@ -13,6 +13,7 @@ mod placeholder;
 mod r#struct;
 mod symbols;
 
+// TODO: rewrite doc
 /// Generates a helper struct or enum for request serialization compatibility with Transmission
 /// 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18) and later.
 ///
