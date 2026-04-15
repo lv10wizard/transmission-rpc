@@ -1,8 +1,7 @@
 use std::fmt::{self, Display};
 
-use proc_macro2::{Punct, Spacing};
-use quote::{ToTokens, TokenStreamExt as _, format_ident};
-use syn::{Ident, Path, parse_quote};
+use quote::format_ident;
+use syn::{Ident, Path};
 use semver::Version;
 
 /// Formats a (hopefully) unique name prefixed with the given transmission semver, `v`, for the
@@ -24,8 +23,6 @@ pub(crate) const ATTR_DEPRECATED: Symbol = Symbol("deprecated"); // TODO? requir
 pub(crate) const ATTR_REMOVED: Symbol = Symbol("removed");
 pub(crate) const ATTR_RENAMED: Symbol = Symbol("renamed");
 
-pub(crate) const PLACEHOLDER: Symbol = Symbol("placeholder");
-pub(crate) const MAP: Symbol = Symbol("map");
 pub(crate) const NAME: Symbol = Symbol("name");
 pub(crate) const SEMVER: Symbol = Symbol("semver");
 pub(crate) const TYPE: Symbol = Symbol("type");

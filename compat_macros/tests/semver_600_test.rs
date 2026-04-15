@@ -1,4 +1,4 @@
-//! This file defines `#[derive(GenerateCompat)]` usages for debugging with [`cargo-expand`].
+//! This file defines `#[derive(SemverCompat)]` usages for debugging with [`cargo-expand`].
 //!
 //! How I use this:
 //!
@@ -8,12 +8,13 @@
 //!
 //! [`cargo-expand`]: <https://github.com/dtolnay/cargo-expand>
 
-use compat_macros::GenerateCompat;
+use compat_macros::SemverCompat;
 use serde::Serialize;
 
 #[test]
 fn compat_replace_struct_field() {
-    #[derive(GenerateCompat, Serialize, Debug)] // Are Serialize, Debug included in `.attrs`?
+    #[serde_with::skip_serializing_none]
+    #[derive(SemverCompat, Serialize, Debug)] // Are Serialize, Debug included in `.attrs`?
     #[serde(rename_all = "snake_case")] // Are derive-helper attributes included?
     struct _Foo {
         abc: String,
@@ -21,29 +22,27 @@ fn compat_replace_struct_field() {
         #[renamed(semver = "5.2.0", name = "xyz")]
         def: Option<i8>,
 
-        #[compat(type = u16)]
-        zzz: u8,
+        #[added(semver = "6.0.0")]
+        zzz: Option<u8>,
     }
 
-    #[derive(GenerateCompat)]
-    #[compat(placeholder = PLACEHOLDER)]
+    #[derive(SemverCompat)]
     struct _Bar {
-        #[compat(type = Option<PLACEHOLDER>)]
+        #[compat(type = Option<_>)]
         foo: Option<_Foo>,
     }
 }
 
 #[test]
 fn compat_replace_enum_unit() {
-    #[derive(GenerateCompat, Serialize)]
+    #[derive(SemverCompat, Serialize)]
     #[serde(untagged)]
-    #[compat(placeholder = P)]
     enum _Lorem {
-        #[compat(type = P)]
+        #[compat(type = _)]
         A(_Ipsum),
     }
 
-    #[derive(GenerateCompat, Serialize)]
+    #[derive(SemverCompat, Serialize)]
     enum _Ipsum {
         B,
     }

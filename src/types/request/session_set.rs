@@ -1,4 +1,4 @@
-use compat_macros::GenerateCompat;
+use compat_macros::SemverCompat;
 use serde::Serialize;
 use serde_with::skip_serializing_none;
 
@@ -8,7 +8,7 @@ use super::{AltSpeedDay, Encryption, EncryptionCompat, MinutesAfterMidnight, Tra
 /// 
 /// [`session_set`]: crate::TransClient::session_set
 #[skip_serializing_none]
-#[derive(GenerateCompat, Serialize, Debug, Clone, Default, PartialEq)]
+#[derive(SemverCompat, Serialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct SessionSetArgs {
     /// Max global download speed (kB/s).

@@ -1,14 +1,15 @@
 use semver::Version;
 use syn::{
-    Error, GenericArgument, Ident, Path, PathArguments, PathSegment, Result, Type, parse_quote,
-    spanned::Spanned,
+    Error, GenericArgument, Ident, Path, PathArguments, PathSegment, Result, Type, TypePath,
+    parse_quote, parse_quote_spanned,
+    spanned::Spanned
 };
 use quote::{ToTokens, format_ident, quote};
 
 use crate::symbols::compat_id;
 
-/// Recursively replaces [`Ident`]s found in `meta` matching `placeholder` with the `orig` type's
-/// corresponding compat type (via [`compat_id`]).
+/// Recursively replaces [`Ident`]s found in `meta` matching `_` (exactly one underscore) with the
+/// `orig` type's corresponding compat type (via [`compat_id`]).
 ///
 /// The `orig` and `meta` [`Type`]s must match forms:
 ///
@@ -16,27 +17,26 @@ use crate::symbols::compat_id;
 ///
 /// > orig: `Foo`
 ///
-/// > meta: `P`
+/// > meta: `_`
 ///
 /// eg.
 ///
 /// > orig: `Option<Vec<Foo>>`
 ///
-/// > meta: `Option<Vec<P>>`
+/// > meta: `Option<Vec<_>>`
 ///
 /// eg.
-/// Defining [`GenerateCompat`]-derived structs like:
+/// Defining [`SemverCompat`]-derived structs like:
 /// ```rust
-/// #[derive(GenerateCompat)]
-/// #[compat(placeholder = compat_placeholder)]
+/// #[derive(SemverCompat)]
 /// struct Foo {
-///     #[compat(type = Vec<compat_placeholder>)]
-///     //              ^^^^^^^^^^^^^^^^^^^^^^^ `meta`
+///     #[compat(type = Vec<_>)]
+///     //              ^^^^^^ `meta`
 ///     bar: Vec<Bar>,
 ///     //   ^^^^^^^^ `orig`
 /// }
 ///
-/// #[derive(GenerateCompat)]
+/// #[derive(SemverCompat)]
 /// struct Bar {
 ///     some_bar_field: i32, // unchanged
 /// }
@@ -54,85 +54,99 @@ use crate::symbols::compat_id;
 /// ```
 ///
 /// [`Ident`]: struct@syn::Ident
-/// [`GenerateCompat`]: crate::GenerateCompat
+/// [`SemverCompat`]: crate::SemverCompat
 pub(crate) fn replace_compat_placeholder(
     version: &Version,
     orig: Option<&Type>,
     meta: &mut Type,
-    placeholder: &Ident,
 ) -> Result<()> {
     let Some(orig) = orig else {
         return Ok(())
     };
 
     match (orig, meta) {
-        (Type::Path(orig_path), Type::Path(meta_path)) => {
+        (Type::Path(orig_path), meta) => {
             // We only care about the last item in the path, eg.
             // foo::bar::Vec<Option<MyType>>
             //           ^^^^^^^^^^^^^^^^^^^ last segment
-            match (orig_path.path.segments.last(), meta_path.path.segments.last_mut()) {
-                (Some(orig), Some(meta)) => {
-                    match &meta.ident == placeholder {
-                        // The segment's type identifier is the compat placeholder.
-                        true => {
-                            (*meta).ident = compat_id(version, &orig.ident);
+            let Some(orig_last) = orig_path.path.segments.last() else {
+                return Err(Error::new(orig.span(), "type should have a last segment"))
+            };
+            match meta {
+                Type::Infer(_) => {
+                    // This segment's identifier is the compat placeholder; replace it with its
+                    // corresponding compat type ident.
+                    *meta = Type::Path(TypePath {
+                        qself: None,
+                        path: {
+                            let ident = compat_id(version, &orig_last.ident);
+                            parse_quote_spanned! {meta.span()=> #ident }
+                        },
+                    });
+                    Ok(())
+                },
+
+                Type::Path(meta_path) => {
+                    let Some(meta_last) = meta_path.path.segments.last_mut() else {
+                        return Err(Error::new(meta.span(), "type should have a last segment"))
+                    };
+
+                    match (&orig_last.arguments, &mut meta_last.arguments) {
+                        (PathArguments::None, PathArguments::None) => {
+                            return Err(Error::new(meta.span(), "no placeholder `_` found"));
+                        },
+
+                        // HashMap<K, V>
+                        //        ^^^^^^
+                        (PathArguments::AngleBracketed(orig),
+                         PathArguments::AngleBracketed(meta)) =>
+                        {
+                            // Replace each <T> that matches the compat placeholder.
+                            for (orig, meta) in orig.args.iter()
+                                .zip(meta.args.iter_mut())
+                                {
+                                    match (orig, meta) {
+                                        (GenericArgument::Type(orig),
+                                         GenericArgument::Type(meta)) =>
+                                        {
+                                            replace_compat_placeholder(
+                                                version,
+                                                Some(orig),
+                                                meta,
+                                            )?;
+                                        }
+
+                                        (orig, meta) => return check_mismatch(orig, meta),
+                                    }
+                                }
                             Ok(())
                         },
 
-                        false => match (&orig.arguments, &mut meta.arguments) {
-                            (PathArguments::None, PathArguments::None) => Ok(()),
-
-                            // HashMap<K, V>
-                            //        ^^^^^^
-                            (PathArguments::AngleBracketed(orig),
-                             PathArguments::AngleBracketed(meta)) =>
-                            {
-                                // Replace each <T> that matches the compat placeholder.
-                                for (orig, meta) in orig.args.iter()
-                                    .zip(meta.args.iter_mut())
-                                    {
-                                        match (orig, meta) {
-                                            (GenericArgument::Type(orig),
-                                             GenericArgument::Type(meta)) =>
-                                            {
-                                                replace_compat_placeholder(
-                                                    version,
-                                                    Some(orig),
-                                                    meta,
-                                                    placeholder)?;
-                                            }
-
-                                            (orig, meta) => return check_mismatch(orig, meta),
-                                        }
-                                    }
-                                Ok(())
-                            },
-
-                            // Fn(A, B) -> C
-                            //   ^^^^^^^^^^^
-                            (PathArguments::Parenthesized(orig),
-                             PathArguments::Parenthesized(meta)) =>
-                            {
-                                // Replace each (T) that matches the compat placeholder.
-                                for (orig, meta) in orig.inputs.iter()
-                                    .zip(meta.inputs.iter_mut())
-                                    {
-                                        replace_compat_placeholder(
-                                            version,
-                                            Some(orig),
-                                            meta,
-                                            placeholder)?;
-                                    }
-                                Ok(())
-                            },
-
-                            (orig, meta) => check_mismatch(orig, meta),
+                        // Fn(A, B) -> C
+                        //   ^^^^^^^^^^^
+                        (PathArguments::Parenthesized(orig),
+                         PathArguments::Parenthesized(meta)) =>
+                        {
+                            // Replace each (T) that matches the compat placeholder.
+                            for (orig, meta) in orig.inputs.iter()
+                                .zip(meta.inputs.iter_mut())
+                                {
+                                    replace_compat_placeholder(
+                                        version,
+                                        Some(orig),
+                                        meta,
+                                    )?;
+                                }
+                            Ok(())
                         },
+
+                        (orig, meta) => check_mismatch(orig, meta),
                     }
                 },
 
-                (orig, meta) => check_mismatch(orig, meta.as_deref()),
+                meta => check_mismatch(orig, meta),
             }
+
         },
 
         (Type::Array(orig_array), Type::Array(meta_array)) => {
@@ -140,14 +154,14 @@ pub(crate) fn replace_compat_placeholder(
                 version,
                 Some(&orig_array.elem),
                 &mut meta_array.elem,
-                placeholder)
+            )
         },
 
         (Type::Tuple(orig_tuple), Type::Tuple(meta_tuple)) => {
             for (orig, meta) in orig_tuple.elems.iter()
                 .zip(meta_tuple.elems.iter_mut())
                 {
-                    replace_compat_placeholder(version, Some(orig), meta, placeholder)?;
+                    replace_compat_placeholder(version, Some(orig), meta)?;
                 }
             Ok(())
         },
@@ -195,7 +209,7 @@ pub(crate) fn determine_which_into_func(ty: &Type) -> Result<Path> {
             // is actually the one we expect rather than just assuming that it is.
             let seg = ty_path.path.segments.last()
                 .expect("type should have a last segment");
-            
+
             if seg.ident == "Option" {
                 let seg = extract_option_arg_type_path(seg)?;
                 return Ok(match seg.ident == "Vec" {

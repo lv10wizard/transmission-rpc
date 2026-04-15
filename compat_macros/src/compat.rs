@@ -5,13 +5,30 @@ use semver::Version;
 use syn::{
     Attribute, Error, ExprAssign, Field, Fields, Ident, LitStr, Result, Type, Variant,
     meta::ParseNestedMeta,
+    parse::{Parse, ParseBuffer},
     spanned::Spanned as _,
 };
 
 use crate::{
-    parse::parse_ident,
     symbols::{ATTR_ADDED, ATTR_COMPAT, ATTR_REMOVED, ATTR_RENAMED, NAME, SEMVER, TYPE, Symbol},
 };
+
+/// Parses the attribute [meta value] into a `T` (eg. [`Ident`] or [`Type`]).
+///
+/// [meta value]: syn::Attribute::parse_nested_meta
+fn parse_value<'a, T>(buffer: &'a ParseBuffer<'_>) -> Result<T>
+where
+    T: Parse,
+{
+    match buffer.parse::<LitStr>() {
+        Ok(s) => s.parse(),
+        Err(_) => buffer.parse::<T>(),
+    }
+    .map_err(|err| {
+        let msg = format!("value must be either a string literal or a valid parse-able: {err}");
+        buffer.error(msg)
+    })
+}
 
 /// Represents the change to a struct field or enum variant for a specific transmission semver.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -246,10 +263,9 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
         if attr.path() == ATTR_ADDED { // #[added(semver = "...")]
             attr.parse_nested_meta(|meta| {
                 if meta.path == SEMVER {
-                    let span = meta.input
-                        .parse::<ExprAssign>()?
-                        .span();
-                    data.insert(span, parse_semver(&meta)?, Kind::Added)?;
+                    data.insert(meta.input.span(), parse_semver(&meta)?, Kind::Added)?;
+                } else {
+                    emit_attr_err(&meta, ATTR_ADDED)?;
                 }
                 Ok(())
             })?;
@@ -257,10 +273,9 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
         } else if attr.path() == ATTR_REMOVED { // #[removed(semver = "...")]
             attr.parse_nested_meta(|meta| {
                 if meta.path == SEMVER {
-                    let span = meta.input
-                        .parse::<ExprAssign>()?
-                        .span();
-                    data.insert(span, parse_semver(&meta)?, Kind::Removed)?;
+                    data.insert(meta.input.span(), parse_semver(&meta)?, Kind::Removed)?;
+                } else {
+                    emit_attr_err(&meta, ATTR_REMOVED)?;
                 }
                 Ok(())
             })?;
@@ -275,8 +290,7 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
                     semver = Some(parse_semver(&meta)?);
 
                 } else if meta.path == NAME {
-                    new_name = parse_ident(meta.value()?)
-                        .map(Some)?;
+                    new_name = parse_value(meta.value()?).map(Some)?;
                 } else {
                     emit_attr_err(&meta, ATTR_RENAMED)?;
                 }
@@ -305,9 +319,7 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
                 if meta.path == TYPE {
                     match fv {
                         FieldOrVar::Field(_) => {
-                            data.replace_type = meta.value()?
-                                .parse()
-                                .map(Some)?;
+                            data.replace_type = parse_value(meta.value()?).map(Some)?;
                         },
 
                         FieldOrVar::Variant(var) => {
@@ -316,8 +328,7 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
                                     match fields.unnamed.len() {
                                         0 => Some("zero-field tuple"), // Can this happen?
                                         1 => {
-                                            data.replace_type = meta.value()?
-                                                .parse()
+                                            data.replace_type = parse_value(meta.value()?)
                                                 .map(Some)?;
                                             None
                                         },

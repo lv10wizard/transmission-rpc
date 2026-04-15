@@ -1,4 +1,4 @@
-use compat_macros::GenerateCompat;
+use compat_macros::SemverCompat;
 use serde::Serialize;
 
 /// Defines request arguments for the [`group_set`] method.
@@ -45,7 +45,7 @@ use serde::Serialize;
 /// ```
 ///
 /// [`group_set`]: crate::TransClient::group_set
-#[derive(GenerateCompat, Serialize, Debug, Clone, PartialEq)]
+#[derive(SemverCompat, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct GroupSetArgs {
     /// True if session upload limits are honored.

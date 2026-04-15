@@ -1,4 +1,4 @@
-use compat_macros::GenerateCompat;
+use compat_macros::SemverCompat;
 use serde::{Serialize, ser::SerializeSeq};
 use url::Url;
 
@@ -86,7 +86,7 @@ use crate::types::{Id, IdleMode, Priority, RatioMode, Result, TrackerId, Tracker
 /// [`torrent_set`]: crate::TransClient::torrent_set
 /// [`tracker_list`]: TorrentSetArgs::tracker_list
 /// [`Tracker::id`]: crate::types::Tracker::id
-#[derive(GenerateCompat, Serialize, Debug, Clone, Default, PartialEq)]
+#[derive(SemverCompat, Serialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TorrentSetArgs {
     /// The torrent's bandwidth priority.

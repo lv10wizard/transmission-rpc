@@ -11,12 +11,12 @@ use syn::{
 
 use crate::{
     compat::{FieldOrVar, Kind, parse_attr},
-    parse::{parse_container_compat_attr, parse_serde_container_attr, parse_serde_field_attr},
     placeholder::{
         determine_which_into_func, gen_into_wrapper_func, gen_opt_vec_into_func, gen_vec_into_func,
         ident_into_wrapper, replace_compat_placeholder
     },
-    symbols::{ATTR_COMPAT, PLACEHOLDER, compat_id, version_id}
+    serde::{parse_serde_container_attr, parse_serde_field_attr},
+    symbols::{compat_id, version_id}
 };
 
 fn supported_versions() -> Vec<Version> {
@@ -103,7 +103,6 @@ impl<'a> From<&'a Data> for StructOrEnum<'a> {
 pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
     -> Result<proc_macro2::TokenStream>
 {
-    let parsed_container_attr = parse_container_compat_attr(&ast.attrs)?;
     let versions = supported_versions();
     let container_fields = data.fields()?;
     let orig_container_id = &ast.ident;
@@ -116,8 +115,8 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
 
         let mut fields = Vec::with_capacity(container_fields.len());
         let mut field_into = Vec::with_capacity(container_fields.len());
-        let mut semver_compat = HashMap::new();
-        for field in container_fields.iter() {
+        'fields: for field in container_fields.iter() {
+            let mut semver_compat = HashMap::new();
             let parsed = parse_attr(*field)?;
             if !parsed.changes.is_empty() {
                 for (version, kind) in parsed.changes.into_iter() {
@@ -132,8 +131,8 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
             if let Some(changes) = semver_compat.get(field) {
                 for (change_version, kind) in changes.iter() {
                     match kind {
-                        Kind::Added => if version < change_version { continue; },
-                        Kind::Removed => if version >= change_version { continue; },
+                        Kind::Added => if version < change_version { continue 'fields; },
+                        Kind::Removed => if version >= change_version { continue 'fields; },
                         Kind::Renamed(id) => if version >= change_version {
                             ident = id;
                         },
@@ -144,22 +143,12 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
             // Replace the placeholder with its corresponding semver type, if needed.
             let mut ty = None;
             if let Some(mut attr_type) = parsed.replace_type {
-                match parsed_container_attr.placeholder.as_ref() {
-                    Some(placeholder) => {
-                        replace_compat_placeholder(
-                            version,
-                            field.ty()?,
-                            &mut attr_type,
-                            placeholder,
-                        )?;
-                        ty = Some(attr_type);
-                    },
-                    None => {
-                        let msg = format!("missing container #[{ATTR_COMPAT}] \
-                            {PLACEHOLDER} argument");
-                        return Err(Error::new(attr_type.span(), msg));
-                    },
-                }
+                replace_compat_placeholder(
+                    version,
+                    field.ty()?,
+                    &mut attr_type,
+                )?;
+                ty = Some(attr_type);
             }
 
             // Determine the conversion function to use to map the source-defined original type
@@ -237,7 +226,6 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
             #[doc = #container_doc]
             #[automatically_derived]
             #[allow(non_camel_case_types)]
-            #[serde_with::skip_serializing_none]
             #[derive(serde::Serialize, Debug, Clone)]
             #(#container_serde)*
             pub(crate) #keyword #container_id #generics {
