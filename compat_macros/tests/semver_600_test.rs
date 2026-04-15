@@ -18,7 +18,7 @@ fn compat_replace_struct_field() {
     struct _Foo {
         abc: String,
 
-        #[compat(name = xyz, type = Option<i64>, map = Option::map)]
+        #[renamed(semver = "5.2.0", name = "xyz")]
         def: Option<i8>,
 
         #[compat(type = u16)]
@@ -28,7 +28,7 @@ fn compat_replace_struct_field() {
     #[derive(GenerateCompat)]
     #[compat(placeholder = PLACEHOLDER)]
     struct _Bar {
-        #[compat(type = Option<PLACEHOLDER>, map = Option::map)]
+        #[compat(type = Option<PLACEHOLDER>)]
         foo: Option<_Foo>,
     }
 }

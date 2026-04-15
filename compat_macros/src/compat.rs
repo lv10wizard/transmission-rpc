@@ -3,14 +3,14 @@ use std::{cmp::Ordering, collections::HashMap, fmt::{self, Display}};
 use proc_macro2::Span;
 use semver::Version;
 use syn::{
-    Attribute, Error, ExprAssign, Field, Fields, Ident, LitStr, Path, Result, Type, Variant,
+    Attribute, Error, ExprAssign, Field, Fields, Ident, LitStr, Result, Type, Variant,
     meta::ParseNestedMeta,
     spanned::Spanned as _,
 };
 
 use crate::{
     parse::parse_ident,
-    symbols::{ATTR_ADDED, ATTR_COMPAT, ATTR_REMOVED, ATTR_RENAMED, NAME, SEMVER, TYPE},
+    symbols::{ATTR_ADDED, ATTR_COMPAT, ATTR_REMOVED, ATTR_RENAMED, NAME, SEMVER, TYPE, Symbol},
 };
 
 /// Represents the change to a struct field or enum variant for a specific transmission semver.
@@ -56,7 +56,6 @@ struct InternalCompatData {
     map: HashMap<Version, ParsedAttr>,
 
     replace_type: Option<Type>,
-    replace_map: Option<Path>,
 }
 
 impl InternalCompatData {
@@ -146,8 +145,6 @@ pub(crate) struct CompatData {
     pub(crate) changes: HashMap<Version, Kind>,
     /// The struct field's type replacement.
     pub(crate) replace_type: Option<Type>,
-    /// The struct field's type replacement conversion function.
-    pub(crate) replace_map: Option<Path>,
 }
 
 impl From<InternalCompatData> for CompatData {
@@ -158,7 +155,6 @@ impl From<InternalCompatData> for CompatData {
                 .map(|(version, parsed)| (version, parsed.into()))
                 .collect(),
             replace_type: value.replace_type,
-            replace_map: value.replace_map,
         }
     }
 }
@@ -227,15 +223,16 @@ impl<'a> From<&'a Variant> for FieldOrVar<'a> {
     }
 }
 
-fn parse_semver<'a>(meta: &'a ParseNestedMeta<'_>) -> Result<Option<Version>> {
-    if meta.path == SEMVER {
-        let parsed: LitStr = meta.value()?.parse()?;
-        Version::parse(&parsed.value())
-            .map(Some)
-            .map_err(|err| meta.error(format!("{err}")))
-    } else {
-        Ok(None)
-    }
+fn parse_semver<'a>(meta: &'a ParseNestedMeta<'_>) -> Result<Version> {
+    let parsed: LitStr = meta.value()?.parse()?;
+    Version::parse(&parsed.value())
+        .map_err(|err| meta.error(format!("{err}")))
+}
+
+fn emit_attr_err<'a>(meta: &'a ParseNestedMeta<'_>, attr: Symbol) -> Result<Error> {
+    let ident = meta.path.require_ident()?;
+    let msg = format!("unexpected #[{attr}] argument: \"{ident}\"");
+    Err(meta.error(msg))
 }
 
 /// Parses a struct field or enum variant's attributes for semver compat data.
@@ -248,22 +245,22 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
     for attr in fv.attributes().iter() {
         if attr.path() == ATTR_ADDED { // #[added(semver = "...")]
             attr.parse_nested_meta(|meta| {
-                if let Some(semver) = parse_semver(&meta)? {
+                if meta.path == SEMVER {
                     let span = meta.input
                         .parse::<ExprAssign>()?
                         .span();
-                    data.insert(span, semver, Kind::Added)?;
+                    data.insert(span, parse_semver(&meta)?, Kind::Added)?;
                 }
                 Ok(())
             })?;
 
         } else if attr.path() == ATTR_REMOVED { // #[removed(semver = "...")]
             attr.parse_nested_meta(|meta| {
-                if let Some(semver) = parse_semver(&meta)? {
+                if meta.path == SEMVER {
                     let span = meta.input
                         .parse::<ExprAssign>()?
                         .span();
-                    data.insert(span, semver, Kind::Removed)?;
+                    data.insert(span, parse_semver(&meta)?, Kind::Removed)?;
                 }
                 Ok(())
             })?;
@@ -271,21 +268,17 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
         } else if attr.path() == ATTR_RENAMED { // #[renamed(semver = "...", name = ...)]
             let mut new_name: Option<Ident> = None;
             let mut semver: Option<Version> = None;
-            let mut span = None;
 
             // Parse each argument first to ensure both `semver` and `name` are specified.
             attr.parse_nested_meta(|meta| {
-                if let Some(ver) = parse_semver(&meta)? {
-                    span = meta.input
-                        .parse::<ExprAssign>()?
-                        .span()
-                        .into();
-                    semver = Some(ver);
-                }
+                if meta.path == SEMVER {
+                    semver = Some(parse_semver(&meta)?);
 
-                if meta.path == NAME {
+                } else if meta.path == NAME {
                     new_name = parse_ident(meta.value()?)
                         .map(Some)?;
+                } else {
+                    emit_attr_err(&meta, ATTR_RENAMED)?;
                 }
 
                 Ok(())
@@ -293,8 +286,7 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
 
             match (semver, new_name) {
                 (Some(semver), Some(new_name)) => {
-                    let span = span.expect("semver span should exist");
-                    data.insert(span, semver, Kind::Renamed(new_name))?;
+                    data.insert(attr.span(), semver, Kind::Renamed(new_name))?;
                 },
 
                 (..) => {
@@ -349,9 +341,7 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
                     }
 
                 } else {
-                    let ident = meta.path.require_ident()?;
-                    let msg = format!("unexpected #[{ATTR_COMPAT}] argument: \"{ident}\"");
-                    return Err(meta.error(msg));
+                    emit_attr_err(&meta, ATTR_COMPAT)?;
                 }
 
                 Ok(())

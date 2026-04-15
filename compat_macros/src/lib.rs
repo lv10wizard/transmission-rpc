@@ -200,7 +200,7 @@ mod symbols;
 /// ```
 ///
 /// [`type = ...`]: derive.GenerateCompat.html#compattype--type
-#[proc_macro_derive(GenerateCompat, attributes(compat))] // TODO: rename: include `request`
+#[proc_macro_derive(GenerateCompat, attributes(added, compat, removed, renamed))]
 pub fn generate_semver_600_compat(input: TokenStream) -> TokenStream {
     // REF: https://compilenrun.com/docs/language/rust/rust-advanced-features/rust-derive-macros/
     // REF: https://docs.rs/quote/latest/quote/macro.quote.html#indexing-into-a-tuple-struct

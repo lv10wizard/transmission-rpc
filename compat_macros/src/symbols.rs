@@ -16,7 +16,7 @@ pub(crate) fn version_id(v: &Version) -> Ident {
 }
 
 #[derive(Copy, Clone)]
-pub struct Symbol(&'static str);
+pub(crate) struct Symbol(&'static str);
 
 pub(crate) const ATTR_ADDED: Symbol = Symbol("added");
 pub(crate) const ATTR_COMPAT: Symbol = Symbol("compat");
