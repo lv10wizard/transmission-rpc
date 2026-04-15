@@ -66,25 +66,25 @@ impl<'a> StructOrEnum<'a> {
         data.into()
     }
 
-    fn keyword(&self) -> proc_macro2::TokenStream {
+    fn keyword(&self) -> Result<proc_macro2::TokenStream> {
         match &self.inner {
             Data::Enum(e) => {
                 let token = e.enum_token;
-                quote! { #token }
+                Ok(quote! { #token })
             },
             Data::Struct(s) => {
                 let token = s.struct_token;
-                quote! { #token }
+                Ok(quote! { #token })
             },
-            kind => panic!("unsupported type: {kind:?}"),
+            Data::Union(u) => Err(Error::new(u.union_token.span(), "unsupported type")),
         }
     }
 
-    fn fields(&self) -> Vec<FieldOrVar<'_>> {
+    fn fields(&self) -> Result<Vec<FieldOrVar<'_>>> {
         match &self.inner {
-            Data::Enum(e) => e.variants.iter().map(Into::into).collect(),
-            Data::Struct(s) => s.fields.iter().map(Into::into).collect(),
-            kind => panic!("unsupported type: {kind:?}"),
+            Data::Enum(e) => Ok(e.variants.iter().map(Into::into).collect()),
+            Data::Struct(s) => Ok(s.fields.iter().map(Into::into).collect()),
+            Data::Union(u) => Err(Error::new(u.union_token.span(), "unsupported type")),
         }
     }
 }
@@ -94,7 +94,7 @@ impl<'a> From<&'a Data> for StructOrEnum<'a> {
         let inner = match value {
             Data::Enum(_) => value,
             Data::Struct(_) => value,
-            kind => panic!("unsupported type: {kind:?}"),
+            Data::Union(_) => panic!("unsupported type: union"),
         };
         Self { inner }
     }
@@ -343,71 +343,53 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
 pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
     -> Result<proc_macro2::TokenStream>
 {
-    let parsed_container = parse_container_compat_attr(&ast.attrs)?;
-
+    let parsed_container_attr = parse_container_compat_attr(&ast.attrs)?;
     let versions = supported_versions();
-    let container_fields = data.fields();
-    let mut semver_compat = HashMap::new();
-    let mut replace_types = Vec::with_capacity(container_fields.len());
-
-    for field in container_fields.iter() {
-        let parsed = parse_attr(*field)?;
-        if !parsed.changes.is_empty() {
-            for (version, kind) in parsed.changes.into_iter() {
-                semver_compat.entry(field)
-                    .or_insert(HashMap::<_, _>::default())
-                    .insert(version.clone(), kind);
-            }
-        }
-        replace_types.push(parsed.replace_type);
-    }
-
+    let container_fields = data.fields()?;
     let orig_container_id = &ast.ident;
-    let keyword = &data.keyword();
+    let keyword = &data.keyword()?;
     let generics = &ast.generics;
     let mut generated_compat_types = HashMap::new();
     for version in versions.iter() {
         let container_id = compat_id(version, orig_container_id);
         let from_arg_ident = format_ident!("orig");
 
-        let mut field_ident = Vec::with_capacity(container_fields.len());
-        let mut field_type = Vec::with_capacity(container_fields.len());
+        let mut fields = Vec::with_capacity(container_fields.len());
         let mut field_into = Vec::with_capacity(container_fields.len());
-        for (i, field) in container_fields.iter().enumerate() {
-            let mut include = true;
-            let mut ident = None;
+        let mut semver_compat = HashMap::new();
+        for field in container_fields.iter() {
+            let parsed = parse_attr(*field)?;
+            if !parsed.changes.is_empty() {
+                for (version, kind) in parsed.changes.into_iter() {
+                    semver_compat.entry(field)
+                        .or_insert(HashMap::<_, _>::default())
+                        .insert(version.clone(), kind);
+                }
+            }
+
+            let mut ident = field.require_ident()?; // The compat type's field/variant ident.
+            // Process transmission semver changes.
             if let Some(changes) = semver_compat.get(field) {
                 for (change_version, kind) in changes.iter() {
                     match kind {
-                        Kind::Added => if version < change_version {
-                            include = false;
-                        },
-                        Kind::Removed => if version >= change_version {
-                            include = false;
-                        },
-                        Kind::Renamed(id) => ident = Some(id.clone()),
+                        Kind::Added => if version < change_version { continue; },
+                        Kind::Removed => if version >= change_version { continue; },
+                        Kind::Renamed(id) => ident = id,
                     }
                 }
             }
 
-            field_ident.push({
-                include.then_some(
-                    ident.unwrap_or(field.require_ident()?.clone())
-                )
-            });
-
+            // Replace the placeholder with its corresponding semver type, if needed.
             let mut ty = None;
-            if let Some(placeholder) = parsed_container.placeholder.as_ref()
-                && let Some(mut attr_type) = replace_types
-                    .get(i)
-                    .map(Clone::clone)
-                    .flatten()
+            if let Some(placeholder) = parsed_container_attr.placeholder.as_ref()
+                && let Some(mut attr_type) = parsed.replace_type
             {
                 replace_compat_placeholder(version, field.ty()?, &mut attr_type, placeholder)?;
                 ty = Some(attr_type);
             }
 
-            let ident = field.require_ident()?;
+            // Determine the conversion function to use to map the source-defined original type
+            // into its corresponding compat type.
             let map_func = match ty.as_ref() {
                 Some(ty) => {
                     let func = determine_which_into_func(ty)?;
@@ -418,67 +400,65 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
                     quote! { #into_wrapper }
                 },
             };
-            // TODO: `from.ident` only handles structs; need enum impl
-            field_into.push(include.then(|| quote! {
-                #map_func(#from_arg_ident.#ident, Into::into)
-            }));
-            field_type.push(include.then_some(ty).flatten());
-        }
 
-        let mut field_serde = Vec::with_capacity(container_fields.len());
-        for field in container_fields.iter() {
+            // The field/variant may have been renamed so we need to explicitly use the
+            // source-defined original ident.
+            let orig_ident = field.require_ident()?;
             let attrs = parse_serde_field_attr(version, *field)?;
-            field_serde.push(attrs);
-        }
-        let container_serde = parse_serde_container_attr(version, ast)?;
-        let container_doc = format!("Transmission semver-{version} compatible \
-            request serialization helper type");
-        let mut fields = Vec::with_capacity(field_ident.len());
-        for idx in 0..container_fields.len() {
-            let id = field_ident.get(idx).expect("field ident should have been parsed");
-            let Some(id) = id else {
-                // This version does not include the field/variant (either not yet added or was
-                // removed).
-                continue
-            };
-            let ty = field_type.get(idx).expect("field type should have been parsed");
-            let attr = field_serde.get(idx).expect("field serde attrs should have been parsed");
-            let span = container_fields.get(idx)
-                .expect("container field should exist")
-                .span();
-            fields.push(match &data.inner {
+            let ty = ty.as_ref().or(field.ty()?);
+            match &data.inner {
                 Data::Struct(_) => {
                     let Some(ty) = ty else {
-                        return Err(Error::new(span, "struct field must have a type"));
+                        return Err(Error::new(field.span(), "struct field must have a type"));
                     };
-                    quote! {
-                        #( #attr )*
-                        #id: #ty
-                    }
+                    fields.push(quote_spanned! {field.span()=>
+                        #( #attrs )*
+                        #ident: #ty
+                    });
+                    field_into.push(quote_spanned! {field.span()=>
+                        #ident: #map_func(#from_arg_ident.#orig_ident, Into::into)
+                    });
                 },
+
                 Data::Enum(_) => {
-                    let mut tokens = quote! {
-                        #( #attr )*
-                        #id
+                    let mut field_tokens = quote_spanned! {field.span()=>
+                        #( #attrs )*
+                        #ident
                     };
-                    // GenerateCompat only handles enums with either unit variants or unnamed
-                    // tuple variants with a single field.
+                    let mut src_variant = quote_spanned! {field.span()=>
+                        #orig_container_id::#orig_ident
+                    };
+                    let mut dst_variant = quote_spanned! {field.span()=>
+                        Self::#ident
+                    };
+
                     if let Some(ty) = ty {
-                        tokens = quote! {
-                            #tokens(#ty)
+                        field_tokens = quote_spanned! {field.span()=>
+                            #field_tokens(#ty)
+                        };
+                        src_variant = quote_spanned! {field.span()=>
+                            #src_variant(x)
+                        };
+                        dst_variant = quote_spanned! {field.span()=>
+                            #dst_variant(#map_func(x, Into::into))
                         };
                     }
-                    tokens
+                    fields.push(field_tokens);
+                    field_into.push(quote_spanned! {field.span()=>
+                        #src_variant => #dst_variant
+                    });
                 },
 
                 // This shouldn't happen here (should be caught earlier).
-                kind => {
-                    let msg = format!("unexpected container type: {kind:?}");
-                    return Err(Error::new(span, msg));
+                Data::Union(u) => {
+                    return Err(Error::new(u.union_token.span(), "unexpected container type"));
                 },
-            });
+            }
         }
 
+        let container_serde = parse_serde_container_attr(version, ast)?;
+        let container_doc = format!("Transmission semver-{version} compatible \
+            request serialization helper type");
         let compat_type = quote! {
             #[doc = #container_doc]
             #[automatically_derived]
@@ -496,63 +476,17 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
             gen_opt_vec_into_func(),
             gen_vec_into_func(),
         ];
-        let mut into_fields = Vec::with_capacity(field_into.len());
-        for idx in 0..container_fields.len() {
-            let field = container_fields.get(idx).expect("container field should exist");
-            let id = field_ident.get(idx).expect("field ident should have been parsed");
-            let field_into = field_into.get(idx)
-                .expect("field mapping func should have been parsed");
-            let (id, field_into) = match (id, field_into) {
-                (Some(id), Some(field_into)) => (id, field_into),
-                // The field/variant is not included (either not yet added or already removed in
-                // this version).
-                (None, None) => continue,
-
-                // id<->into conversion mapping mismatch.
-                // This shouldn't happen; it probably indicates either a bug with the `include`
-                // logic.
-                (..) => {
-                    let msg = "field ident/into-mapping mismatch (how did this happen?)";
-                    return Err(Error::new(field.span(), msg));
-                },
-            };
-
-            // Format each field's orig->compat conversion based on container type.
-            into_fields.push(match &data.inner {
-                Data::Enum(_) => {
-                    let orig_var_id = field.require_ident()?;
-                    let ty = field_type.get(idx).expect("field type should have been parsed");
-                    match ty.as_ref() {
-                        // TODO: consolidate (assign each match arm part and emit single quote!{})
-                        // TODO- use field_into
-                        Some(_) => quote! {
-                            #orig_container_id::#orig_var_id(x) => Self::#id(x.into())
-                        },
-                        None => quote! {
-                            #orig_container_id::#orig_var_id => Self::#id
-                        },
-                    }
-                },
-                Data::Struct(_) => quote! {
-                    #id: #field_into
-                },
-
-                // This shouldn't happen here (should be caught earlier).
-                kind => {
-                    let msg = format!("unexpected container type: {kind:?}");
-                    return Err(Error::new(field.span(), msg));
-                },
-            });
-        }
-        // Format the `From` implementation based on container type.
+        // Format the `From` implementation based on whether we're processing a struct or enum.
         let from_impl = match &data.inner {
             Data::Enum(_) => quote! {
                 match #from_arg_ident {
-                    #( #into_fields ),*
+                    #( #field_into ),*
                 }
             },
             Data::Struct(_) => quote! {
-                #( #into_fields ),*
+                Self {
+                    #( #field_into ),*
+                }
             },
 
             // This shouldn't happen.
@@ -561,13 +495,11 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
 
         generated_compat_types.insert(version, quote! {
             #compat_type
-
             impl From<#orig_container_id> for #container_id {
                 fn from(#from_arg_ident: #orig_container_id) -> Self {
                     // Define the helper field conversion functions which may or may not be
                     // used.
                     #( #[automatically_derived] #into_func_defn )*
-
                     #from_impl
                 }
             }
@@ -579,7 +511,7 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
     let compat_container_ident = format_ident!("__{orig_container_id}_compat__");
     let compat_type_defn = generated_compat_types.values();
 
-    let variant_ident: Vec<_> = versions.iter().map(version_id).collect();
+    let compat_container_variant_ident: Vec<_> = versions.iter().map(version_id).collect();
     let container_ident: Vec<_> = versions.iter()
         .map(|v| compat_id(v, orig_container_id))
         .collect();
@@ -588,16 +520,20 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
         generated `target` semver compatible type.\n\
         \n\
         Returns `None` if the `target` semver is unsupported.");
-    let into_compat_arm: Vec<_> = versions.iter()
+    let mut into_compat_arm: Vec<_> = versions.iter()
         .enumerate()
         .map(|(i, version)| {
-            let variant = variant_ident.get(i).expect("variant ident should exist");
+            let variant = compat_container_variant_ident.get(i)
+                .expect("variant ident should exist");
             let (major, minor, patch) = (version.major, version.minor, version.patch);
             quote! {
                 (#major, #minor, #patch) => Some(#compat_container_ident::#variant(self.into()))
             }
         })
         .collect();
+    into_compat_arm.push(quote! {
+        (..) => None
+    });
 
     Ok(quote! {
         // Emit all of the generated type definitions.
@@ -612,7 +548,7 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
         #[derive(serde::Serialize, Debug, Clone)]
         #[serde(untagged)]
         pub(crate) enum #compat_container_ident {
-            #( #variant_ident(#container_ident) ),*
+            #( #compat_container_variant_ident(#container_ident) ),*
         }
 
         impl #orig_container_id {
@@ -622,8 +558,6 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
             {
                 match (target.major, target.minor, target.patch) {
                     #( #into_compat_arm ),*
-
-                    (..) => None,
                 }
             }
         }
