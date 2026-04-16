@@ -11,12 +11,12 @@ use syn::{
 
 use crate::{
     compat::{FieldOrVar, Kind, parse_attr},
-    placeholder::{
+    serde::{parse_serde_container_attr, parse_serde_field_attr},
+    symbols::{compat_id, version_id},
+    r#type::{
          determine_which_into_func, gen_into_wrapper_func, gen_opt_vec_into_func,
          gen_vec_into_func, ident_into_wrapper, replace_with_compat_type,
     },
-    serde::{parse_serde_container_attr, parse_serde_field_attr},
-    symbols::{compat_id, version_id}
 };
 
 fn supported_versions() -> Vec<Version> {

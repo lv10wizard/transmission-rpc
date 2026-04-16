@@ -8,9 +8,9 @@ use generate::generate_compat_types;
 
 mod compat;
 mod generate;
-mod placeholder;
 mod serde;
 mod symbols;
+mod r#type;
 
 /// Generates structs/enums for request serialization compatibility with every Transmission version
 /// down to `1.50` (`rpc-version-semver` 1.3.0, `rpc-version`: 4). Ideally, `SemverCompat` would
