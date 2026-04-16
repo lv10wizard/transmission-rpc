@@ -19,10 +19,11 @@ fn compat_replace_struct_field() {
     struct _Foo {
         abc: String,
 
-        #[renamed(semver = "5.2.0", name = "xyz")]
+        #[renamed = r#"("5.2.0", "xyz")"#]
         def: Option<i8>,
 
-        #[added(semver = "6.0.0")]
+        #[added = "5.0.0"]
+        #[removed = "5.1.0"]
         zzz: Option<u8>,
     }
 

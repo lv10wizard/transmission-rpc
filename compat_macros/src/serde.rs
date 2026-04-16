@@ -29,6 +29,8 @@ where
 /// and `to_strip = "rename_all"`, the returned attributes will be:
 ///
 /// `#\[serde(deny_unknown_fields)\]`
+///
+/// [`Ident`]: struct@syn::Ident
 fn strip_serde_attr(serde_attrs: Vec<Attribute>, to_strip: &str) -> Result<Vec<Attribute>> {
     let mut stripped_attrs = Vec::with_capacity(serde_attrs.len());
     for attr in serde_attrs.into_iter() {

@@ -1,7 +1,9 @@
 //! Defines helper `#[derive(...)]` macros for request serialization compatibility with
 //! Transmission.
 
+use once_cell::sync::Lazy;
 use proc_macro::TokenStream;
+use semver::Version;
 use syn::{DeriveInput, parse_macro_input};
 
 use generate::generate_compat_types;
@@ -11,6 +13,40 @@ mod generate;
 mod serde;
 mod symbols;
 mod r#type;
+
+static SUPPORTED_VERSIONS: Lazy<Vec<Version>> = Lazy::new(|| {
+    let mut versions = vec![
+        Version::new(1, 3, 0), // Transmission 1.50
+
+        Version::new(2, 0, 0), // Transmission 1.60
+        Version::new(2, 1, 0), // Transmission 1.70
+
+        Version::new(3, 0, 0), // Transmission 1.80
+        Version::new(3, 1, 0), // Transmission 1.90
+        Version::new(3, 2, 0), // Transmission 1.92
+        Version::new(3, 3, 0), // Transmission 2.00
+        Version::new(3, 4, 0), // Transmission 2.10
+        Version::new(3, 5, 0), // Transmission 2.12
+        Version::new(3, 6, 0), // Transmission 2.20
+
+        Version::new(4, 0, 0), // Transmission 2.30
+
+        Version::new(5, 0, 0), // Transmission 2.40
+        Version::new(5, 1, 0), // Transmission 2.80
+        Version::new(5, 2, 0), // Transmission 3.00
+        Version::new(5, 3, 0), // Transmission 4.0.0
+
+        Version::new(6, 0, 0), // Transmission 4.1.0
+        Version::new(6, 0, 1), // Transmission 4.1.1
+        // TODO: Version::new(6, 1, 0), // Transmission 4.2.0
+    ];
+
+    // Ensure the versions are sorted and unique.
+    versions.sort();
+    versions.dedup();
+
+    versions
+});
 
 /// Generates structs/enums for request serialization compatibility with every Transmission version
 /// down to `1.50` (`rpc-version-semver` 1.3.0, `rpc-version`: 4). Ideally, `SemverCompat` would
@@ -43,60 +79,47 @@ mod r#type;
 ///
 /// # Field/Variant attributes
 ///
-/// ### `#[added(semver = "...")]`
+/// ### `#[added = "x.y.z"]`
 ///
-/// TODO
+/// Flags that the struct field or enum variant was added in this rpc-semver.
 ///
-/// ### `#[removed(semver = "...")]`
+/// Specifically, the field/variant will only be serialized for requests to rpc servers with semver
+/// `>= "x.y.z" semver`.
 ///
-/// TODO
+/// ### `#[removed = "x.y.z")]`
 ///
-/// ### `#[renamed(semver = "...", name = ...)]`
+/// Flags that the struct field or enum variant was removed in this rpc-semver.
 ///
-/// TODO
+/// Specifically, the field/variant will only be serialized for requests to rpc servers with semver
+/// `< "x.y.z" semver`.
 ///
-/// ### `#[compat(type = _)]` TODO: `#[compat]` (no args)
+/// ### `#[renamed = r#"("x.y.z", "name")"#]`
 ///
-/// Flags that the tagged field- or variant's type should be converted into its corresponding
-/// version's compat type.
+/// Flags that the struct field or enum variant was renamed in this rpc-semver to the given
+/// `"name"`.
 ///
-/// TODO: `somewhere` => inner most?
-/// `SemverCompat` parses the `type = ...` for `_` (ie, a single underscore) somewhere in the
-/// defined value which can be either a valid Type or a string literal, eg.
+/// That is,
 ///
-/// * `#[compat(type = "_")]`
-/// * `#[compat(type = Option<Vec<_>>)]`
-/// * `#[compat(type = "Vec<_>")]`
+/// * if `rpc server semver < "x.y.z" semver`, the field/variant will be serialized with the
+/// source-defined ident.
+/// * if `rpc server semver >= "x.y.z" semver`, the field/variant will be serialized with the given
+/// `"name"` ident.
 ///
-/// Parsing the `type` will result in an error about "mismatched placeholder types" if the value
-/// does not match the actual tagged field- or variant's type arguments. For example, the following
-/// will not compile:
+/// ### `#[compat]`
 ///
-/// ```
-/// use compat_macros::SemverCompat;
-/// use serde::Serialize;
+/// Parses the field- or variant's type and replaces its inner-most generic argument with its
+/// corresponding version's compat type, eg.
 ///
-/// #[derive(SemverCompat, Serialize, Debug)]
-/// struct Fail {
-///     #[compat(type = _)] // Should be `type = Option<_>`.
-///                         // (Would generate semver compatible types where `compat_field` would
-///                         // be defined with a type like `__semver_xyz_compat_CompatType` for
-///                         // each semver-x.y.z >= `1.3.0` defined in [rpc-spec.md].
-///     compat_field: Option<CompatType>,
-/// }
-///
-/// #[derive(SemverCompat, Serialize, Debug)]
-/// struct CompatType {
-///     my_compat_var: i32,
-/// }
-/// ```
+/// * `Foo` => `__semver_xyz_compat_Foo`
+/// * `Option<Foo>` => `Option<__semver_xyz_compat_Foo>`
+/// * `Option<Vec<Foo>>` => `Option<Vec<__semver_xyz_compat_Foo>>`
 ///
 /// # Examples
 ///
 /// ### Struct
 ///
 /// The following `#[derive(SemverCompat)]` struct definitions will generate structs for every rpc
-/// semver >= `1.3.0` defined in [rpc-spec.md].
+/// semver \>= `1.3.0` defined in [rpc-spec.md].
 ///
 /// ```rust
 /// use compat_macros::SemverCompat;
@@ -107,9 +130,9 @@ mod r#type;
 /// #[serde(rename_all = "camelCase")] // #[serde(rename_all = ...)] forced to "snake_case" in
 ///                                    // sem-versions >= 6.0.0
 /// struct Foo {
-///     #[added(semver = "2.1.0")]
-///     #[renamed(semver = "5.2.0", name = xyz)]
-///     #[removed(semver = "6.0.0")]
+///     #[added = "2.1.0"]
+///     #[renamed = r#"("5.2.0", "xyz")"#]
+///     #[removed = "6.0.0"]
 ///     foo_bar: Option<i32>, // Omitted in sem-versions < 2.1.0
 ///                           // Exists as `foo_bar: Option<i32>` in sem-versions >= 2.1.0
 ///                           // Becomes `xyz: Option<i32>` in sem-versions >= 5.2.0
@@ -222,7 +245,7 @@ mod r#type;
 /// }
 /// ```
 ///
-/// ### Unit Enum TODO
+/// ### Unit Enum
 ///
 /// ```rust
 /// use compat_macros::SemverCompat;
@@ -233,12 +256,13 @@ mod r#type;
 /// enum Bar {
 ///     MyVariant, // Unchanged.
 ///     AnotherVariant, // Unchanged.
-///     #[compat(name = LoremIpsum)]
-///     AThirdVariant, // Renamed to: `LoremIpsum`.
+///     #[renamed = r#"("6.0.0", "LoremIpsum")"#]
+///     AThirdVariant, // Renamed to: `LoremIpsum` in sem-versions >= 6.0.0.
 /// }
 /// ```
 ///
-/// Will generate into something like:
+/// The generated enum for semver 6.0.0 will look something like:
+///
 /// ```rust
 /// #[derive(Serialize, Debug, Clone)]
 /// #[serde(rename_all = "snake_case")]
@@ -249,28 +273,37 @@ mod r#type;
 /// }
 /// ```
 ///
-/// ### Single-Field Tuple Variant Enum TODO
+/// ### Single-Field Tuple Variant Enum
 ///
 /// ```rust
 /// #[derive(SemverCompat, Serialize)]
 /// enum Var {
-///     #[compat(name = A, type = Option<u64>, map = Option::map)]
-///     X(Option<u8>),
-///     #[compat(name = B, type = Option<u64>, map = Option::map)]
-///     Y(Option<u8>),
-///     #[compat(name = C, type = Option<u64>, map = Option::map)]
-///     Z(Option<u8>),
+///     #[compat]
+///     X(A),
+/// }
+///
+/// #[derive(SemverCompat, Serialize)]
+/// #[serde(rename_all = "camelCase")]
+/// struct A {
+///     a_one: Option<i32>,
+///     a_two: Option<i32>,
 /// }
 /// ```
 ///
-/// Will generate something like:
+/// Will generate a compat type for all [rpc-spec.md]-defined semver >= `1.3.0`, eg. semver 6.0.0:
+///
 /// ```rust
 /// #[derive(Serialize, Debug, Clone)]
 /// #[serde(rename_all = "snake_case")]
 /// pub(crate) enum __semver_600_compat_Var {
-///     A(Option<u64>), // Was: `X(Option<u8>)`
-///     B(Option<u64>), // Was: `Y(Option<u8>)`
-///     C(Option<u64>), // Was: `Z(Option<u8>)`
+///     X(__semver_600_compat_A),
+/// }
+///
+/// #[derive(Serialize, Debug, Clone)]
+/// #[serde(rename_all = "snake_case")]
+/// pub(crate) struct __semver_600_compat_A {
+///     a_one: Option<i32>,
+///     a_two: Option<i32>,
 /// }
 /// ```
 ///

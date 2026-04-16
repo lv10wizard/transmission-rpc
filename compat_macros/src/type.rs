@@ -1,3 +1,4 @@
+use proc_macro2::Span;
 use semver::Version;
 use syn::{
     Error, GenericArgument, Ident, Path, PathArguments, PathSegment, Result, Type,
@@ -120,7 +121,7 @@ pub(crate) fn determine_which_into_func(ty: &Type) -> Result<Path> {
                 .expect("type should have a last segment");
 
             if seg.ident == "Option" {
-                let seg = extract_option_arg_type_path(seg)?;
+                let seg = extract_option_arg_type_path(ty.span(), seg)?;
                 return Ok(match seg.ident == "Vec" {
                     true => {
                         let opt_vec_into = ident_opt_vec_into();
@@ -144,8 +145,7 @@ pub(crate) fn determine_which_into_func(ty: &Type) -> Result<Path> {
     }
 }
 
-fn extract_option_arg_type_path(seg: &PathSegment) -> Result<&PathSegment> {
-    let span = seg.span(); // TODO: fix span (should be #[compat(type = ...)] span)
+fn extract_option_arg_type_path(span: Span, seg: &PathSegment) -> Result<&PathSegment> {
     let PathArguments::AngleBracketed(bracketed) = &seg.arguments else {
         // Either a bare `Option` or `Option(T)`...
         return Err(Error::new(span, "unexpected Option arguments"))

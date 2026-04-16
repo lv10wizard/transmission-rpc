@@ -23,9 +23,6 @@ pub(crate) const ATTR_DEPRECATED: Symbol = Symbol("deprecated"); // TODO? requir
 pub(crate) const ATTR_REMOVED: Symbol = Symbol("removed");
 pub(crate) const ATTR_RENAMED: Symbol = Symbol("renamed");
 
-pub(crate) const NAME: Symbol = Symbol("name");
-pub(crate) const SEMVER: Symbol = Symbol("semver");
-
 impl PartialEq<Symbol> for Ident {
     fn eq(&self, other: &Symbol) -> bool {
         self == other.0

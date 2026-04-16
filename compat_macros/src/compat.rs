@@ -1,34 +1,20 @@
-use std::{cmp::Ordering, collections::HashMap, fmt::{self, Display}};
+use std::{
+    cmp::Ordering,
+    collections::HashMap,
+    fmt::{self, Display},
+};
 
 use proc_macro2::Span;
 use semver::Version;
 use syn::{
-    Attribute, Error, Field, Fields, Ident, LitStr, Result, Type, Variant,
-    meta::ParseNestedMeta,
-    parse::{Parse, ParseBuffer},
+    Attribute, Error, Expr, ExprTuple, Field, Fields, Ident, Lit, LitStr, Meta, Result, Type, Variant,
     spanned::Spanned as _,
 };
 
 use crate::{
-    symbols::{ATTR_ADDED, ATTR_COMPAT, ATTR_REMOVED, ATTR_RENAMED, NAME, SEMVER, Symbol},
+    SUPPORTED_VERSIONS,
+    symbols::{ATTR_ADDED, ATTR_COMPAT, ATTR_REMOVED, ATTR_RENAMED},
 };
-
-/// Parses the attribute [meta value] into a `T` (eg. [`Ident`] or [`Type`]).
-///
-/// [meta value]: syn::Attribute::parse_nested_meta
-fn parse_value<'a, T>(buffer: &'a ParseBuffer<'_>) -> Result<T>
-where
-    T: Parse,
-{
-    match buffer.parse::<LitStr>() {
-        Ok(s) => s.parse(),
-        Err(_) => buffer.parse::<T>(),
-    }
-    .map_err(|err| {
-        let msg = format!("value must be either a string literal or a valid parse-able: {err}");
-        buffer.error(msg)
-    })
-}
 
 /// Represents the change to a struct field or enum variant for a specific transmission semver.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -40,6 +26,8 @@ pub(crate) enum Kind {
     Removed,
     /// The struct field or enum variant was renamed. The [`Ident`] field is the new name of the
     /// field or varaint.
+    ///
+    /// [`Ident`]: struct@syn::Ident
     Renamed(Ident),
 }
 
@@ -81,7 +69,8 @@ impl InternalCompatData {
     ///
     /// Any given semver should only change a struct field or enum variant once. (eg. It doesn't
     /// make sense for a field or variant to be both added and renamed in the same semver.)
-    fn insert<'a>(&mut self, span: Span, version: Version, kind: Kind) -> Result<()> {
+    fn insert<'a>(&mut self, key: (Version, Span), kind: Kind) -> Result<()> {
+        let (version, span) = key;
         let parsed = ParsedAttr { kind, span };
         if let Some(existing) = self.map.insert(version.clone(), parsed) {
             let span = span.located_at(existing.span);
@@ -241,16 +230,28 @@ impl<'a> From<&'a Variant> for FieldOrVar<'a> {
     }
 }
 
-fn parse_semver<'a>(meta: &'a ParseNestedMeta<'_>) -> Result<Version> {
-    let parsed: LitStr = meta.value()?.parse()?;
-    Version::parse(&parsed.value())
-        .map_err(|err| meta.error(format!("{err}")))
+fn parse_str_lit(expr: &Expr) -> Result<&LitStr> {
+    match expr {
+        Expr::Lit(exprlit) if let Lit::Str(s) = &exprlit.lit => Ok(s),
+        _ => Err(Error::new(expr.span(), "expected string literal")),
+    }
 }
 
-fn emit_attr_err<'a>(meta: &'a ParseNestedMeta<'_>, attr: Symbol) -> Result<Error> {
-    let ident = meta.path.require_ident()?;
-    let msg = format!("unexpected #[{attr}] argument: \"{ident}\"");
-    Err(meta.error(msg))
+fn parse_semver(value: &Expr) -> Result<(Version, Span)> {
+    match Version::parse(&parse_str_lit(value)?.value()) {
+        Ok(version) => {
+            SUPPORTED_VERSIONS.iter()
+                .find(|&v| &version == v)
+                .map(|_| (version, value.span()))
+                .ok_or(Error::new(value.span(), "unrecognized transmission rpc-version-semver"))
+        },
+        Err(err) => return Err(Error::new(value.span(), err)),
+    }
+}
+
+fn parse_new_name(value: &Expr) -> Result<Ident> {
+    let s = parse_str_lit(value)?;
+    s.parse()
 }
 
 /// Parses a struct field or enum variant's attributes for semver compat data.
@@ -261,54 +262,31 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
     let mut data = InternalCompatData::default();
 
     for attr in fv.attributes().iter() {
-        if attr.path() == ATTR_ADDED { // #[added(semver = "...")]
-            attr.parse_nested_meta(|meta| {
-                if meta.path == SEMVER {
-                    data.insert(meta.input.span(), parse_semver(&meta)?, Kind::Added)?;
-                } else {
-                    emit_attr_err(&meta, ATTR_ADDED)?;
-                }
-                Ok(())
-            })?;
+        if attr.path() == ATTR_ADDED { // #[added = "semver")]
+            let meta = attr.meta.require_name_value()?;
+            data.insert(parse_semver(&meta.value)?, Kind::Added)?;
 
-        } else if attr.path() == ATTR_REMOVED { // #[removed(semver = "...")]
-            attr.parse_nested_meta(|meta| {
-                if meta.path == SEMVER {
-                    data.insert(meta.input.span(), parse_semver(&meta)?, Kind::Removed)?;
-                } else {
-                    emit_attr_err(&meta, ATTR_REMOVED)?;
-                }
-                Ok(())
-            })?;
+        } else if attr.path() == ATTR_REMOVED { // #[removed = "semver")]
+            let meta = attr.meta.require_name_value()?;
+            data.insert(parse_semver(&meta.value)?, Kind::Removed)?;
 
-        } else if attr.path() == ATTR_RENAMED { // #[renamed(semver = "...", name = ...)]
-            let mut new_name: Option<Ident> = None;
-            let mut semver: Option<Version> = None;
+        } else if attr.path() == ATTR_RENAMED { // #[renamed = ("semver", "name")]
+            let meta = attr.meta.require_name_value()?;
+            let s = parse_str_lit(&meta.value)?;
+            let tuple: ExprTuple = s.parse()?;
+            let (semver, name) = match tuple.elems.len() {
+                2 => (
+                    parse_semver(&tuple.elems[0]).map(Some)?,
+                    parse_new_name(&tuple.elems[1]).map(Some)?,
+                ),
+                _ => (None, None),
+            };
 
-            // Parse each argument first to ensure both `semver` and `name` are specified.
-            attr.parse_nested_meta(|meta| {
-                if meta.path == SEMVER {
-                    semver = Some(parse_semver(&meta)?);
-
-                } else if meta.path == NAME {
-                    new_name = parse_value(meta.value()?).map(Some)?;
-                } else {
-                    emit_attr_err(&meta, ATTR_RENAMED)?;
-                }
-
-                Ok(())
-            })?;
-
-            match (semver, new_name) {
-                (Some(semver), Some(new_name)) => {
-                    data.insert(attr.span(), semver, Kind::Renamed(new_name))?;
-                },
-
+            match (semver, name) {
+                (Some(semver), Some(name)) => data.insert(semver, Kind::Renamed(name))?,
                 (..) => {
-                    return Err({
-                        let msg = format!("expected both \"{SEMVER}\" and \"{NAME}\" arguments");
-                        Error::new(attr.span(), msg)
-                    });
+                    let msg = "expected tuple: (\"semver\", \"name\")";
+                    return Err(Error::new(meta.span(), msg));
                 },
             }
 
@@ -316,6 +294,10 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
         // TODO- deprecated handling requires hand-rolled Serialize impl
 
         } else if attr.path() == ATTR_COMPAT { // #[compat]
+            if fv.ty()?.is_none() {
+                let msg = "expected field or variant to have a type";
+                return Err(Error::new(attr.path().span(), msg));
+            }
             attr.meta.require_path_only()?;
             data.replace_type = true;
         }

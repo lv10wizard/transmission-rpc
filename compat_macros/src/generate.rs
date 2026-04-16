@@ -3,13 +3,13 @@ extern crate proc_macro;
 use std::collections::HashMap;
 
 use quote::{format_ident, quote, quote_spanned};
-use semver::Version;
 use syn::{
     Data, DeriveInput, Error, Result,
     spanned::Spanned as _,
 };
 
 use crate::{
+    SUPPORTED_VERSIONS,
     compat::{FieldOrVar, Kind, parse_attr},
     serde::{parse_serde_container_attr, parse_serde_field_attr},
     symbols::{compat_id, version_id},
@@ -18,40 +18,6 @@ use crate::{
          gen_vec_into_func, ident_into_wrapper, replace_with_compat_type,
     },
 };
-
-fn supported_versions() -> Vec<Version> {
-    let mut versions = vec![
-        Version::new(1, 3, 0), // Transmission 1.50
-
-        Version::new(2, 0, 0), // Transmission 1.60
-        Version::new(2, 1, 0), // Transmission 1.70
-
-        Version::new(3, 0, 0), // Transmission 1.80
-        Version::new(3, 1, 0), // Transmission 1.90
-        Version::new(3, 2, 0), // Transmission 1.92
-        Version::new(3, 3, 0), // Transmission 2.00
-        Version::new(3, 4, 0), // Transmission 2.10
-        Version::new(3, 5, 0), // Transmission 2.12
-        Version::new(3, 6, 0), // Transmission 2.20
-
-        Version::new(4, 0, 0), // Transmission 2.30
-
-        Version::new(5, 0, 0), // Transmission 2.40
-        Version::new(5, 1, 0), // Transmission 2.80
-        Version::new(5, 2, 0), // Transmission 3.00
-        Version::new(5, 3, 0), // Transmission 4.0.0
-
-        Version::new(6, 0, 0), // Transmission 4.1.0
-        Version::new(6, 0, 1), // Transmission 4.1.1
-        // TODO: Version::new(6, 1, 0), // Transmission 4.2.0
-    ];
-
-    // Ensure the versions are sorted and unique.
-    versions.sort();
-    versions.dedup();
-
-    versions
-}
 
 pub(crate) struct StructOrEnum<'a> {
     inner: &'a Data,
@@ -103,13 +69,12 @@ impl<'a> From<&'a Data> for StructOrEnum<'a> {
 pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
     -> Result<proc_macro2::TokenStream>
 {
-    let versions = supported_versions();
     let container_fields = data.fields()?;
     let orig_container_id = &ast.ident;
     let keyword = &data.keyword()?;
     let generics = &ast.generics;
     let mut generated_compat_types = HashMap::new();
-    for version in versions.iter() {
+    for version in SUPPORTED_VERSIONS.iter() {
         let container_id = compat_id(version, orig_container_id);
         let from_arg_ident = format_ident!("orig");
 
@@ -268,8 +233,10 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
     let compat_container_ident = format_ident!("__{orig_container_id}_compat__");
     let compat_type_defn = generated_compat_types.values();
 
-    let compat_container_variant_ident: Vec<_> = versions.iter().map(version_id).collect();
-    let container_ident: Vec<_> = versions.iter()
+    let compat_container_variant_ident: Vec<_> = SUPPORTED_VERSIONS.iter()
+        .map(version_id)
+        .collect();
+    let container_ident: Vec<_> = SUPPORTED_VERSIONS.iter()
         .map(|v| compat_id(v, orig_container_id))
         .collect();
 
@@ -277,7 +244,7 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
         generated `target` semver compatible type.\n\
         \n\
         Returns `None` if the `target` semver is unsupported.");
-    let mut into_compat_arm: Vec<_> = versions.iter()
+    let mut into_compat_arm: Vec<_> = SUPPORTED_VERSIONS.iter()
         .enumerate()
         .map(|(i, version)| {
             let variant = compat_container_variant_ident.get(i)
