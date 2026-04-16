@@ -3,14 +3,14 @@ use std::{cmp::Ordering, collections::HashMap, fmt::{self, Display}};
 use proc_macro2::Span;
 use semver::Version;
 use syn::{
-    Attribute, Error, ExprAssign, Field, Fields, Ident, LitStr, Result, Type, Variant,
+    Attribute, Error, Field, Fields, Ident, LitStr, Result, Type, Variant,
     meta::ParseNestedMeta,
     parse::{Parse, ParseBuffer},
     spanned::Spanned as _,
 };
 
 use crate::{
-    symbols::{ATTR_ADDED, ATTR_COMPAT, ATTR_REMOVED, ATTR_RENAMED, NAME, SEMVER, TYPE, Symbol},
+    symbols::{ATTR_ADDED, ATTR_COMPAT, ATTR_REMOVED, ATTR_RENAMED, NAME, SEMVER, Symbol},
 };
 
 /// Parses the attribute [meta value] into a `T` (eg. [`Ident`] or [`Type`]).
@@ -72,7 +72,7 @@ struct InternalCompatData {
     /// Helper map to handle [`Kind`] collision for the same [`Version`] key.
     map: HashMap<Version, ParsedAttr>,
 
-    replace_type: Option<Type>,
+    replace_type: bool,
 }
 
 impl InternalCompatData {
@@ -160,8 +160,9 @@ impl InternalCompatData {
 pub(crate) struct CompatData {
     /// What changed about the struct field or enum variant in a particular [`Version`].
     pub(crate) changes: HashMap<Version, Kind>,
-    /// The struct field's type replacement.
-    pub(crate) replace_type: Option<Type>,
+    /// Whether the source-defined original field/variant's type should be replaced with its
+    /// corresponding compat version in the generated struct/enum.
+    pub(crate) replace_type: bool,
 }
 
 impl From<InternalCompatData> for CompatData {
@@ -314,49 +315,9 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
         // TODO? } else if attr.path() == ATTR_DEPRECATED {
         // TODO- deprecated handling requires hand-rolled Serialize impl
 
-        } else if attr.path() == ATTR_COMPAT { // #[compat(type = ...)]
-            attr.parse_nested_meta(|meta| {
-                if meta.path == TYPE {
-                    match fv {
-                        FieldOrVar::Field(_) => {
-                            data.replace_type = parse_value(meta.value()?).map(Some)?;
-                        },
-
-                        FieldOrVar::Variant(var) => {
-                            let enum_kind = match &var.fields {
-                                Fields::Unnamed(fields) => {
-                                    match fields.unnamed.len() {
-                                        0 => Some("zero-field tuple"), // Can this happen?
-                                        1 => {
-                                            data.replace_type = parse_value(meta.value()?)
-                                                .map(Some)?;
-                                            None
-                                        },
-
-                                        _ => Some("multi-field tuple"),
-                                    }
-                                },
-
-                                Fields::Named(_) => Some("struct"),
-                                Fields::Unit => Some("unit"),
-                            };
-
-                            if let Some(enum_kind) = enum_kind {
-                                return Err({
-                                    let msg = format!("unsupported \"{TYPE}\" argument \
-                                        on {enum_kind} enum variant");
-                                    meta.error(msg)
-                                });
-                            }
-                        },
-                    }
-
-                } else {
-                    emit_attr_err(&meta, ATTR_COMPAT)?;
-                }
-
-                Ok(())
-            })?;
+        } else if attr.path() == ATTR_COMPAT { // #[compat]
+            attr.meta.require_path_only()?;
+            data.replace_type = true;
         }
     }
 

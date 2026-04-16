@@ -28,7 +28,7 @@ fn compat_replace_struct_field() {
 
     #[derive(SemverCompat)]
     struct _Bar {
-        #[compat(type = Option<_>)]
+        #[compat]
         foo: Option<_Foo>,
     }
 }
@@ -38,7 +38,7 @@ fn compat_replace_enum_unit() {
     #[derive(SemverCompat, Serialize)]
     #[serde(untagged)]
     enum _Lorem {
-        #[compat(type = _)]
+        #[compat]
         A(_Ipsum),
     }
 

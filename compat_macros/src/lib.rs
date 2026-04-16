@@ -55,11 +55,12 @@ mod symbols;
 ///
 /// TODO
 ///
-/// ### `#[compat(type = _)]`
+/// ### `#[compat(type = _)]` TODO: `#[compat]` (no args)
 ///
 /// Flags that the tagged field- or variant's type should be converted into its corresponding
 /// version's compat type.
 ///
+/// TODO: `somewhere` => inner most?
 /// `SemverCompat` parses the `type = ...` for `_` (ie, a single underscore) somewhere in the
 /// defined value which can be either a valid Type or a string literal, eg.
 ///

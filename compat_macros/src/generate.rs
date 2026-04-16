@@ -12,8 +12,8 @@ use syn::{
 use crate::{
     compat::{FieldOrVar, Kind, parse_attr},
     placeholder::{
-        determine_which_into_func, gen_into_wrapper_func, gen_opt_vec_into_func, gen_vec_into_func,
-        ident_into_wrapper, replace_compat_placeholder
+         determine_which_into_func, gen_into_wrapper_func, gen_opt_vec_into_func,
+         gen_vec_into_func, ident_into_wrapper, replace_with_compat_type,
     },
     serde::{parse_serde_container_attr, parse_serde_field_attr},
     symbols::{compat_id, version_id}
@@ -141,14 +141,9 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
             }
 
             // Replace the placeholder with its corresponding semver type, if needed.
-            let mut ty = None;
-            if let Some(mut attr_type) = parsed.replace_type {
-                replace_compat_placeholder(
-                    version,
-                    field.ty()?,
-                    &mut attr_type,
-                )?;
-                ty = Some(attr_type);
+            let mut ty = field.ty()?.map(Clone::clone);
+            if parsed.replace_type {
+                replace_with_compat_type(version, ty.as_mut())?;
             }
 
             // Determine the conversion function to use to map the source-defined original type
