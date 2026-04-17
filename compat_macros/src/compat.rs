@@ -1,13 +1,14 @@
 use std::{
     cmp::Ordering,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::{self, Display},
 };
 
 use proc_macro2::Span;
 use semver::Version;
 use syn::{
-    Attribute, Error, Expr, ExprTuple, Field, Fields, Ident, Lit, LitStr, Meta, Result, Type, Variant,
+    Attribute, Error, Expr, ExprTuple, Field, Fields, Ident, Lit, LitStr, Path, Result, Type,
+    Variant,
     spanned::Spanned as _,
 };
 
@@ -17,7 +18,7 @@ use crate::{
 };
 
 /// Represents the change to a struct field or enum variant for a specific transmission semver.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Eq, Hash)]
 pub(crate) enum Kind {
     /// The struct field or enum variant was added.
     Added,
@@ -29,6 +30,17 @@ pub(crate) enum Kind {
     ///
     /// [`Ident`]: struct@syn::Ident
     Renamed(Ident),
+}
+
+impl PartialEq for Kind {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Added, Self::Added) => true,
+            (Self::Removed, Self::Removed) => true,
+            (Self::Renamed(_), Self::Renamed(_)) => true,
+            (..) => false,
+        }
+    }
 }
 
 impl Display for Kind {
@@ -254,23 +266,44 @@ fn parse_new_name(value: &Expr) -> Result<Ident> {
     s.parse()
 }
 
+fn check_duplicate<'a>(seen: &mut HashSet<&'a Path>, attr: &'a Attribute) -> Result<()> {
+    if !seen.insert(attr.path()) {
+        let Some(attr_id) = attr.path().get_ident() else {
+            return Err(Error::new(attr.path().span(), "attribute should have a valid ident"));
+        };
+
+        // This error should never be emitted for unknown attributes because that case is
+        // handled by the `else` clause below.
+        let msg = format!("multiple \"{attr_id}\" changes defined");
+        return Err(Error::new(attr_id.span(), msg));
+    }
+    Ok(())
+}
+
 /// Parses a struct field or enum variant's attributes for semver compat data.
 ///
-/// Among various parsing errors, this will also fail if multiple change attributes (#\[added\],
-/// #\[removed\], #\[renamed\]) are specified for the same `semver`.
+/// Among various parsing errors, this will also fail if:
+///
+/// * multiple change attributes (#\[added\], #\[removed\], #\[renamed\]) are specified for the
+/// same version, or
+/// * duplicate change attributes are defined.
 pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
     let mut data = InternalCompatData::default();
+    let mut seen = HashSet::new();
 
     for attr in fv.attributes().iter() {
-        if attr.path() == ATTR_ADDED { // #[added = "semver")]
+        if attr.path() == ATTR_ADDED { // #[added = "semver"]
+            check_duplicate(&mut seen, attr)?;
             let meta = attr.meta.require_name_value()?;
             data.insert(parse_semver(&meta.value)?, Kind::Added)?;
 
-        } else if attr.path() == ATTR_REMOVED { // #[removed = "semver")]
+        } else if attr.path() == ATTR_REMOVED { // #[removed = "semver"]
+            check_duplicate(&mut seen, attr)?;
             let meta = attr.meta.require_name_value()?;
             data.insert(parse_semver(&meta.value)?, Kind::Removed)?;
 
         } else if attr.path() == ATTR_RENAMED { // #[renamed = ("semver", "name")]
+            check_duplicate(&mut seen, attr)?;
             let meta = attr.meta.require_name_value()?;
             let s = parse_str_lit(&meta.value)?;
             let tuple: ExprTuple = s.parse()?;
@@ -298,6 +331,7 @@ pub(crate) fn parse_attr<'a>(fv: FieldOrVar<'a>) -> Result<CompatData> {
                 let msg = "expected field or variant to have a type";
                 return Err(Error::new(attr.path().span(), msg));
             }
+            check_duplicate(&mut seen, attr)?;
             attr.meta.require_path_only()?;
             data.replace_type = true;
         }

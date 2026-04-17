@@ -91,13 +91,26 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
                 }
             }
 
+            let mut include = true;
             let mut ident = field.require_ident()?; // The compat type's field/variant ident.
             // Process transmission semver changes.
             if let Some(changes) = semver_compat.get(field) {
                 for (change_version, kind) in changes.iter() {
                     match kind {
-                        Kind::Added => if version < change_version { continue 'fields; },
-                        Kind::Removed => if version >= change_version { continue 'fields; },
+                        Kind::Added => if version < change_version {
+                            match &data.inner {
+                                Data::Struct(_) => continue 'fields,
+                                Data::Enum(_) => include = false,
+                                kind => panic!("unexpected container type: {kind:?}"),
+                            }
+                        },
+                        Kind::Removed => if version >= change_version {
+                            match &data.inner {
+                                Data::Struct(_) => continue 'fields,
+                                Data::Enum(_) => include = false,
+                                kind => panic!("unexpected container type: {kind:?}"),
+                            }
+                        },
                         Kind::Renamed(id) => if version >= change_version {
                             ident = id;
                         },
@@ -105,7 +118,7 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
                 }
             }
 
-            // Replace the placeholder with its corresponding semver type, if needed.
+            // Replace the source-defined type with its corresponding semver type, if needed.
             let mut ty = field.ty()?.map(Clone::clone);
             if parsed.replace_type {
                 replace_with_compat_type(version, ty.as_mut())?;
@@ -144,9 +157,23 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
                 },
 
                 Data::Enum(_) => {
-                    let mut field_tokens = quote_spanned! {field.span()=>
-                        #( #attrs )*
-                        #ident
+                    let ident = match include {
+                        true => ident.clone(),
+
+                        // Either the variant has not yet been added in this version or it was
+                        // removed.
+                        false => format_ident!("{ident}__VariantRemoved"),
+                    };
+                    let mut field_tokens = match include {
+                        true => quote_spanned! {field.span()=>
+                            #( #attrs )*
+                            #ident
+                        },
+
+                        false => quote_spanned! {field.span()=>
+                            #[allow(non_camel_case_types)]
+                            #ident
+                        },
                     };
                     let mut src_variant = quote_spanned! {field.span()=>
                         #orig_container_id::#orig_ident

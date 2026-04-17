@@ -1,0 +1,5 @@
+error: expected field or variant to have a type
+ --> tests/ui/fail_compat.rs:6:7
+  |
+6 |     #[compat]
+  |       ^^^^^^

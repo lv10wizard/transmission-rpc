@@ -1,0 +1,41 @@
+error: multiple "added" changes defined
+ --> tests/ui/fail_duplicate.rs:6:7
+  |
+6 |     #[added = "5.3.0"]
+  |       ^^^^^
+
+error: multiple "removed" changes defined
+  --> tests/ui/fail_duplicate.rs:13:7
+   |
+13 |     #[removed = "2.0.0"]
+   |       ^^^^^^^
+
+error: multiple "renamed" changes defined
+  --> tests/ui/fail_duplicate.rs:20:7
+   |
+20 |     #[renamed = r#"("3.0.0", "bar_baz")"#]
+   |       ^^^^^^^
+
+error: multiple changes defined for 6.0.0
+  --> tests/ui/fail_duplicate.rs:26:15
+   |
+26 |     #[added = "6.0.0"]
+   |               ^^^^^^^
+
+error: multiple changes defined for 5.0.0
+  --> tests/ui/fail_duplicate.rs:33:15
+   |
+33 |     #[added = "5.0.0"]
+   |               ^^^^^^^
+
+error: multiple changes defined for 2.0.0
+  --> tests/ui/fail_duplicate.rs:40:17
+   |
+40 |     #[removed = "2.0.0"]
+   |                 ^^^^^^^
+
+error: multiple changes defined for 6.0.1
+  --> tests/ui/fail_duplicate.rs:47:15
+   |
+47 |     #[added = "6.0.1"]
+   |               ^^^^^^^

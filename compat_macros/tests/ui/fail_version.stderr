@@ -1,0 +1,17 @@
+error: unrecognized transmission rpc-version-semver
+ --> tests/ui/fail_version.rs:6:15
+  |
+6 |     #[added = "0.0.0"]
+  |               ^^^^^^^
+
+error: unrecognized transmission rpc-version-semver
+  --> tests/ui/fail_version.rs:12:17
+   |
+12 |     #[removed = "0.0.0"]
+   |                 ^^^^^^^
+
+error: unrecognized transmission rpc-version-semver
+  --> tests/ui/fail_version.rs:18:17
+   |
+18 |     #[renamed = r#"("0.0.0", "ShouldFail")"#]
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
