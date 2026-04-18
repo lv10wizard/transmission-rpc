@@ -1,10 +1,10 @@
 extern crate proc_macro;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
-    Data, DeriveInput, Error, Result,
+    Data, DeriveInput, Error, PathSegment, Result, TypePath,
     spanned::Spanned as _,
 };
 
@@ -13,10 +13,7 @@ use crate::{
     compat::{FieldOrVar, Kind, parse_attr},
     serde::{parse_serde_container_attr, parse_serde_field_attr},
     symbols::{compat_id, version_id},
-    r#type::{
-         determine_which_into_func, gen_into_wrapper_func, gen_opt_vec_into_func,
-         gen_vec_into_func, ident_into_wrapper, replace_with_compat_type,
-    },
+    r#type::{determine_which_into_func, replace_with_compat_type},
 };
 
 pub(crate) struct StructOrEnum<'a> {
@@ -77,7 +74,9 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
     for version in SUPPORTED_VERSIONS.iter() {
         let container_id = compat_id(version, orig_container_id);
         let from_arg_ident = format_ident!("orig");
+        let none_variant = format_ident!("__None_{container_id}");
 
+        let mut seen_fields = HashSet::with_capacity(container_fields.len());
         let mut fields = Vec::with_capacity(container_fields.len());
         let mut field_into = Vec::with_capacity(container_fields.len());
         'fields: for field in container_fields.iter() {
@@ -99,7 +98,11 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
                     match kind {
                         Kind::Added => if version < change_version {
                             match &data.inner {
+                                // We can just skip generating the field if it doesn't exist in
+                                // this version.
                                 Data::Struct(_) => continue 'fields,
+                                // We need to still process the variant to convert the
+                                // source-defined variant into a non-serialized `None` variant.
                                 Data::Enum(_) => include = false,
                                 kind => panic!("unexpected container type: {kind:?}"),
                             }
@@ -121,21 +124,23 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
             // Replace the source-defined type with its corresponding semver type, if needed.
             let mut ty = field.ty()?.map(Clone::clone);
             if parsed.replace_type {
-                replace_with_compat_type(version, ty.as_mut())?;
+                ty = replace_with_compat_type(version, ty.as_ref())?
+                    .map(|id| {
+                        let seg = PathSegment::from(id);
+                        TypePath {
+                            qself: None,
+                            path: seg.into(),
+                        }
+                        .into()
+                    });
             }
 
             // Determine the conversion function to use to map the source-defined original type
             // into its corresponding compat type.
-            let map_func = match ty.as_ref() {
-                Some(ty) => {
-                    let func = determine_which_into_func(ty)?;
-                    quote! { #func }
-                },
-                None => {
-                    let into_wrapper = ident_into_wrapper();
-                    quote! { #into_wrapper }
-                },
-            };
+            let (map_func_ident, map_func_defn) = determine_which_into_func(
+                field.ty()?,
+                ty.as_ref(),
+            )?;
 
             // The field/variant may have been renamed so we need to explicitly use the
             // source-defined original ident.
@@ -152,7 +157,11 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
                         #ident: #ty
                     });
                     field_into.push(quote_spanned! {field.span()=>
-                        #ident: #map_func(#from_arg_ident.#orig_ident, Into::into)
+                        #ident: {
+                            #map_func_defn
+
+                            #map_func_ident(#from_arg_ident.#orig_ident)
+                        }
                     });
                 },
 
@@ -160,21 +169,34 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
                     let ident = match include {
                         true => ident.clone(),
 
-                        // Either the variant has not yet been added in this version or it was
-                        // removed.
-                        false => format_ident!("{ident}__VariantRemoved"),
+                        // The variant does not exist in this version (it was either removed or has
+                        // yet to be added).
+                        false => none_variant.clone(),
                     };
-                    let mut field_tokens = match include {
-                        true => quote_spanned! {field.span()=>
-                            #( #attrs )*
-                            #ident
-                        },
+                    // Ensure the `None` variant is only emitted once.
+                    if seen_fields.insert(ident.clone()) {
+                        let mut field_tokens = match include {
+                            true => quote_spanned! {field.span()=>
+                                #( #attrs )*
+                                #ident
+                            },
 
-                        false => quote_spanned! {field.span()=>
-                            #[allow(non_camel_case_types)]
-                            #ident
-                        },
-                    };
+                            // NOTE: `#[serde(skip_serializing)] will result in a serialization
+                            // NOTE- error if the variant is not wrapped in an Option or Vec.
+                            false => quote_spanned! {field.span()=>
+                                #[allow(non_camel_case_types)]
+                                #[serde(skip_serializing)]
+                                #ident
+                            },
+                        };
+                        if let Some(ty) = ty {
+                            field_tokens = quote_spanned! {field.span()=>
+                                #field_tokens(#ty)
+                            };
+                        }
+                        fields.push(field_tokens);
+                    }
+
                     let mut src_variant = quote_spanned! {field.span()=>
                         #orig_container_id::#orig_ident
                     };
@@ -182,18 +204,18 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
                         Self::#ident
                     };
 
-                    if let Some(ty) = ty {
-                        field_tokens = quote_spanned! {field.span()=>
-                            #field_tokens(#ty)
-                        };
+                    if ty.is_some() {
                         src_variant = quote_spanned! {field.span()=>
                             #src_variant(x)
                         };
                         dst_variant = quote_spanned! {field.span()=>
-                            #dst_variant(#map_func(x, Into::into))
+                            {
+                                #map_func_defn
+
+                                #dst_variant(#map_func_ident(x))
+                            }
                         };
                     }
-                    fields.push(field_tokens);
                     field_into.push(quote_spanned! {field.span()=>
                         #src_variant => #dst_variant
                     });
@@ -220,11 +242,6 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
             }
         };
 
-        let into_func_defn = [
-            gen_into_wrapper_func(),
-            gen_opt_vec_into_func(),
-            gen_vec_into_func(),
-        ];
         // Format the `From` implementation based on whether we're processing a struct or enum.
         let from_impl = match &data.inner {
             Data::Enum(_) => quote! {
@@ -242,13 +259,33 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
             kind => panic!("unexpected container type: {kind:?}"),
         };
 
+        let is_none_impl = match &data.inner {
+            Data::Enum(_) => {
+                let doc = format!("Returns `true` if the variant does not exist in \
+                    semver-{version}.");
+                quote! {
+                    #[doc = #doc]
+                    #[automatically_derived]
+                    impl crate::types::IsNone for #container_id {
+                        fn is_none(&self) -> bool {
+                            match self {
+                                Self::#none_variant => true,
+                                _ => false,
+                            }
+                        }
+                    }
+                }
+            },
+
+            // This shouldn't happen.
+            kind => panic!("unexpected container type: {kind:?}"),
+        };
+
         generated_compat_types.insert(version, quote! {
             #compat_type
+            #is_none_impl
             impl From<#orig_container_id> for #container_id {
                 fn from(#from_arg_ident: #orig_container_id) -> Self {
-                    // Define the helper field conversion functions which may or may not be
-                    // used.
-                    #( #[automatically_derived] #into_func_defn )*
                     #from_impl
                 }
             }

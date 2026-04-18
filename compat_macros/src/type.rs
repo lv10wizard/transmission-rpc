@@ -1,15 +1,14 @@
 use proc_macro2::Span;
 use semver::Version;
 use syn::{
-    Error, GenericArgument, Ident, Path, PathArguments, PathSegment, Result, Type,
-    parse_quote,
+    Error, GenericArgument, Ident, PathArguments, PathSegment, Result, Type, TypePath,
     spanned::Spanned
 };
 use quote::{format_ident, quote};
 
 use crate::symbols::compat_id;
 
-/// Replaces the inner-most generic argument with `ty`'s corresponding version compat type, eg.
+/// Replaces `ty`'s inner-most generic argument with its corresponding version compat type, eg.
 /// `Option<Vec<Foo>>` becomes `Option<Vec<__semver_xyz_compat_Foo>>`.
 ///
 /// `ty` should be a [`Clone`]d version the field- or variant's [`Type`].
@@ -44,12 +43,21 @@ use crate::symbols::compat_id;
 /// ```
 pub(crate) fn replace_with_compat_type(
     version: &Version,
-    ty: Option<&mut Type>,
-) -> Result<()> {
+    ty: Option<&Type>,
+) -> Result<Option<Ident>> {
     let Some(ty) = ty else {
-        return Ok(())
+        return Ok(None)
     };
 
+    get_inner_most_type(ty, |inner| {
+        let Some(last_seg) = inner.path.segments.last() else {
+            return Err(Error::new(ty.span(), "type should have a last segment"));
+        };
+        let ident = compat_id(version, &last_seg.ident);
+        Ok(Some(ident))
+    })
+
+        /*
     match ty {
         Type::Path(ty_path) => {
             // We only care about the last item in the path, eg.
@@ -96,21 +104,83 @@ pub(crate) fn replace_with_compat_type(
 
         _ => return Err(Error::new(ty.span(), "unsupported type")),
     }
+        */
+}
+
+fn get_inner_most_type<T, F>(ty: &Type, func: F) -> Result<T>
+where
+    F: Fn(&TypePath) -> Result<T>,
+{
+    match ty {
+        Type::Path(ty_path) => {
+            // We only care about the last item in the path, eg.
+            // foo::bar::Vec<Option<MyType>>
+            //           ^^^^^^^^^^^^^^^^^^^ last segment
+            let Some(ty_last) = ty_path.path.segments.last() else {
+                // I don't think this can happen (implies a trailing `::`, eg. `foo::bar::`).
+                return Err(Error::new(ty.span(), "type should have a last segment"))
+            };
+
+            match &ty_last.arguments {
+                // Found the inner most type.
+                PathArguments::None => {
+                    func(&ty_path)
+                },
+
+                PathArguments::AngleBracketed(ty_brackets) => {
+                    match ty_brackets.args.len() {
+                        1 => {
+                            let ty = ty_brackets.args
+                                .get(0)
+                                .map(|args| match args {
+                                    GenericArgument::Type(ty) => Ok(ty),
+                                    _ => {
+                                        let msg = "unsupported generic argument";
+                                        Err(Error::new(ty.span(), msg))
+                                    },
+                                })
+                                .transpose()?
+                                .expect("generic argument should exist");
+                            get_inner_most_type(ty, func)
+                        },
+                        _ => {
+                            let msg = "unsupported number of generic arguments";
+                            Err(Error::new(ty_brackets.args.span(), msg))
+                        },
+                    }
+                },
+
+                segment => Err(Error::new(segment.span(), "unsupported type")),
+            }
+        },
+
+        _ => return Err(Error::new(ty.span(), "unsupported type")),
+    }
 }
 
 /// Parses `ty` to determine which mapping function to employ to convert the source-defined
-/// original struct field type into its placeholder-replaced type.
+/// original struct field type into its semver-compat type.
 ///
 /// Specifically, this maps the following types:
 ///
 /// * `Option<T>` -> [`Option::map`]
 /// * `Option<Vec<T>>` -> See: [`gen_opt_vec_into_func`]
 /// * `Vec<T>` -> See: [`gen_vec_into_func`]
-/// * `_` -> [`Into::into`] via a wrapper function conforming to `Option::map`'s signature (see:
+/// * `T` -> [`Into::into`] via a wrapper function conforming to `Option::map`'s signature (see:
 /// [`gen_into_wrapper_func`])
-pub(crate) fn determine_which_into_func(ty: &Type) -> Result<Path> {
-    let into_wrapper = ident_into_wrapper();
-    match ty {
+///
+/// Returns:
+///
+/// * `Ok(..)` - The conversion function [`Ident`] and tokens defining it.
+/// * `Err(_)` - If there was an error parsing the type.
+pub(crate) fn determine_which_into_func(in_ty: Option<&Type>, out_ty: Option<&Type>)
+    -> Result<(Ident, proc_macro2::TokenStream)>
+{
+    let (Some(in_ty), Some(out_ty)) = (in_ty, out_ty) else {
+        return Ok((ident_into_wrapper(), gen_into_wrapper_func()));
+    };
+
+    match out_ty {
         Type::Path(ty_path) => {
             // We only care about the last segment of the type path, eg:
             //     std::vec::Vec<Option<i32>>
@@ -121,27 +191,25 @@ pub(crate) fn determine_which_into_func(ty: &Type) -> Result<Path> {
                 .expect("type should have a last segment");
 
             if seg.ident == "Option" {
-                let seg = extract_option_arg_type_path(ty.span(), seg)?;
-                return Ok(match seg.ident == "Vec" {
-                    true => {
-                        let opt_vec_into = ident_opt_vec_into();
-                        parse_quote! { #opt_vec_into }
-                    },
-                    false => parse_quote! { Option::map },
+                // Determine if we're using Option::map or `opt_vec_into`.
+                let seg = extract_option_arg_type_path(out_ty.span(), seg)?;
+                return Ok({
+                    match seg.ident == "Vec" {
+                        true => (ident_opt_vec_into(), gen_opt_vec_into_func(in_ty, out_ty)?),
+                        false => (ident_opt_into(), gen_opt_into_func(in_ty, out_ty)?),
+                    }
                 });
 
             } else if seg.ident == "Vec" {
                 // Just assume whatever Vec<T> maps cleanly with `vec_into` (eg. doesn't handle
                 // something like `Vec<Option<T>>` -> `Vec<Option<U>>`).
-                let vec_into = ident_vec_into();
-                return Ok(parse_quote!{ #vec_into });
+                return Ok((ident_vec_into(), gen_vec_into_func(in_ty, out_ty)?));
             }
 
-            Ok(parse_quote! { #into_wrapper })
+           Ok((ident_into_wrapper(), gen_into_wrapper_func()))
         },
 
-        // TODO: This might be an error instead? (Unexpected type)
-        _ => Ok(parse_quote! { #into_wrapper }),
+        _ => Err(Error::new(in_ty.span(), "unsupported type")),
     }
 }
 
@@ -163,17 +231,19 @@ fn extract_option_arg_type_path(span: Span, seg: &PathSegment) -> Result<&PathSe
     };
     let Type::Path(opt_ty_path) = opt_ty else {
         // Only handle Option<T> Path types
-        let msg = format!("unexpected Option type: {opt_ty:?}");
-        return Err(Error::new(span, msg))
+        return Err(Error::new(span, "expected Option<T>"))
     };
 
-    // Determine if we're using Option::map or `opt_vec_into`.
     opt_ty_path.path.segments.last()
         .ok_or(Error::new(span, "Option<T> should have a last segment"))
 }
 
-pub(crate) fn ident_into_wrapper() -> Ident {
+fn ident_into_wrapper() -> Ident {
     format_ident!("into_wrapper")
+}
+
+fn ident_opt_into() -> Ident {
+    format_ident!("opt_into")
 }
 
 fn ident_vec_into() -> Ident {
@@ -184,53 +254,107 @@ fn ident_opt_vec_into() -> Ident {
     format_ident!("opt_vec_into")
 }
 
-/// Generates tokens defining a function intended as an [`Into::into`] wrapper conforming to
-/// [`Option::map`]'s signature.
-pub(crate) fn gen_into_wrapper_func() -> proc_macro2::TokenStream {
-    let into_wrapper = ident_into_wrapper();
+/// Generates tokens defining an `is_trait` macro which returns `true` if type `$name` implements
+/// trait `$trait_name`.
+///
+/// REF: <https://stackoverflow.com/a/71721454>
+fn gen_is_trait_macro() -> proc_macro2::TokenStream {
     quote! {
-        fn #into_wrapper<F, T, U>(t: T, func: F) -> U
-        where
-            F: Fn(T) -> U,
-        {
-            func(t)
+        // Source - https://stackoverflow.com/a/71721454
+        // Posted by Aiden4
+        // Retrieved 2026-04-20, License - CC BY-SA 4.0
+        macro_rules! is_trait {
+            ($name:ty, $trait_name:path) => {{
+                trait __InnerMarkerTrait {
+                    fn __is_trait_inner_method() -> bool {
+                        false
+                    }
+                }
+                struct __TraitTest<T>(T);
+                impl<T:$trait_name> __TraitTest<T> {
+                    fn __is_trait_inner_method() -> bool{
+                        true
+                    }
+                }
+                impl<T> __InnerMarkerTrait for __TraitTest<T>{}
+                __TraitTest::<$name>::__is_trait_inner_method()
+            }}
         }
     }
 }
 
+/// Generates tokens defining a function intended as an [`Into::into`] wrapper conforming to
+/// [`Option::map`]'s signature.
+fn gen_into_wrapper_func() -> proc_macro2::TokenStream {
+    let into_wrapper = ident_into_wrapper();
+    quote! {
+        #[automatically_derived]
+        fn #into_wrapper<T, U>(t: T) -> U
+        where
+            T: Into<U>,
+        {
+            t.into()
+        }
+    }
+}
+
+/// Generates tokens defining a [`Option::map`] wrapper.
+fn gen_opt_into_func(in_ty: &Type, out_ty: &Type) -> Result<proc_macro2::TokenStream> {
+    let is_trait_defn = gen_is_trait_macro();
+    let opt_into = ident_opt_into();
+    get_inner_most_type(out_ty, |inner| {
+        Ok(quote! {
+            #[automatically_derived]
+            fn #opt_into(opt: #in_ty) -> #out_ty {
+                #is_trait_defn
+
+                let converted = func(opt);
+                if is_trait!(#inner, crate::types::IsNone) {
+                    return converted.filter(|x| !x.is_none());
+                }
+                converted
+            }
+        })
+    })
+}
 
 /// Generates tokens defining a `vec_into` function to convert a `Vec<T>` into a `Vec<U>` by
 /// iterating over the input vec and applying `func` on each item.
-pub(crate) fn gen_vec_into_func() -> proc_macro2::TokenStream {
+fn gen_vec_into_func(in_ty: &Type, out_ty: &Type) -> Result<proc_macro2::TokenStream> {
+    let is_trait_defn = gen_is_trait_macro();
     let vec_into = ident_vec_into();
-    quote! {
-        fn #vec_into<F, T, U>(vec: Vec<T>, func: F) -> Vec<U>
-        where
-            F: Fn(T) -> U,
-        {
-            vec.into_iter()
-                .map(func)
-                .collect()
-        }
-    }
+    get_inner_most_type(out_ty, |inner| {
+        Ok(quote! {
+            #[automatically_derived]
+            fn #vec_into(vec: #in_ty) -> #out_ty {
+                #is_trait_defn
+
+                let mut iter: Box<dyn Iterator<Item = _>> = Box::new(
+                    vec.into_iter().map(func)
+                );
+                if is_trait!(#inner, crate::types::IsNone) {
+                    iter = Box::new(iter.filter(|x| !x.is_none()));
+                }
+                iter.collect()
+            }
+        })
+    })
 }
 
 /// Generates tokens defining a `opt_vec_into` function to convert a `Option<Vec<T>>` into a
 /// `Option<Vec<U>>`.
-pub(crate) fn gen_opt_vec_into_func() -> proc_macro2::TokenStream {
+fn gen_opt_vec_into_func(in_ty: &Type, out_ty: &Type) -> Result<proc_macro2::TokenStream> {
     let vec_into = ident_vec_into();
     let opt_vec_into = ident_opt_vec_into();
-    let define_vec_into = gen_vec_into_func();
-    quote! {
-        fn #opt_vec_into<F, T, U>(opt: Option<Vec<T>>, func: F) -> Option<Vec<U>>
-        where
-            F: Fn(T) -> U,
-        {
+    let vec_into_defn = gen_vec_into_func(in_ty, out_ty)?;
+    Ok(quote! {
+        #[automatically_derived]
+        fn #opt_vec_into(opt: #in_ty) -> #out_ty {
             opt.map(|vec| {
-                #define_vec_into
+                #vec_into_defn
 
-                #vec_into(vec, func)
+                #vec_into(vec)
             })
         }
-    }
+    })
 }
