@@ -1,7 +1,8 @@
 //! Defines helper `#[derive(...)]` macros for request serialization compatibility with
 //! Transmission.
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
+
 use proc_macro::TokenStream;
 use semver::Version;
 use syn::{DeriveInput, parse_macro_input};
@@ -14,7 +15,7 @@ mod serde;
 mod symbols;
 mod r#type;
 
-static SUPPORTED_VERSIONS: Lazy<Vec<Version>> = Lazy::new(|| {
+static SUPPORTED_VERSIONS: LazyLock<Vec<Version>> = LazyLock::new(|| {
     let mut versions = vec![
         Version::new(1, 3, 0), // Transmission 1.50
 

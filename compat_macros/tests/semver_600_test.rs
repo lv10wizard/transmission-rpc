@@ -60,7 +60,7 @@ mod serialize_added_enum {
 
     #[test_case(
         CompatAdded::AddedField, Version::new(1, 3, 0)
-        => ""
+        => "\"\""
         ; "before added version"
     )]
     #[test_case(
@@ -148,12 +148,12 @@ mod serialize_removed_enum {
     )]
     #[test_case(
         CompatRemoved::AddedField, Version::new(5, 0, 0)
-        => r#""#
+        => "\"\""
         ; "eq removed version"
     )]
     #[test_case(
         CompatRemoved::AddedField, Version::new(6, 0, 0)
-        => r#""#
+        => "\"\""
         ; "after removed version"
     )]
 
@@ -344,11 +344,11 @@ fn compat_replace_enum_unit() {
     #[serde(untagged)]
     enum _Lorem {
         #[compat]
-        A(_Ipsum),
+        _A(_Ipsum),
     }
 
     #[derive(SemverCompat, Serialize)]
     enum _Ipsum {
-        B,
+        _B,
     }
 }

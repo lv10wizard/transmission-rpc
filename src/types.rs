@@ -108,13 +108,6 @@ impl RpcVersion {
     }
 }
 
-/// [`SemverCompat`] helper trait to filter enum variants that do not exist in a given semver.
-///
-/// This is defined here so that it has a consistent path (`crate::types::IsNone`).
-pub(crate) trait IsNone {
-    fn is_none(&self) -> bool;
-}
-
 /// Represents a [`Torrent`]'s bandwidth and file download priority.
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(i8)]
