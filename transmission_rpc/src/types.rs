@@ -70,15 +70,21 @@ pub enum Id {
 }
 
 /// Represents the server's current RPC API version.
-#[derive(Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RpcVersion(pub i32);
+
+impl Display for RpcVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "rpc-version {}", self.0)
+    }
+}
 
 // TODO: this may need to go in a separate crate so that `compat_macros` can use it
 impl RpcVersion {
-    /// Maps the `RpcVersion` into its corresponding [semver].
+    /// Maps the `RpcVersion` into its corresponding Transmission rpc [semver].
     ///
     /// [semver]: <https://semver.org/>
-    fn semver(&self) -> Result<Version> {
+    pub fn semver(&self) -> Result<Version> {
         let semver = match self.0 {
             1 => "1.0.0",
             2 => "1.1.0",
@@ -103,11 +109,41 @@ impl RpcVersion {
             19 => "6.0.1",
             //20 => "6.1.0",
 
-            v => return Err(Box::new(TransError::UnknownRpcSemver(v))),
+            _ => return TransError::UnknownRpcVersion(*self).into(),
         };
         Version::parse(semver)
             // This most likely means that the programmer typed the semver string incorrectly.
             .map_err(|err| Box::new(err) as Box<_>)
+    }
+
+    /// Maps the `RpcVersion` into its corresponding Transmission release version string.
+    pub fn release_version(&self) -> Result<&'static str> {
+        Ok(match self.0 {
+            1 => "1.30",
+            2 => "1.40",
+            3 => "1.41",
+            4 => "1.50",
+            5 => "1.60",
+            6 => "1.70",
+            7 => "1.80",
+            // NOTE: rpc-version 8 maps onto both "3.1.0" and "3.2.0".
+            // NOTE- Mapping `8` to the lower sem-version (3.1.0) provides better compatibility.
+            8 => "1.90",
+            9 => "2.00",
+            10 => "2.10",
+            11 => "2.12",
+            12 => "2.20",
+            13 => "2.30",
+            14 => "2.40",
+            15 => "2.80",
+            16 => "3.00",
+            17 => "4.0.0",
+            18 => "4.1.0",
+            19 => "4.1.1",
+            //20 => "4.2.0",
+
+            _ => return TransError::UnknownRpcVersion(*self).into(),
+        })
     }
 }
 

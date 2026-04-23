@@ -6,17 +6,18 @@
 
 use std::{ops::Deref, sync::{Arc, RwLock}};
 
-use reqwest::{Client, StatusCode, Url, header::{CONTENT_TYPE, HeaderValue}};
+use reqwest::{Client, Response, StatusCode, Url, header::{CONTENT_TYPE, HeaderValue}};
 use semver::Version;
 use serde::de::DeserializeOwned;
 
 use crate::{
     BodyString, MAX_RETRIES, TransError,
+    json_rpc::JsonRpcResponse,
     types::{
         JSON_RPC_VERSION_2_0, BasicAuth, BlocklistUpdate, FreeSpace, GroupGet, GroupSetArgs, Id,
         Nothing, PortTest, PortTestArgs, Result, RpcRequest, RpcResponse, RpcResponseArgument,
-        SessionGet, SessionGetField, SessionSetArgs, SessionStats, Tag, Torrent, TorrentAction,
-        TorrentAddArgs, TorrentAddedOrDuplicate, TorrentGetField, TorrentRenamePath,
+        RpcVersion, SessionGet, SessionGetField, SessionSetArgs, SessionStats, Tag, Torrent,
+        TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate, TorrentGetField, TorrentRenamePath,
         TorrentSetArgs, Torrents,
     },
 };
@@ -77,14 +78,20 @@ impl SharableTransClient {
 
     /// Prepares a request for provided server and auth
     fn rpc_request(&self) -> reqwest::RequestBuilder {
+        let mut rq = self.client
+            .post(self.url.clone())
+            .header(CONTENT_TYPE, "application/json");
         if let Some(auth) = &self.auth {
-            self.client
-                .post(self.url.clone())
-                .basic_auth(&auth.user, Some(&auth.password))
-        } else {
-            self.client.post(self.url.clone())
+            rq = rq.basic_auth(&auth.user, Some(&auth.password));
         }
-        .header(CONTENT_TYPE, "application/json")
+        if let Some(session_id) = &self.session_id
+            .read()
+            .expect("unpoisoned session-id lock")
+            .deref()
+        {
+            rq = rq.header("X-Transmission-Session-Id", session_id);
+        }
+        rq
     }
 
     /// Performs a session set call
@@ -1375,11 +1382,7 @@ impl SharableTransClient {
             }
 
             debug!("Loaded auth: {:?}", &self.auth);
-            let rq = match &self.session_id.read().expect("lock being poisoned").deref() {
-                None => self.rpc_request(),
-                Some(id) => self.rpc_request().header("X-Transmission-Session-Id", id),
-            }
-            .json(&request);
+            let rq = self.rpc_request().json(&request);
 
             debug!(
                 "Request body: {:?}",
@@ -1392,27 +1395,6 @@ impl SharableTransClient {
 
             debug!("Response: {:?}", &rsp);
             if matches!(rsp.status(), StatusCode::CONFLICT) {
-                // "Starting from rpc-version-semver 6.0.0, Transmission returns the RPC version in
-                //  an HTTP header X-Transmission-Rpc-Version: {rpc_version_semver} in the CSRF
-                //  HTTP 409 response. This is so that clients supporting both JSON-RPC and the old
-                //  bespoke API can determine which scheme to use without making any extra
-                //  requests. Example: X-Transmission-Rpc-Version: 6.0.0"
-                let semver = rsp
-                    .headers()
-                    .get("X-Transmission-Rpc-Version")
-                    .map(HeaderValue::to_str)
-                    .transpose()?
-                    .map(Version::parse)
-                    .transpose()?;
-                let missing_semver = self.semver.read().expect("unpoisoned semver lock").is_none();
-                // We only need to cache the semver once (on the first 409 Conflict response).
-                if missing_semver {
-                    if let Some(semver) = semver.as_ref() {
-                        debug!("Got rpc-semver: {}", semver);
-                    }
-                    *self.semver.write().expect("unpoisoned semver lock") = semver;
-                }
-
                 let session_id = rsp
                     .headers()
                     .get("X-Transmission-Session-Id")
@@ -1421,14 +1403,95 @@ impl SharableTransClient {
                 *self.session_id.write().expect("lock being poisoned") =
                     Some(String::from(session_id));
 
-                debug!("Got new session_id: {}. Retrying request.", session_id);
+                debug!("Got new session_id: {}.", session_id);
+
+                self.set_server_rpc_semver(&rsp).await?;
+                debug!("Retrying request...");
             } else {
-                let rpc_response: RpcResponse<RS> = rsp.json().await?;
-                debug!("Response body: {:#?}", rpc_response);
+                let rpc_response: RpcResponse<RS> = match request.jsonrpc.is_some() {
+                    true => {
+                        let resp = rsp.json::<JsonRpcResponse<RS>>().await?;
+                        debug!("JSON-RPC response body: {:#?}", resp);
+                        if resp.jsonrpc != JSON_RPC_VERSION_2_0 {
+                            // This probably means that the request was handled by a new
+                            // Transmission version with an upgrade JSON-RPC protocol.
+                            return TransError::UnhandledJsonRpcVersion(resp.jsonrpc.clone())
+                                .into();
+                        }
+                        resp.into()
+                    },
+                    false => {
+                        let resp = rsp.json().await?;
+                        debug!("Response body: {:#?}", resp);
+                        resp
+                    },
+                };
 
                 return Ok(rpc_response);
             }
         }
+    }
+
+    /// Stores the transmission server's reported rpc-semver either from its Conflict 409 response
+    /// header `X-Transmission-Session-Id` for `rpc-semver >= 6.0.0` or by performing an additional
+    /// `session-get` request to get the server's `rpc-version` for `6.0.0 > rpc-semver >= 1.3.0`.
+    async fn set_server_rpc_semver(&self, rsp: &Response) -> Result<()> {
+        // We only need to set this a single time.
+        if !matches!(rsp.status(), StatusCode::CONFLICT) ||
+            self.semver.read().expect("unpoisoned semver lock").is_some()
+        {
+            return Ok(());
+        }
+
+        // "Starting from rpc-version-semver 6.0.0, Transmission returns the RPC version in an HTTP
+        // header X-Transmission-Rpc-Version: {rpc_version_semver} in the CSRF HTTP 409 response.
+        // This is so that clients supporting both JSON-RPC and the old bespoke API can determine
+        // which scheme to use without making any extra requests. Example:
+        // X-Transmission-Rpc-Version: 6.0.0"
+        let semver_header = rsp
+            .headers()
+            .get("X-Transmission-Rpc-Version")
+            .map(HeaderValue::to_str)
+            .transpose()?
+            .map(Version::parse)
+            .transpose()?;
+        let semver = match semver_header {
+            Some(semver) => Some(semver),
+            None => {
+                // This transmission rpc server is < rpc-semver 6.0.0.
+                if self.session_id
+                    .read()
+                    .expect("unpoisoned session-id lock")
+                    .is_none()
+                {
+                    return TransError::NoSessionIdReceived.into();
+                };
+                // Try to get the rpc-version with a session-get request which requires a minimum
+                // rpc-semver of 1.3.0.
+                let req = self.rpc_request().json(&RpcRequest::session_get(None, None));
+                debug!("Requesting session-get to store the server's rpc-version-semver");
+                let resp: RpcResponse<SessionGet> = req.send()
+                    .await?
+                    .json()
+                    .await?;
+                match resp.is_ok() {
+                    true => {
+                        resp.arguments.rpc_version
+                            .map(|v| RpcVersion(v).semver())
+                            .transpose()?
+                    },
+                    false => {
+                        return TransError::ResponseFailure(resp.result).into();
+                    },
+                }
+            },
+        };
+        if semver.is_none() {
+            return TransError::VersionTooLow(RpcVersion(4)).into();
+        }
+        debug!("Got rpc-version-semver: {}", semver.as_ref().unwrap());
+        *self.semver.write().expect("unpoisoned semver lock") = semver;
+        Ok(())
     }
 }
 
