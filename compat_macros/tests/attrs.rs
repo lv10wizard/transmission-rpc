@@ -179,13 +179,14 @@ mod serialize_renamed_struct {
     #[derive(SemverCompat, Serialize)]
     #[serde(rename_all = "camelCase")]
     struct CompatRenamed {
+        #[serde(rename = "renamed-field")]
         #[renamed = r#"("3.3.0", "foo_bar")"#]
         renamed_field: Option<i32>,
     }
 
     #[test_case(
         CompatRenamed { renamed_field: Some(3) }, Version::new(2, 0, 0)
-        => r#"{"renamedField":3}"#
+        => r#"{"renamed-field":3}"#
         ; "before renamed version"
     )]
     #[test_case(
@@ -220,13 +221,14 @@ mod serialize_renamed_enum {
     #[derive(SemverCompat, Serialize)]
     #[serde(rename_all = "camelCase")]
     enum CompatRenamed {
+        #[serde(rename = "renamed-field")]
         #[renamed = r#"("3.1.0", "NewName")"#]
         RenamedField,
     }
 
     #[test_case(
         CompatRenamed::RenamedField, Version::new(2, 0, 0)
-        => r#""renamedField""#
+        => r#""renamed-field""#
         ; "before renamed version"
     )]
     #[test_case(

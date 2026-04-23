@@ -8,7 +8,7 @@ use super::Id;
 #[skip_serializing_none]
 #[derive(SemverCompat, Serialize, Debug, Clone)]
 pub struct TorrentGetArgs {
-    #[compat(type = Option<Vec<_>>)]
+    #[compat]
     pub(crate) fields: Option<Vec<TorrentGetField>>,
     pub(crate) ids: Option<Vec<Id>>,
 }
@@ -62,7 +62,14 @@ where
 pub enum TorrentGetField {
     ActivityDate,
     AddedDate,
+    #[removed = "3.0.0"]
+    AnnounceResponse,
+    #[removed = "3.0.0"]
+    #[serde(rename = "announceURL")]
+    AnnounceUrl,
+    #[added = "5.3.0"]
     Availability,
+    #[added = "2.0.0"]
     BandwidthPriority,
     #[serde(rename = "bytes_completed")] // (?) Doesn't exist pre- semver-6.0.0
     BytesCompleted,
@@ -72,77 +79,130 @@ pub enum TorrentGetField {
     DateCreated,
     DesiredAvailable,
     DoneDate,
+    #[added = "1.2.0"]
+    #[removed = "3.0.0"]
+    Downloaders,
+    #[added = "1.3.0"]
     DownloadDir,
     DownloadedEver,
+    #[removed = "2.0.0"]
+    DownloadLimitMode,
     DownloadLimit,
     DownloadLimited,
+    #[added = "5.2.0"]
     EditDate,
     Error,
     ErrorString,
     Eta,
+    #[added = "5.1.0"]
     EtaIdle,
+    #[added = "5.3.0"]
     #[serde(rename = "file-count")]
     FileCount,
+    #[added = "2.0.0"]
     FileStats,
     Files,
+    #[added = "5.3.0"]
     Group,
     HashString,
     HaveUnchecked,
     HaveValid,
+    #[added = "2.0.0"]
     HonorsSessionLimits,
     Id,
+    #[added = "3.3.0"]
     IsFinished,
     IsPrivate,
+    #[added = "5.0.0"]
     IsStalled,
+    #[added = "5.2.0"]
     Labels,
+    #[removed = "3.0.0"]
+    LastAnnounceTime,
+    #[removed = "3.0.0"]
+    LastScrapeTime,
+    #[removed = "3.0.0"]
+    Leechers,
     LeftUntilDone,
+    #[added = "3.0.0"]
     MagnetLink,
     /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
     /// "it never worked".
+    // TODO: #[deprecated = r#"("6.0.0", "never worked""#]
     ManualAnnounceTime,
     MaxConnectedPeers,
+    #[added = "3.0.0"]
     MetadataPercentComplete,
     Name,
+    #[removed = "3.0.0"]
+    NextAnnounceTime,
+    #[removed = "3.0.0"]
+    NextScrapeTime,
     #[serde(rename = "peer-limit")]
     PeerLimit,
     Peers,
     PeersConnected,
     PeersFrom,
     PeersGettingFromUs,
+    #[removed = "4.0.0"]
+    PeersKnown,
     PeersSendingToUs,
+    #[added = "5.3.0"]
     PercentComplete,
+    #[added = "2.0.0"]
     PercentDone,
+    #[added = "2.0.0"]
     Pieces,
     PieceCount,
     PieceSize,
     Priorities,
+    #[added = "5.3.0"]
     #[serde(rename = "primary-mime-type")]
     PrimaryMimeType,
+    #[added = "5.0.0"]
     QueuePosition,
     RateDownload,
     RateUpload,
     RecheckProgress,
+    #[removed = "3.0.0"]
+    ScrapeResponse,
+    #[removed = "3.0.0"]
+    #[serde(rename = "scrapeURL")]
+    ScrapeUrL,
     SecondsDownloading,
     SecondsSeeding,
+    #[removed = "3.0.0"]
+    Seeders,
     SeedIdleLimit,
     SeedIdleMode,
+    #[added = "2.0.0"]
     SeedRatioLimit,
+    #[added = "2.0.0"]
     SeedRatioMode,
-    #[serde(rename = "sequential_download")] // Doesn't exist pre- semver-6.0.0
+    #[added = "6.0.0"]
     SequentialDownload,
-    #[serde(rename = "sequential_download_from_piece")] // Doesn't exist pre- semver-6.0.0
+    #[added = "6.0.0"]
     SequentialDownloadFromPiece,
     SizeWhenDone,
     StartDate,
     Status,
+    #[removed = "3.0.0"]
+    SwarmSpeed,
+    #[removed = "3.0.0"]
+    TimesCompleted,
+    #[added = "2.0.0"]
     TorrentFile,
     TotalSize,
     Trackers,
+    #[added = "5.3.0"]
     TrackerList,
+    #[added = "3.0.0"]
     TrackerStats,
     UploadRatio,
     UploadedEver,
     UploadLimit,
+    #[removed = "2.0.0"]
+    UploadLimitMode,
     UploadLimited,
     Wanted,
     /// > ⚠ **DEPRECATED** in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?):

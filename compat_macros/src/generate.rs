@@ -101,48 +101,37 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
         let mut fields = Vec::with_capacity(container_fields.len());
         let mut field_into = Vec::with_capacity(container_fields.len());
         'fields: for field in container_fields.iter() {
-            let mut semver_compat = HashMap::new();
-            let parsed = parse_attr(*field)?;
-            if !parsed.changes.is_empty() {
-                for (version, kind) in parsed.changes.into_iter() {
-                    semver_compat.entry(field)
-                        .or_insert(HashMap::<_, _>::default())
-                        .insert(version.clone(), kind);
-                }
-            }
-
             let mut include = true;
             let mut ident = field.require_ident()?; // The compat type's field/variant ident.
             // Process transmission semver changes.
-            if let Some(changes) = semver_compat.get(field) {
-                for (change_version, kind) in changes.iter() {
-                    match kind {
-                        Kind::Added => if version < change_version {
-                            match &data.inner {
-                                // We can just skip generating the field if it doesn't exist in
-                                // this version.
-                                Data::Struct(_) => continue 'fields,
-                                // We need to still process the variant to convert the
-                                // source-defined variant into a non-serialized `None` variant.
-                                Data::Enum(_) => include = false,
-                                _ => return Err(
-                                    Error::new(keyword.span(), "unexpected container type")
-                                ),
-                            }
-                        },
-                        Kind::Removed => if version >= change_version {
-                            match &data.inner {
-                                Data::Struct(_) => continue 'fields,
-                                Data::Enum(_) => include = false,
-                                _ => return Err(
-                                    Error::new(keyword.span(), "unexpected container type")
-                                ),
-                            }
-                        },
-                        Kind::Renamed(id) => if version >= change_version {
-                            ident = id;
-                        },
-                    }
+            let parsed = parse_attr(*field)?;
+            for (change_version, kind) in parsed.changes.iter() {
+                match kind {
+                    Kind::Added => if version < change_version {
+                        match &data.inner {
+                            // We can just skip generating the field if it doesn't exist in
+                            // this version.
+                            Data::Struct(_) => continue 'fields,
+                            // We need to still process the variant to convert the
+                            // source-defined variant into a non-serialized `None` variant.
+                            Data::Enum(_) => include = false,
+                            _ => return Err(
+                                Error::new(keyword.span(), "unexpected container type")
+                            ),
+                        }
+                    },
+                    Kind::Removed => if version >= change_version {
+                        match &data.inner {
+                            Data::Struct(_) => continue 'fields,
+                            Data::Enum(_) => include = false,
+                            _ => return Err(
+                                Error::new(keyword.span(), "unexpected container type")
+                            ),
+                        }
+                    },
+                    Kind::Renamed(id) => if version >= change_version {
+                        ident = id;
+                    },
                 }
             }
 
@@ -162,7 +151,7 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
             // The field/variant may have been renamed so we need to explicitly use the
             // source-defined original ident.
             let orig_ident = field.require_ident()?;
-            let attrs = parse_serde_field_attr(version, *field)?;
+            let attrs = parse_serde_field_attr(version, *field, &parsed)?;
             let ty = ty.as_ref().or(field.ty()?);
             match &data.inner {
                 Data::Struct(_) => {

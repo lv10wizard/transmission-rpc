@@ -91,6 +91,7 @@ pub struct SessionGet {
     ///   should stop using this key.
     #[serde(alias = "cache_size_mib")]
     #[serde(alias = "cache_size_mb")]
+    // TODO: #[deprecated = ... ]
     pub cache_size_mb: Option<u64>,
     /// Location of transmission's configuration directory.
     ///

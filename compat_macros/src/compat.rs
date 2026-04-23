@@ -12,10 +12,7 @@ use syn::{
     spanned::Spanned as _,
 };
 
-use crate::{
-    SUPPORTED_VERSIONS,
-    symbols::{ATTR_ADDED, ATTR_COMPAT, ATTR_REMOVED, ATTR_RENAMED},
-};
+use crate::symbols::{ATTR_ADDED, ATTR_COMPAT, ATTR_REMOVED, ATTR_RENAMED};
 
 /// Represents the change to a struct field or enum variant for a specific transmission semver.
 #[derive(Debug, Clone, Eq, Hash)]
@@ -252,10 +249,15 @@ fn parse_str_lit(expr: &Expr) -> Result<&LitStr> {
 fn parse_semver(value: &Expr) -> Result<(Version, Span)> {
     match Version::parse(&parse_str_lit(value)?.value()) {
         Ok(version) => {
+            // TODO? Emit a warning if version not in SUPPORTED_VERSIONS?
+            // TODO- (Span::warning is currently unstable)
+            /*
             SUPPORTED_VERSIONS.iter()
                 .find(|&v| &version == v)
                 .map(|_| (version, value.span()))
                 .ok_or(Error::new(value.span(), "unrecognized transmission rpc-version-semver"))
+            */
+            Ok((version, value.span()))
         },
         Err(err) => return Err(Error::new(value.span(), err)),
     }

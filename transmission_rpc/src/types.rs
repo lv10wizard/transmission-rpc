@@ -5,6 +5,7 @@
 use std::fmt::{self, Display};
 
 use bitflags::{self, parser};
+use compat_macros::SemverCompat;
 use semver::Version;
 use serde::{Deserialize, Serialize, de::Error as _};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -86,7 +87,9 @@ impl RpcVersion {
             5 => "2.0.0",
             6 => "2.1.0",
             7 => "3.0.0",
-            8 => "3.1.0", // NOTE: version 8 maps onto both "3.1.0" and "3.2.0"
+            // NOTE: rpc-version 8 maps onto both "3.1.0" and "3.2.0".
+            // NOTE- Mapping `8` to the lower sem-version (3.1.0) provides better compatibility.
+            8 => "3.1.0",
             9 => "3.3.0",
             10 => "3.4.0",
             11 => "3.5.0",
@@ -146,7 +149,7 @@ pub enum RatioMode {
 }
 
 /// Represents how transmission handles peer connection encryption.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(SemverCompat, Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum Encryption {
     /// Encrypt all peer connections.
@@ -154,10 +157,8 @@ pub enum Encryption {
     /// Prefer encrypted peer connections.
     Preferred,
     /// Prefer unencrypted peer connections.
-    ///
-    /// > Renamed from `tolerated` to `allowed` in Transmission 4.1.0.
-    #[serde(alias = "allowed")]
-    //#[changed(semver = "6.0.0", name = Allowed)]
+    #[serde(alias = "allowed")] // TODO: handle via `DeCompat`
+    #[renamed = r#"("6.0.0", "Allowed")"#]
     Tolerated,
 }
 
@@ -169,25 +170,6 @@ impl Display for Encryption {
             Self::Preferred => "preferred",
             Self::Tolerated => "tolerated",
         })
-    }
-}
-
-/// Semver-6.0.0 compatibility serialization helper enum for [`Encryption`].
-#[derive(Serialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[serde(rename_all = "lowercase")]
-enum EncryptionCompat {
-    Required,
-    Preferred,
-    Allowed,
-}
-
-impl From<Encryption> for EncryptionCompat {
-    fn from(value: Encryption) -> Self {
-        match value {
-            Encryption::Required => Self::Required,
-            Encryption::Preferred => Self::Preferred,
-            Encryption::Tolerated => Self::Allowed,
-        }
     }
 }
 

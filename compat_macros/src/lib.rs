@@ -324,3 +324,5 @@ pub fn generate_semver_compat(input: TokenStream) -> TokenStream {
     }
     .into()
 }
+
+// TODO: #[semver_doc] (or something) to update field/variant docs with change version info.

@@ -6,7 +6,7 @@ use syn::{
     spanned::Spanned as _,
 };
 
-use crate::compat::FieldOrVar;
+use crate::compat::{CompatData, FieldOrVar, Kind};
 
 /// Linearly searches `attributes` for #\[serde(...)\] attributes, returning a [`Vec`] of matching
 /// [`Attribute`]s.
@@ -97,18 +97,31 @@ fn strip_serde_attr(serde_attrs: Vec<Attribute>, to_strip: &str) -> Result<Vec<A
 /// Returns a [`Vec`] containing only `serde` attributes (`Vec` in case multiple #\[serde(...)\]
 /// attributes are defined).
 ///
-/// To account for transmission semver-6.0.0 refactoring all rpc strings to `snake_case`, the
-/// `rename = "..."` serde argument will be stripped out if it was defined.
+/// Any `rename = "..."` serde argument will be stripped out if:
+/// 
+/// * `version >= 6.0.0`, or
+/// * `#[renamed = "RENAMED_VER"]` is defined and `version >= RENAMED_VER`
 ///
 /// This behavior assumes that any `rename = "..."` serde argument is used to override
 /// container-level `rename_all = "..."` behavior, eg. `rename = "file-count"` to override
 /// container-level `#[serde(rename_all = "camelCase")]`.
-pub(crate) fn parse_serde_field_attr<'a>(version: &Version, fv: FieldOrVar<'a>)
-    -> Result<Vec<Attribute>>
-{
+pub(crate) fn parse_serde_field_attr<'a>(
+    version: &Version,
+    fv: FieldOrVar<'a>,
+    parsed: &CompatData,
+) -> Result<Vec<Attribute>> {
     let mut field_serde = parse_serde_attr(fv.attributes());
 
-    if version >= &Version::new(6, 0, 0) {
+    let renamed = parsed.changes.iter()
+        .find_map(|(change_version, kind)| {
+            match kind {
+                Kind::Renamed(_) => Some(version >= change_version),
+                _ => None,
+            }
+        })
+        .unwrap_or(false);
+
+    if version >= &Version::new(6, 0, 0) || renamed {
         field_serde = strip_serde_attr(field_serde, "rename")?;
     }
     Ok(field_serde)

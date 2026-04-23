@@ -2,7 +2,7 @@ use compat_macros::SemverCompat;
 use serde::Serialize;
 use serde_with::skip_serializing_none;
 
-use super::{AltSpeedDay, Encryption, EncryptionCompat, MinutesAfterMidnight, Transport};
+use super::{AltSpeedDay, MinutesAfterMidnight, Transport};
 
 /// Request arguments of a [`session_set`] query.
 /// 
@@ -48,11 +48,13 @@ pub struct SessionSetArgs {
     /// [`blocklist_url`]: Self::blocklist_url
     /// [blocklists.md]:
     /// <https://github.com/transmission/transmission/blob/main/docs/Blocklists.md>
+    #[added = "2.0.0"]
     pub blocklist_enabled: Option<bool>,
     /// Location of the blocklist to use. See: [blocklists.md].
     ///
     /// [blocklists.md]:
     /// <https://github.com/transmission/transmission/blob/main/docs/Blocklists.md>
+    #[added = "3.5.0"]
     pub blocklist_url: Option<String>,
 
     /// Number in MiB to allocate for Transmission's memory cache. The cache is used to help batch
@@ -69,9 +71,8 @@ pub struct SessionSetArgs {
     /// gettable and settable via RPC `session_get` and `session_set` until Transmission 5.0.0 to
     /// avoid client breakage, but it will be otherwise unused in libtransmission. Clients should
     /// stop using this key.
-    #[compat(name = cache_size_mib)]
-    //TODO: #[added(semver = "3.4.0")]
-    //TODO: #[renamed(semver = "6.0.0", name = cache_size_mib)]
+    #[added = "3.4.0"]
+    #[renamed = r#"("6.0.0", "cache_size_mib")"#]
     //TODO? #[deprecated(semver = "6.1.0")]
     //TODO: #[removed(semver = "???")]
     pub cache_size_mb: Option<i32>,
@@ -89,42 +90,44 @@ pub struct SessionSetArgs {
     /// Default path to download torrents.
     pub download_dir: Option<String>,
     /// If true, limit how many torrents can be downloaded at once.
-    ///
-    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
+    #[added = "5.0.0"]
     pub download_queue_enabled: Option<bool>,
     /// Max number of torrents to download at once (see [`download_queue_enabled`])
     ///
-    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
-    ///
     /// [`download_queue_enabled`]: Self::download_queue_enabled
+    #[added = "5.0.0"]
     pub download_queue_size: Option<u64>,
     /// Encryption preference. Encryption may help get around some ISP filtering, but at the cost
     /// of slightly higher CPU use.
-    #[compat(type = Option<EncryptionCompat>, map = Option::map)]
-    pub encryption: Option<Encryption>,
+    // NOTE: We use the fully qualified path to the `Encryption` enum so that `SemverCompat` can
+    // NOTE- generate compat types with the correct Encryption type.
+    #[compat]
+    pub encryption: Option<crate::types::Encryption>,
     /// Torrents we're seeding will be stopped if they're idle for this long.
-    ///
-    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
+    #[added = "3.4.0"]
     pub idle_seeding_limit: Option<u64>,
     /// True if the [seeding inactivity limit] is honored by default.
     ///
-    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
-    ///
     /// [seeding inactivity limit]: Self::idle_seeding_limit
+    #[added = "3.4.0"]
     pub idle_seeding_limit_enabled: Option<bool>,
     /// Path for incomplete torrents, when enabled.
+    #[added = "3.0.0"]
     pub incomplete_dir: Option<String>,
     /// True means keep torrents in [`incomplete_dir`] until done.
     ///
     /// [`incomplete_dir`]: Self::incomplete_dir
+    #[added = "3.0.0"]
     pub incomplete_dir_enabled: Option<bool>,
     /// True means allow [Local Peer Discovery] in public torrents.
     ///
     /// [Local Peer Discovery]: <https://en.wikipedia.org/wiki/Local_Peer_Discovery>
     pub lpd_enabled: Option<bool>,
     /// Maximum global number of peers.
+    #[added = "2.0.0"]
     pub peer_limit_global: Option<u64>,
     /// Maximum number of peers per torrent.
+    #[added = "2.0.0"]
     pub peer_limit_per_torrent: Option<u64>,
     /// True means pick a random peer port on launch.
     pub peer_port_random_on_start: Option<bool>,
@@ -145,28 +148,23 @@ pub struct SessionSetArgs {
     /// transport protocol from the list will disable it. *Note: Never disable TCP when you also
     /// disable µTP, because then your client would not be able to communicate. Disabling TCP might
     /// also break webseeds.*
-    ///
-    ///  > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
-    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
+    #[added = "6.0.0"]
     pub preferred_transports: Option<Vec<Transport>>,
 
     /// Whether or not to consider [idle torrents as stalled].
     ///
-    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
-    ///
     /// [idle torrents as stalled]: Self::queue_stalled_minutes
+    #[added = "5.0.0"]
     pub queue_stalled_enabled: Option<bool>,
     /// Torrents that are idle for N minuets aren't counted toward [`seed_queue_size`] or
     /// [`download_queue_size`].
     ///
-    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
-    ///
     /// [`seed_queue_size`]: Self::seed_queue_size
     /// [`download_queue_size`]: Self::download_queue_size
+    #[added = "5.0.0"]
     pub queue_stalled_minutes: Option<u64>,
     /// True means append `.part` to incomplete files.
-    ///
-    /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
+    #[added = "3.1.0"]
     pub rename_partial_files: Option<bool>,
     /// The number of outstanding block requests a peer is allowed to queue in the client. The
     /// higher this number, the higher the max possible upload speed towards each peer.
@@ -208,37 +206,28 @@ pub struct SessionSetArgs {
     pub script_torrent_done_seeding_filename: Option<String>,
     /// When true, Transmission will only seed [`seed_queue_size`] non-stalled torrents at once.
     ///
-    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
-    ///
     /// [`seed_queue_size`]: Self::seed_queue_size
+    #[added = "5.0.0"]
     pub seed_queue_enabled: Option<bool>,
     /// Max number of torrents to uploaded at once (see [`seed_queue_enabled`]).
     ///
-    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
-    ///
     /// [`seed_queue_enabled`]: Self::seed_queue_enabled
+    #[added = "5.0.0"]
     pub seed_queue_size: Option<u64>,
     /// The default seed ratio for torrents to use.
+    #[added = "2.0.0"]
     #[serde(rename = "seedRatioLimit")]
     pub seed_ratio_limit: Option<f32>,
     /// True if [`seed_ratio_limit`] is honored by default.
     ///
     /// [`seed_ratio_limit`]: Self::seed_ratio_limit
+    #[added = "2.0.0"]
     #[serde(rename = "seedRatioLimited")]
     pub seed_ratio_limited: Option<bool>,
 
     /// True means sequential download is enabled by default for added torrents.
-    ///
-    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
-    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
+    #[added = "6.0.0"]
     pub sequential_download: Option<bool>,
-    /// Download from a specific piece when [sequential download] is enabled.
-    ///
-    /// > Added in Transmission 4.1.0 (`rpc-version-semver` 6.0.0, `rpc-version`: 18)
-    ///
-    /// [sequential download]: Self::sequential_download
-    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
-    pub sequential_download_from_piece: Option<u64>,
 
     /// Max global download speed (kB/s).
     pub speed_limit_down: Option<u64>,
@@ -253,12 +242,10 @@ pub struct SessionSetArgs {
     /// [`speed_limit_up`]: Self::speed_limit_up
     pub speed_limit_up_enabled: Option<bool>,
     /// Start torrents as soon as they are added.
-    ///
-    /// > Added in Transmission 2.00 (`rpc-version-semver` 3.3.0, `rpc-version`: 9)
+    #[added = "3.3.0"]
     pub start_added_torrents: Option<bool>,
     /// Delete torrents added from the watch directory.
-    ///
-    /// > Added in Transmission 2.00 (`rpc-version-semver` 3.3.0, `rpc-version`: 9)
+    #[added = "3.3.0"]
     pub trash_original_torrent_files: Option<bool>,
     /// True means allow [uTP].
     ///
@@ -267,6 +254,7 @@ pub struct SessionSetArgs {
     ///
     /// [uTP]: <https://wikipedia.org/wiki/Micro_Transport_Protocol>
     /// [`preferred_transports`]: Self::preferred_transports
+    // TODO: #[deprecated = r#"("6.0.0", "use `preferred_transports` instead")"#]
     pub utp_enabled: Option<bool>,
 }
 
@@ -1141,28 +1129,6 @@ mod serde_tests {
             ..Default::default()
         };
         verify(session_set_args, Some(JSON_RPC_VERSION_2_0), "\"sequential_download\":false")
-    }
-
-    #[test]
-    fn request_session_set_legacy_sequential_download_from_piece() -> Result<()> {
-        let session_set_args = SessionSetArgs {
-            sequential_download_from_piece: Some(321),
-            ..Default::default()
-        };
-        // `sequential_download_from_piece` only exists post- semver-6.0.0.
-        verify(session_set_args, None, "")
-    }
-
-    #[test]
-    fn request_session_set_semver_600_sequential_download_from_piece() -> Result<()> {
-        let session_set_args = SessionSetArgs {
-            sequential_download_from_piece: Some(403),
-            ..Default::default()
-        };
-        verify(
-            session_set_args,
-            Some(JSON_RPC_VERSION_2_0),
-            "\"sequential_download_from_piece\":403")
     }
 
     #[test]

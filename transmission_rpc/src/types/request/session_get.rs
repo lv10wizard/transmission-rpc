@@ -31,7 +31,7 @@ use super::{Args, RpcRequest};
 #[derive(SemverCompat, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) struct SessionGetArgs {
-    #[compat(type = Vec<_>)]
+    #[compat]
     #[serde(skip_serializing_if = "Vec::is_empty")] // Treat empty the same as `None`.
     pub(crate) fields: Vec<SessionGetField>,
 }
@@ -75,31 +75,42 @@ where
 #[derive(SemverCompat, Serialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum SessionGetField {
+    #[added = "2.0.0"]
     AltSpeedDown,
+    #[added = "2.0.0"]
     AltSpeedEnabled,
+    #[added = "2.0.0"]
     AltSpeedTimeBegin,
+    #[added = "2.0.0"]
     AltSpeedTimeDay,
+    #[added = "2.0.0"]
     AltSpeedTimeEnabled,
+    #[added = "2.0.0"]
     AltSpeedTimeEnd,
+    #[added = "2.0.0"]
     AltSpeedUp,
     AntiBruteForceEnabled,
     AntiBruteForceThreshold,
+    #[added = "2.0.0"]
     BlocklistEnabled,
+    #[added = "2.0.0"]
     BlocklistSize,
+    #[added = "3.5.0"]
     BlocklistUrl,
     /// > ⚠ **DEPRECATED** in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?):
     /// The memory cache is being removed, making this setting moot. The setting will still be
     /// gettable and settable via RPC session_get and session_set until Transmission
     /// 5.0.0 to avoid client breakage, but it will be otherwise unused in libtransmission. Clients
     ///   should stop using this key.
-    #[compat(name = CacheSizeMib)]
-    /*
-    #[added(semver = "3.4.0")]
-    #[changed(semver = "6.0.0", name = CacheSizeMib)]
-    #[deprecated(semver = "6.1.0", reason = "The memory cache is being removed, making this setting moot. The setting will still be gettable and settable via RPC session_get and session_set until Transmission 5.0.0 to avoid client breakage, but it will be otherwise unused in libtransmission. Clients should stop using this key.")]
+    #[added = "3.4.0"]
+    #[renamed = r#"("6.0.0", "CacheSizeMib")"#]
+    /* TODO:
+    #[deprecated(semver = "6.1.0", reason = "The memory cache is being removed, making this setting moot. The setting will still be gettable and settable via RPC session_get and session_set until Transmission 5.0.0 to avoid client breakage, but it will be otherwise unused in libtransmission. Clients should stop using this key.")] 
     */
     CacheSizeMb,
+    #[added = "3.1.0"]
     ConfigDir,
+    #[added = "5.3.0"]
     DefaultTrackers,
     DhtEnabled,
     DownloadDir,
@@ -107,69 +118,97 @@ pub enum SessionGetField {
     /// Use [`free_space`] instead.
     ///
     /// [`free_space`]: crate::TransClient::free_space
+    #[added = "3.6.0"]
+    // TODO: #[deprecated = r#"("3.6.0", "use `free_space` method instead")"#]
     DownloadDirFreeSpace,
     DownloadQueueEnabled,
     DownloadQueueSize,
     Encryption,
     IdleSeedingLimitEnabled,
     IdleSeedingLimit,
+    #[added = "3.0.0"]
     IncompleteDirEnabled,
+    #[added = "3.0.0"]
     IncompleteDir,
     LpdEnabled,
-    PeerLimitGlobal,
+    #[renamed = r#"("2.0.0", "PeerLimitGlobal")"#]
+    PeerLimit,
+    #[added = "2.0.0"]
     PeerLimitPerTorrent,
     PeerPortRandomOnStart,
-    PeerPort,
-    PexEnabled,
+    #[renamed = r#"("2.0.0", "PexEnabled")"#]
+    PexAllowed,
+    #[renamed = r#"("2.0.0", "PeerPort")"#]
+    Port,
     PortForwardingEnabled,
+    #[added = "6.0.0"]
     PreferredTransports,
     QueueStalledEnabled,
     QueueStalledMinutes,
+    #[added = "3.1.0"]
     RenamePartialFiles,
     Reqq,
     /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
     /// Use [`RpcVersionSemver`] instead.
     ///
     /// [`RpcVersionSemver`]: Self::RpcVersionSemver
+    #[added = "1.3.0"]
+    // TODO: #[deprecated = r#"("6.0.0", "use `rpc_version_semver` instead")"#]
     RpcVersionMinimum,
+    #[added = "5.3.0"]
     RpcVersionSemver,
     /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
     /// Use [`RpcVersionSemver`] instead.
     ///
     /// [`RpcVersionSemver`]: Self::RpcVersionSemver
+    #[added = "1.3.0"]
+    // TODO: #[deprecated = r#"("6.0.0", "use `rpc_version_semver` instead")"#]
     RpcVersion,
+    #[added = "5.3.0"]
     ScriptTorrentAddedEnabled,
+    #[added = "5.3.0"]
     ScriptTorrentAddedFilename,
     ScriptTorrentDoneEnabled,
     ScriptTorrentDoneFilename,
+    #[added = "5.3.0"]
     ScriptTorrentDoneSeedingEnabled,
+    #[added = "5.3.0"]
     ScriptTorrentDoneSeedingFilename,
     SeedQueueEnabled,
     SeedQueueSize,
+    #[added = "2.0.0"]
     #[serde(rename = "seedRatioLimit")]
     SeedRatioLimit,
+    #[added = "2.0.0"]
     #[serde(rename = "seedRatioLimited")]
     SeedRatioLimited,
-    #[serde(rename = "sequential_download")] // Doesn't exist pre- semver-6.0.0
+    #[added = "6.0.0"]
     SequentialDownload,
+    #[added = "5.2.0"]
     SessionId,
     SpeedLimitDownEnabled,
     SpeedLimitDown,
     SpeedLimitUpEnabled,
     SpeedLimitUp,
+    #[added = "3.3.0"]
     StartAddedTorrents,
     /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
     /// Use [`RpcVersionSemver`] instead.
     ///
     /// [`RpcVersionSemver`]: Self::RpcVersionSemver
+    // TODO: #[deprecated = r#"("6.0.0", "use `preferred_transports` instead")"#]
     TcpEnabled,
+    #[added = "3.3.0"]
     TrashOriginalTorrentFiles,
+    #[added = "3.4.0"]
     Units,
     /// > ⚠ **DEPRECATED** in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18):
     /// Use [`PreferredTransports`] instead.
     ///
     /// [`PreferredTransports`]: Self::PreferredTransports
+    // TODO: #[deprecated = r#"("6.0.0", "use `preferred_transports` instead")"#]
     UtpEnabled,
+    #[added = "1.2.0"]
     Version,
 }
 
@@ -530,13 +569,13 @@ mod serde_tests {
 
     #[test]
     fn request_session_get_legacy_peer_limit_global() -> Result<()> {
-        verify_fields([SessionGetField::PeerLimitGlobal], None, ["peer-limit-global"])
+        verify_fields([SessionGetField::PeerLimit], None, ["peer-limit-global"])
     }
 
     #[test]
     fn request_session_get_semver_600_peer_limit_global() -> Result<()> {
         verify_fields(
-            [SessionGetField::PeerLimitGlobal],
+            [SessionGetField::PeerLimit],
             Some(JSON_RPC_VERSION_2_0),
             ["peer_limit_global"])
     }
@@ -572,22 +611,22 @@ mod serde_tests {
 
     #[test]
     fn request_session_get_legacy_peer_port() -> Result<()> {
-        verify_fields([SessionGetField::PeerPort], None, ["peer-port"])
+        verify_fields([SessionGetField::Port], None, ["peer-port"])
     }
 
     #[test]
     fn request_session_get_semver_600_peer_port() -> Result<()> {
-        verify_fields([SessionGetField::PeerPort], Some(JSON_RPC_VERSION_2_0), ["peer_port"])
+        verify_fields([SessionGetField::Port], Some(JSON_RPC_VERSION_2_0), ["peer_port"])
     }
 
     #[test]
     fn request_session_get_legacy_pex_enabled() -> Result<()> {
-        verify_fields([SessionGetField::PexEnabled], None, ["pex-enabled"])
+        verify_fields([SessionGetField::PexAllowed], None, ["pex-enabled"])
     }
 
     #[test]
     fn request_session_get_semver_600_pex_enabled() -> Result<()> {
-        verify_fields([SessionGetField::PexEnabled], Some(JSON_RPC_VERSION_2_0), ["pex_enabled"])
+        verify_fields([SessionGetField::PexAllowed], Some(JSON_RPC_VERSION_2_0), ["pex_enabled"])
     }
 
     #[test]

@@ -6,10 +6,7 @@ use serde::{Serialize, Serializer};
 use compat_macros::SemverCompat;
 
 use crate::json_rpc::{JsonRpcId, JsonRpcRequest};
-use super::{
-    AltSpeedDay, Encryption, EncryptionCompat, Id, IpProtocol, MinutesAfterMidnight, Tag,
-    Transport,
-};
+use super::{AltSpeedDay, Encryption, Id, IpProtocol, MinutesAfterMidnight, Tag, Transport};
 
 pub(crate) use group_set::*; // GroupSetArgs
 pub(crate) use session_get::*; // SessionGetArgs
@@ -66,6 +63,7 @@ impl Serialize for RpcRequest {
                     // All method names were converted to snake_case in Transmission 4.1.0 (when
                     // the RPC server switched to the JSON-RPC 2.0 protocol).
                     method: self.method.into_compat(),
+                        // TODO: .ok_or_else(|| TransError::VersionTooLow)?,
                     params: self.arguments.as_ref()
                         // Cloning the request arguments shouldn't be too costly...
                         // Not ideal, but maybe this gets optimized away anyway?
@@ -84,8 +82,8 @@ impl Serialize for RpcRequest {
             None => {
                 /// Serialization helper for legacy requests (pre- Transmission 4.1.0).
                 #[derive(Serialize)]
-                struct LegacyRequest<'a> {
-                    method: &'a Method,
+                struct LegacyRequest<'a, M> {
+                    method: M,
                     #[serde(skip_serializing_if = "Option::is_none")]
                     arguments: &'a Option<Args>,
                     #[serde(skip_serializing_if = "Option::is_none")]
@@ -93,7 +91,8 @@ impl Serialize for RpcRequest {
                 }
 
                 LegacyRequest {
-                    method: &self.method,
+                    method: self.method.into_compat(),
+                        // TODO: .ok_or_else(|| TransError::VersionTooLow)?,
                     arguments: &self.arguments,
                     tag: self.tag,
                 }
@@ -372,27 +371,42 @@ impl RpcRequest {
 #[derive(SemverCompat, Serialize, Debug, Copy, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum Method {
+    #[added = "2.0.0"]
     BlocklistUpdate,
+    #[added = "5.1.0"]
     FreeSpace,
+    #[added = "5.3.0"]
     GroupGet,
+    #[added = "5.3.0"]
     GroupSet,
+    #[added = "2.0.0"]
     PortTest,
+    #[added = "5.0.0"]
     QueueMoveBottom,
+    #[added = "5.0.0"]
     QueueMoveDown,
+    #[added = "5.0.0"]
     QueueMoveTop,
+    #[added = "5.0.0"]
     QueueMoveUp,
+    #[added = "3.6.0"]
     SessionClose,
     SessionGet,
     SessionSet,
     SessionStats,
     TorrentAdd,
     TorrentGet,
+    #[added = "2.0.0"]
     TorrentReannounce,
+    #[added = "1.2.0"]
     TorrentRemove,
+    #[added = "5.1.0"]
     TorrentRenamePath,
     TorrentSet,
+    #[added = "2.1.0"]
     TorrentSetLocation,
     TorrentStart,
+    #[added = "5.0.0"]
     TorrentStartNow,
     TorrentStop,
     TorrentVerify,
@@ -424,33 +438,33 @@ impl ArgumentFields for TorrentGetField {}
 #[derive(SemverCompat, Serialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Args {
-    #[compat(type = "_")]
+    #[compat]
     FreeSpace(FreeSpaceArgs),
-    #[compat(type = _)]
+    #[compat]
     GroupGet(GroupGetArgs),
-    #[compat(type = _)]
+    #[compat]
     GroupSet(GroupSetArgs),
-    #[compat(type = _)]
+    #[compat]
     PortTest(PortTestArgs),
-    #[compat(type = _)]
+    #[compat]
     SessionGet(SessionGetArgs),
-    #[compat(type = _)]
+    #[compat]
     SessionSet(SessionSetArgs),
-    #[compat(type = _)]
+    #[compat]
     QueueMove(QueueMoveArgs),
-    #[compat(type = _)]
+    #[compat]
     TorrentGet(TorrentGetArgs),
-    #[compat(type = _)]
+    #[compat]
     TorrentAction(TorrentActionArgs),
-    #[compat(type = _)]
+    #[compat]
     TorrentRemove(TorrentRemoveArgs),
-    #[compat(type = _)]
+    #[compat]
     TorrentAdd(TorrentAddArgs),
-    #[compat(type = _)]
+    #[compat]
     TorrentSet(TorrentSetArgs),
-    #[compat(type = _)]
+    #[compat]
     TorrentSetLocation(TorrentSetLocationArgs),
-    #[compat(type = _)]
+    #[compat]
     TorrentRenamePath(TorrentRenamePathArgs),
 }
 
@@ -491,9 +505,7 @@ pub struct PortTestArgs {
     /// allowed to omit this parameter to get the behavior before Transmission `4.1.0`
     /// (`rpc-version-semver` 6.0.0), which is to check whichever IP version the OS happened to use
     /// to connect to the port test service.
-    ///
-    /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
-    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
+    #[added = "6.0.0"]
     pub ip_protocol: Option<IpProtocol>,
 }
 

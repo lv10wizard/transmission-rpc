@@ -201,6 +201,7 @@ pub struct Torrent {
     /// never worked".
     #[serde(deserialize_with = "from_ts_option", default)]
     #[serde(alias = "manual_announce_time")]
+    // TODO: #[deprecated = r#"("6.0.0", "never worked""#]
     pub manual_announce_time: Option<DateTime<Utc>>,
     /// The maximum number of [`peers`] allowed to connect for this torrent. (This seems to be an
     /// alias for [`peer_limit`]).
@@ -431,13 +432,14 @@ pub struct Torrent {
     ///
     /// [webseed]: <https://www.bittorrent.org/beps/bep_0019.html>
     /// [`webseeds_ex`]: Self::webseeds_ex
+    // TODO: #[deprecated = r#"("6.1.0", "use `webseeds_ex` instead")"#]
     pub webseeds: Option<Vec<Url>>,
     /// A list of [webseed] data.
     ///
     /// > Added in Transmission 4.2.0 (`rpc_version_semver` 6.1.0, `rpc_version`: ?)
     ///
     /// [webseed]: <https://www.bittorrent.org/beps/bep_0019.html>
-    #[serde(rename = "webseed_ex")]
+    #[serde(rename = "webseed_ex")] // TODO: #[added = "6.1.0"]
     pub webseeds_ex: Option<Vec<WebseedsEx>>,
     /// Number of [webseeds] that are sending data to us.
     ///
@@ -484,14 +486,14 @@ pub struct File {
     /// than `4.1.0`.
     ///
     /// > Added in Transmission `4.1.0` (`rpc-version-semver` 6.0.0, `rpc-version`: 18).
-    #[serde(alias = "begin_piece")]
+    #[serde(alias = "begin_piece")] // TODO: #[added = "6.0.0"]
     pub begin_piece: Option<u64>,
     /// Piece index where this file ends (exclusive).
     ///
     /// See [`begin_piece`](Self::begin_piece).
     ///
     /// > Added in Transmission `4.1.0` (`rpc-version-semver` 6.0.0, `rpc-version`: 18).
-    #[serde(alias = "end_piece")]
+    #[serde(alias = "end_piece")] // TODO: #[added = "6.0.0"]
     pub end_piece: Option<u64>,
 }
 
@@ -678,6 +680,17 @@ pub enum TorrentStatus {
     Seeding = 6,
 }
 
+/* TODO: pre- semver-5.0.0: (needs a way to switch based on semver...)
+       | or custom deser impl that can switch on semver
+pub enum TorrentStatus {
+    QueuedToVerify = 1,
+    Verifying = 2,
+    Downloading = 4,
+    Seeding = 8,
+    Stopped = 16,
+}
+*/
+
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct Tracker {
     /// Unique transmission-generated ID for use in libtransmission API.
@@ -717,6 +730,7 @@ pub struct TrackerStat {
     /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
     ///
     /// [BEP-21]: <https://www.bittorrent.org/beps/bep_0021.html>
+    // TODO: #[added = "6.0.0"]; change i64 -> Option<i64>
     #[serde(alias = "downloader_count", default = "missing_downloader_count")]
     pub downloader_count: i64, // TODO? Option<_> differentiate between unknown and unimplemented?
     /// True iff we've announced to this tracker during this session.
@@ -760,7 +774,9 @@ pub struct TrackerStat {
     #[serde(alias = "last_announce_time")]
     pub last_announce_time: DateTime<Utc>,
     /// True iff the latest announce request timed out.
-    #[serde(alias = "last_announce_timed_out")]
+    ///
+    /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
+    #[serde(alias = "last_announce_timed_out")] // TODO: #[added = "3.1.0"]; bool -> Option<_>
     pub last_announce_timed_out: bool,
     /// If [`has_scraped`], the human-readable result of the latest scrape.
     ///
@@ -785,7 +801,9 @@ pub struct TrackerStat {
     #[serde(alias = "last_scrape_time")]
     pub last_scrape_time: DateTime<Utc>,
     /// True iff the latest scrape request timed out.
-    #[serde(alias = "last_scrape_timed_out")]
+    ///
+    /// > Added in Transmission 1.92 (`rpc-version-semver` 3.2.0, `rpc-version`: 8)
+    #[serde(alias = "last_scrape_timed_out")] // TODO: #[added = "3.2.0"]; bool -> Option<_>
     pub last_scrape_timed_out: bool,
     /// Number of leechers the tracker knows of, or -1 if unknown.
     #[serde(alias = "leecher_count")]

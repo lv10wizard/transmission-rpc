@@ -1229,7 +1229,7 @@ impl SharableTransClient {
         self.call(RpcRequest::torrent_add(add, Some(tag))).await
     }
 
-    /// Performs a group-set request.
+    /// Performs a group-get request.
     ///
     /// # Errors
     ///

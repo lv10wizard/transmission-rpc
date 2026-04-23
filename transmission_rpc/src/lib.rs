@@ -347,11 +347,13 @@ impl TransClient {
     /// }
     /// ```
     pub async fn session_close(&mut self) -> Result<RpcResponse<Nothing>> {
+        // TODO: self.semver < 3.6.0 => Err("version too low")
         self.call(RpcRequest::session_close(None)).await
     }
 
     /// Performs a session-close request that can be tracked by `tag`.
     pub async fn session_close_tagged(&mut self, tag: Tag) -> Result<RpcResponse<Nothing>> {
+        // TODO: self.semver < 3.6.0 => Err("version too low")
         self.call(RpcRequest::session_close(Some(tag))).await
     }
 
@@ -398,6 +400,7 @@ impl TransClient {
     /// }
     /// ```
     pub async fn blocklist_update(&mut self) -> Result<RpcResponse<BlocklistUpdate>> {
+        // TODO: self.semver < 2.0.0 => Err("version too low")
         self.call(RpcRequest::blocklist_update(None)).await
     }
 
@@ -406,6 +409,7 @@ impl TransClient {
         &mut self,
         tag: Tag,
     ) -> Result<RpcResponse<BlocklistUpdate>> {
+        // TODO: self.semver < 2.0.0 => Err("version too low")
         self.call(RpcRequest::blocklist_update(Some(tag))).await
     }
 
@@ -506,6 +510,7 @@ impl TransClient {
     /// }
     /// ```
     pub async fn port_test(&mut self, args: PortTestArgs) -> Result<RpcResponse<PortTest>> {
+        // TODO: self.semver < 2.0.0 => Err("version too low")
         self.call(RpcRequest::port_test(args, None)).await
     }
 
@@ -513,6 +518,7 @@ impl TransClient {
     pub async fn port_test_tagged(&mut self, args: PortTestArgs, tag: Tag)
         -> Result<RpcResponse<PortTest>>
     {
+        // TODO: self.semver < 2.0.0 => Err("version too low")
         self.call(RpcRequest::port_test(args, Some(tag))).await
     }
 
@@ -553,6 +559,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_top(ids, None)).await
     }
 
@@ -562,6 +569,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_top(ids, Some(tag))).await
     }
 
@@ -602,6 +610,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_up(ids, None)).await
     }
 
@@ -611,6 +620,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_up(ids, Some(tag))).await
     }
 
@@ -651,6 +661,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_down(ids, None)).await
     }
 
@@ -660,6 +671,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_down(ids, Some(tag))).await
     }
 
@@ -700,6 +712,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_bottom(ids, None)).await
     }
 
@@ -709,6 +722,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_bottom(ids, Some(tag))).await
     }
 
@@ -840,6 +854,9 @@ impl TransClient {
             .await
     }
 
+    // TODO: torrent_get_recently_active(&mut self, fields) [requires self.semver >= 2.0.0]
+    // TODO: torrent_get_recently_active_tagged(&mut self, fields, tag)
+
     /// Performs a torrent set call
     /// args - the fields to update
     /// ids - if None then All items
@@ -961,6 +978,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: (action == Reannounce && self.semver < 2.0.0) => Err("version too low")
         self.call(RpcRequest::torrent_action(action, ids, None))
             .await
     }
@@ -975,6 +993,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: (action == Reannounce && self.semver < 2.0.0) => Err("version too low")
         self.call(RpcRequest::torrent_action(action, ids, Some(tag)))
             .await
     }
@@ -1024,6 +1043,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: self.semver < 1.2.0 => Err("version too low")
         self.call(RpcRequest::torrent_remove(ids, delete_local_data, None))
             .await
     }
@@ -1038,6 +1058,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: self.semver < 1.2.0 => Err("version too low")
         self.call(RpcRequest::torrent_remove(
             ids,
             delete_local_data,
@@ -1097,6 +1118,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: self.semver < 2.1.0 => Err("version too low")
         self.call(RpcRequest::torrent_set_location(
             ids, location, move_from, None,
         ))
@@ -1114,6 +1136,7 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
+        // TODO: self.semver < 2.1.0 => Err("version too low")
         self.call(RpcRequest::torrent_set_location(
             ids,
             location,
@@ -1262,7 +1285,7 @@ impl TransClient {
         self.call(RpcRequest::torrent_add(add, Some(tag))).await
     }
 
-    /// Performs a group-set request.
+    /// Performs a group-get request.
     ///
     /// # Errors
     ///
@@ -1312,6 +1335,7 @@ impl TransClient {
     pub async fn group_get(&mut self, groups: Option<Vec<String>>)
         -> Result<RpcResponse<Vec<GroupGet>>>
     {
+        // TODO: self.semver < 5.3.0 => Err("version too low")
         self.call(RpcRequest::group_get(groups, None)).await
     }
 
@@ -1319,6 +1343,7 @@ impl TransClient {
     pub async fn group_get_tagged(&mut self, groups: Option<Vec<String>>, tag: Tag)
         -> Result<RpcResponse<Vec<GroupGet>>>
     {
+        // TODO: self.semver < 5.3.0 => Err("version too low")
         self.call(RpcRequest::group_get(groups, Some(tag))).await
     }
 
@@ -1376,6 +1401,7 @@ impl TransClient {
     /// ```
     pub async fn group_set(&mut self, args: GroupSetArgs) -> Result<RpcResponse<Nothing>>
     {
+        // TODO: self.semver < 5.3.0 => Err("version too low")
         self.call(RpcRequest::group_set(args, None)).await
     }
 
@@ -1383,6 +1409,7 @@ impl TransClient {
     pub async fn group_set_tagged(&mut self, args: GroupSetArgs, tag: Tag)
         -> Result<RpcResponse<Nothing>>
     {
+        // TODO: self.semver < 5.3.0 => Err("version too low")
         self.call(RpcRequest::group_set(args, Some(tag))).await
     }
 

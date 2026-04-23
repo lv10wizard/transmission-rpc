@@ -86,149 +86,121 @@ use crate::types::{Id, IdleMode, Priority, RatioMode, Result, TrackerId, Tracker
 /// [`torrent_set`]: crate::TransClient::torrent_set
 /// [`tracker_list`]: TorrentSetArgs::tracker_list
 /// [`Tracker::id`]: crate::types::Tracker::id
+#[serde_with::skip_serializing_none]
 #[derive(SemverCompat, Serialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TorrentSetArgs {
     /// The torrent's bandwidth priority.
-    ///
-    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "2.0.0"]
     pub bandwidth_priority: Option<Priority>,
-    /// Maximum download speed (kB/s).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub download_limit: Option<usize>,
-    /// True if [`download_limit`] is honored.
-    ///
-    /// [`download_limit`]: Self::download_limit
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub download_limited: Option<bool>,
     /// Indices of file(s) to not download.
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "files-unwanted")]
     pub files_unwanted: Option<Vec<usize>>,
     /// Indices of file(s) to download.
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "files-wanted")]
     pub files_wanted: Option<Vec<usize>>,
     /// The name of this torrent's bandwidth group.
-    ///
-    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "5.3.0"]
     pub group: Option<String>,
     /// True if session upload limits are honored.
-    ///
-    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "2.0.0"]
     pub honors_session_limits: Option<bool>,
 
     // Don't expose the `ids` field as it is blindly overwritten by `torrent_set`.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) ids: Option<Vec<Id>>,
 
     /// Array of user-created string labels.
-    ///
-    /// > Added in Transmission 3.00 (`rpc-version-semver` 5.2.0, `rpc-version`: 16)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "5.2.0"]
     pub labels: Option<Vec<String>>,
     /// New location of the torrent's content.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub location: Option<String>,
     /// Maximum number of peers.
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "peer-limit")]
     pub peer_limit: Option<u16>,
     /// Indices of high-priority file(s).
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "priority-high")]
     pub priority_high: Option<Vec<usize>>,
     /// Indices of low-priority file(s).
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "priority-low")]
     pub priority_low: Option<Vec<usize>>,
     /// Indices of normal-priority file(s).
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "priority-normal")]
     pub priority_normal: Option<Vec<usize>>,
     /// Position of this torrent in the queue [0, n).
-    ///
-    /// > Added in Transmission 2.40 (`rpc-version-semver` 5.0.0, `rpc-version`: 14)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "5.0.0"]
     pub queue_position: Option<usize>,
     /// Torrent-level number of minutes of seeding inactivity.
-    ///
-    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "3.4.0"]
     pub seed_idle_limit: Option<u16>,
     /// Which seeding inactivity to use.
-    ///
-    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "3.4.0"]
     pub seed_idle_mode: Option<IdleMode>,
 
     /// Torrent-level seeding ratio.
-    ///
-    /// > Added in Transmission 1.60 (`rpc-version-semver` 2.0.0, `rpc-version`: 5)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "2.0.0"]
     pub seed_ratio_limit: Option<f64>,
 
     /// Which ratio to use.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "2.0.0"]
     pub seed_ratio_mode: Option<RatioMode>,
     /// Download torrent pieces sequentially.
-    ///
-    /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
-    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
+    #[added = "6.0.0"]
     pub sequential_download: Option<bool>,
     /// Download from a specific piece when [sequential download] is enabled.
     ///
-    /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
-    ///
     /// [sequential download]: Self::sequential_download
-    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
+    #[added = "6.0.0"]
     pub sequential_download_from_piece: Option<u64>,
-    /// Strings of announce URLs to add.
+    /// Maximum download speed (kB/s).
+    #[renamed = r#"("2.0.0", "download_limit")"#]
+    #[serde(rename = "speed-limit-down")]
+    pub speed_limit_down: Option<usize>,
+    /// True if [`download_limit`] is honored.
     ///
-    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
-    ///
-    /// > ⚠ **DEPRECATED** in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17):
-    /// Use [`tracker_list`] instead.
-    ///
-    /// [`tracker_list`]: Self::tracker_list
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tracker_add: Option<Vec<Url>>,
-    /// String of announce URLs, one per line, and a blank line between tiers.
-    ///
-    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tracker_list: Option<TrackerList>,
-    /// Ids of trackers to remove.
-    ///
-    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
-    ///
-    /// > ⚠ **DEPRECATED** in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17):
-    /// Use [`tracker_list`] instead.
-    ///
-    /// [`tracker_list`]: Self::tracker_list
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tracker_remove: Option<Vec<TrackerId>>,
-    /// Pairs of <trackerId/new announce URLs>.
-    ///
-    /// > Added in Transmission 2.10 (`rpc-version-semver` 3.4.0, `rpc-version`: 10)
-    ///
-    /// > ⚠ **DEPRECATED** in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17):
-    /// Use [`tracker_list`] instead.
-    ///
-    /// [`tracker_list`]: Self::tracker_list
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tracker_replace: Option<TrackerReplaceArgs>,
+    /// [`download_limit`]: Self::download_limit
+    #[renamed = r#"("2.0.0", "download_limited")"#]
+    #[serde(rename = "speed-limit-down-enabled")]
+    pub speed_limit_down_enabled: Option<bool>,
     /// Maximum upload speed (KBps).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub upload_limit: Option<usize>,
+    #[renamed = r#"("2.0.0", "upload_limit")"#]
+    #[serde(rename = "speed-limit-up")]
+    pub speed_limit_up: Option<usize>,
     /// True if [`upload_limit`] is honored.
     ///
     /// [`upload_limit`]: Self::upload_limit
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub upload_limited: Option<bool>,
+    #[renamed = r#"("2.0.0", "upload_limited")"#]
+    #[serde(rename = "speed-limit-up-enabled")]
+    pub speed_limit_up_enabled: Option<bool>,
+    /// Strings of announce URLs to add.
+    ///
+    /// > ⚠ **DEPRECATED** in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17):
+    /// Use [`tracker_list`] instead.
+    ///
+    /// [`tracker_list`]: Self::tracker_list
+    #[added = "3.4.0"]
+    // TODO: #[deprecated = r#"("5.3.0", "use `tracker_list` instead")#]
+    pub tracker_add: Option<Vec<Url>>,
+    /// String of announce URLs, one per line, and a blank line between tiers.
+    #[added = "5.3.0"]
+    pub tracker_list: Option<TrackerList>,
+    /// Ids of trackers to remove.
+    ///
+    /// > ⚠ **DEPRECATED** in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17):
+    /// Use [`tracker_list`] instead.
+    ///
+    /// [`tracker_list`]: Self::tracker_list
+    #[added = "3.4.0"]
+    // TODO: #[deprecated = r#"("5.3.0", "use `tracker_list` instead")#]
+    pub tracker_remove: Option<Vec<TrackerId>>,
+    /// Pairs of <trackerId/new announce URLs>.
+    ///
+    /// > ⚠ **DEPRECATED** in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17):
+    /// Use [`tracker_list`] instead.
+    ///
+    /// [`tracker_list`]: Self::tracker_list
+    #[added = "3.4.0"]
+    // TODO: #[deprecated = r#"("5.3.0", "use `tracker_list` instead")#]
+    pub tracker_replace: Option<TrackerReplaceArgs>,
 }
 
 impl TorrentSetArgs {
@@ -242,11 +214,11 @@ impl TorrentSetArgs {
         self
     }
     pub fn download_limit(mut self, download_limit: usize) -> Self {
-        self.download_limit = Some(download_limit);
+        self.speed_limit_down = Some(download_limit);
         self
     }
     pub fn download_limited(mut self, download_limited: bool) -> Self {
-        self.download_limited = Some(download_limited);
+        self.speed_limit_down_enabled = Some(download_limited);
         self
     }
     pub fn files_wanted<I>(mut self, files_wanted: I) -> Self
@@ -340,6 +312,22 @@ impl TorrentSetArgs {
         self.sequential_download_from_piece = Some(piece);
         self
     }
+    pub fn speed_limit_down(mut self, download_limit: usize) -> Self {
+        self.speed_limit_down = Some(download_limit);
+        self
+    }
+    pub fn speed_limit_down_enabled(mut self, download_limited: bool) -> Self {
+        self.speed_limit_down_enabled = Some(download_limited);
+        self
+    }
+    pub fn speed_limit_up(mut self, upload_limit: usize) -> Self {
+        self.speed_limit_up = Some(upload_limit);
+        self
+    }
+    pub fn speed_limit_up_enabled(mut self, upload_limited: bool) -> Self {
+        self.speed_limit_up_enabled = Some(upload_limited);
+        self
+    }
     pub fn tracker_add<I>(mut self, tracker_add: I) -> Self
     where
         I: IntoIterator<Item = Url>,
@@ -366,11 +354,11 @@ impl TorrentSetArgs {
         self
     }
     pub fn upload_limit(mut self, upload_limit: usize) -> Self {
-        self.upload_limit = Some(upload_limit);
+        self.speed_limit_up = Some(upload_limit);
         self
     }
     pub fn upload_limited(mut self, upload_limited: bool) -> Self {
-        self.upload_limited = Some(upload_limited);
+        self.speed_limit_up_enabled = Some(upload_limited);
         self
     }
 }

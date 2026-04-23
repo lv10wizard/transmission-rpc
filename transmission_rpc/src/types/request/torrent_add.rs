@@ -73,13 +73,13 @@ use crate::types::Priority;
 /// [`torrent_add`]: crate::TransClient::torrent_add
 /// [`default`]: Self::default
 /// [`new`]: Self::new
+#[serde_with::skip_serializing_none]
 #[derive(SemverCompat, Serialize, Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub struct TorrentAddArgs {
     /// The torrent's bandwidth priority.
-    ///
-    /// > Added in Transmission 1.90 (`rpc-version-semver` 3.1.0, `rpc-version`: 8)
-    #[serde(skip_serializing_if = "Option::is_none", rename = "bandwidthPriority")]
+    #[added = "3.1.0"]
+    #[serde(rename = "bandwidthPriority")]
     pub bandwidth_priority: Option<Priority>,
     /// A string of one or more [cookies]. These are passed to the request when [`filename`] is a
     /// url.
@@ -91,22 +91,18 @@ pub struct TorrentAddArgs {
     /// [cookies]: <https://en.wikipedia.org/wiki/HTTP_cookie>
     /// [`filename`]: Self::filename
     /// [libcurl documentation]: <https://curl.se/rfc/cookie_spec.html>
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "4.0.0"]
     pub cookies: Option<String>,
     /// Path to download the torrent to.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub download_dir: Option<String>,
     /// Path to- or URL of the `.torrent` file to add.
     ///
     /// **NOTE:** Either this (`filename`) or [`metainfo`] **MUST** be `Some(_)`.
     ///
     /// [`metainfo`]: Self::metainfo
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
     /// Arbitrary labels to set on the newly added torrent.
-    ///
-    /// > Added in Transmission 4.0.0 (`rpc-version-semver` 5.3.0, `rpc-version`: 17)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "5.3.0"]
     pub labels: Option<Vec<String>>,
     /// [Base64]-encoded `.torrent` content.
     ///
@@ -114,13 +110,10 @@ pub struct TorrentAddArgs {
     ///
     /// [Base64]: <https://en.wikipedia.org/wiki/Base64>
     /// [`filename`]: Self::filename
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub metainfo: Option<String>,
     /// If true, don't start the torrent.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub paused: Option<bool>,
     /// Maximum number of peers.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub peer_limit: Option<u16>,
     /// List of indices of files to be downloaded.
     ///
@@ -128,32 +121,28 @@ pub struct TorrentAddArgs {
     /// downloaded.
     ///
     /// [`files_unwanted`]: Self::files_unwanted
-    #[serde(skip_serializing_if = "Option::is_none")]
     /// List of indices of files to not download.
+    #[added = "2.0.0"]
     pub files_wanted: Option<Vec<usize>>,
     /// List of indices of files not to download.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "2.0.0"]
     pub files_unwanted: Option<Vec<usize>>,
     /// List of indices of files to be downloaded with high priority.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "2.0.0"]
     pub priority_high: Option<Vec<usize>>,
     /// List of indices of files to be downloaded with low priority.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "2.0.0"]
     pub priority_low: Option<Vec<usize>>,
     /// List of indices of files to be downloaded with normal priority.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[added = "2.0.0"]
     pub priority_normal: Option<Vec<usize>>,
     /// Whether to download torrent pieces sequentially.
-    ///
-    /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
-    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
+    #[added = "6.0.0"]
     pub sequential_download: Option<bool>,
     /// Download from a specific piece when [`sequential_download`] is enabled (`true`).
     ///
-    /// > Added in Transmission 4.1.0 (`rpc_version_semver` 6.0.0, `rpc_version`: 18)
-    ///
     /// [`sequential_download`]: Self::sequential_download
-    #[serde(skip_serializing)] // Doesn't exist pre- semver-6.0.0
+    #[added = "6.0.0"]
     pub sequential_download_from_piece: Option<u64>,
 }
 
