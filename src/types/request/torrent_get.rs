@@ -1,15 +1,14 @@
-use compat_macros::GenerateCompat;
+use compat_macros::SemverCompat;
 use enum_iterator::{all, Sequence};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-use super::{Id, map_option_vec};
+use super::Id;
 
 #[skip_serializing_none]
-#[derive(GenerateCompat, Serialize, Debug, Clone)]
-#[compat(placeholder = P)]
+#[derive(SemverCompat, Serialize, Debug, Clone)]
 pub struct TorrentGetArgs {
-    #[compat(type = Option<Vec<P>>, map = map_option_vec)]
+    #[compat(type = Option<Vec<_>>)]
     pub(crate) fields: Option<Vec<TorrentGetField>>,
     pub(crate) ids: Option<Vec<Id>>,
 }
@@ -48,7 +47,7 @@ where
 /// [`Torrent`]: crate::types::Torrent
 /// [Transmission]: <https://transmissionbt.com/>
 #[derive(
-    GenerateCompat,
+    SemverCompat,
     Serialize,
     Deserialize,
     Debug,

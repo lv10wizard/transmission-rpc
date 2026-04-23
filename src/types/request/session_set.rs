@@ -1,4 +1,4 @@
-use compat_macros::GenerateCompat;
+use compat_macros::SemverCompat;
 use serde::Serialize;
 use serde_with::skip_serializing_none;
 
@@ -8,7 +8,7 @@ use super::{AltSpeedDay, Encryption, EncryptionCompat, MinutesAfterMidnight, Tra
 /// 
 /// [`session_set`]: crate::TransClient::session_set
 #[skip_serializing_none]
-#[derive(GenerateCompat, Serialize, Debug, Clone, Default, PartialEq)]
+#[derive(SemverCompat, Serialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct SessionSetArgs {
     /// Max global download speed (kB/s).
@@ -70,6 +70,10 @@ pub struct SessionSetArgs {
     /// avoid client breakage, but it will be otherwise unused in libtransmission. Clients should
     /// stop using this key.
     #[compat(name = cache_size_mib)]
+    //TODO: #[added(semver = "3.4.0")]
+    //TODO: #[renamed(semver = "6.0.0", name = cache_size_mib)]
+    //TODO? #[deprecated(semver = "6.1.0")]
+    //TODO: #[removed(semver = "???")]
     pub cache_size_mb: Option<i32>,
 
     /// Announce URLs, one per line, and a blank line between [tiers].

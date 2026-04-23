@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 use enum_iterator::all;
 use serde::{Serialize, Serializer};
 
-use compat_macros::GenerateCompat;
+use compat_macros::SemverCompat;
 
 use crate::json_rpc::{JsonRpcId, JsonRpcRequest};
 use super::{
@@ -369,37 +369,7 @@ impl RpcRequest {
     }
 }
 
-/// Converts a `Vec<T>` into a `Vec<U>` by iterating over all of `vec`'s items and calling `func`
-/// on each.
-///
-/// The function signature was created to conform with [`Option::map`] arguments, specifically for
-/// [`GenerateCompat`] usage.
-pub(crate) fn map_vec<F, T, U>(vec: Vec<T>, func: F) -> Vec<U>
-where
-    F: Fn(T) -> U,
-{
-    vec.into_iter()
-        .map(func)
-        .collect()
-}
-
-/// Converts a `Option<Vec<T>>` into a `Option<Vec<U>>` by iterating over all of `vec`'s items and
-/// calling `func` on each.
-///
-/// The function signature was created to conform with [`Option::map`] arguments, specifically for
-/// [`GenerateCompat`] usage.
-pub(crate) fn map_option_vec<F, T, U>(vec: Option<Vec<T>>, func: F) -> Option<Vec<U>>
-where
-    F: Fn(T) -> U,
-{
-    vec.map(|vec| {
-        vec.into_iter()
-            .map(func)
-            .collect()
-    })
-}
-
-#[derive(GenerateCompat, Serialize, Debug, Copy, Clone)]
+#[derive(SemverCompat, Serialize, Debug, Copy, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum Method {
     BlocklistUpdate,
@@ -451,46 +421,45 @@ impl Display for Method {
 pub trait ArgumentFields {}
 impl ArgumentFields for TorrentGetField {}
 
-#[derive(GenerateCompat, Serialize, Debug, Clone)]
-#[compat(placeholder = P)]
+#[derive(SemverCompat, Serialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Args {
-    #[compat(type = P)]
+    #[compat(type = "_")]
     FreeSpace(FreeSpaceArgs),
-    #[compat(type = P)]
+    #[compat(type = _)]
     GroupGet(GroupGetArgs),
-    #[compat(type = P)]
+    #[compat(type = _)]
     GroupSet(GroupSetArgs),
-    #[compat(type = P)]
+    #[compat(type = _)]
     PortTest(PortTestArgs),
-    #[compat(type = P)]
+    #[compat(type = _)]
     SessionGet(SessionGetArgs),
-    #[compat(type = P)]
+    #[compat(type = _)]
     SessionSet(SessionSetArgs),
-    #[compat(type = P)]
+    #[compat(type = _)]
     QueueMove(QueueMoveArgs),
-    #[compat(type = P)]
+    #[compat(type = _)]
     TorrentGet(TorrentGetArgs),
-    #[compat(type = P)]
+    #[compat(type = _)]
     TorrentAction(TorrentActionArgs),
-    #[compat(type = P)]
+    #[compat(type = _)]
     TorrentRemove(TorrentRemoveArgs),
-    #[compat(type = P)]
+    #[compat(type = _)]
     TorrentAdd(TorrentAddArgs),
-    #[compat(type = P)]
+    #[compat(type = _)]
     TorrentSet(TorrentSetArgs),
-    #[compat(type = P)]
+    #[compat(type = _)]
     TorrentSetLocation(TorrentSetLocationArgs),
-    #[compat(type = P)]
+    #[compat(type = _)]
     TorrentRenamePath(TorrentRenamePathArgs),
 }
 
-#[derive(GenerateCompat, Serialize, Debug, Clone)]
+#[derive(SemverCompat, Serialize, Debug, Clone)]
 pub struct FreeSpaceArgs {
     path: String,
 }
 
-#[derive(GenerateCompat, Serialize, Debug, Clone)]
+#[derive(SemverCompat, Serialize, Debug, Clone)]
 pub(crate) struct GroupGetArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
     groups: Option<Vec<String>>,
@@ -516,7 +485,7 @@ impl<I: IntoIterator<Item = String>> From<Option<I>> for GroupGetArgs {
 /// Request arguments of a [`port_test`] query.
 ///
 /// [`port_test`]: crate::TransClient::port_test
-#[derive(GenerateCompat, Serialize, Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(SemverCompat, Serialize, Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct PortTestArgs {
     /// Specifies the IP version to use for the port test. For backwards compatibility, it is
     /// allowed to omit this parameter to get the behavior before Transmission `4.1.0`
@@ -543,7 +512,7 @@ impl PortTestArgs {
     }
 }
 
-#[derive(GenerateCompat, Serialize, Debug, Clone)]
+#[derive(SemverCompat, Serialize, Debug, Clone)]
 pub struct QueueMoveArgs {
     ids: Vec<Id>,
 }
@@ -554,7 +523,7 @@ impl<I: IntoIterator<Item = Id>> From<I> for QueueMoveArgs {
     }
 }
 
-#[derive(GenerateCompat, Serialize, Debug, Clone)]
+#[derive(SemverCompat, Serialize, Debug, Clone)]
 pub struct TorrentActionArgs {
     ids: Vec<Id>,
 }
@@ -565,14 +534,14 @@ impl<I: IntoIterator<Item = Id>> From<I> for TorrentActionArgs {
     }
 }
 
-#[derive(GenerateCompat, Serialize, Debug, Clone)]
+#[derive(SemverCompat, Serialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct TorrentRemoveArgs {
     ids: Vec<Id>,
     delete_local_data: bool,
 }
 
-#[derive(GenerateCompat, Serialize, Debug, Clone)]
+#[derive(SemverCompat, Serialize, Debug, Clone)]
 pub struct TorrentSetLocationArgs {
     ids: Vec<Id>,
     location: String,
@@ -582,7 +551,7 @@ pub struct TorrentSetLocationArgs {
 /// Request arguments of a [`torrent_rename_path`] query.
 ///
 /// [`torrent_rename_path`]: crate::TransClient::torrent_rename_path
-#[derive(GenerateCompat, Serialize, Debug, Clone)]
+#[derive(SemverCompat, Serialize, Debug, Clone)]
 pub struct TorrentRenamePathArgs {
     ids: Vec<Id>,
     path: String,

@@ -5,9 +5,11 @@
 use std::fmt::{self, Display};
 
 use bitflags::{self, parser};
+use semver::Version;
 use serde::{Deserialize, Serialize, de::Error as _};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
+use crate::TransError;
 #[allow(unused_imports)]
 pub(crate) use self::request::{RpcRequest, SessionGetArgs};
 pub use self::request::{
@@ -66,6 +68,46 @@ pub enum Id {
     Hash(String),
 }
 
+/// Represents the server's current RPC API version.
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RpcVersion(pub i32);
+
+// TODO: this may need to go in a separate crate so that `compat_macros` can use it
+impl RpcVersion {
+    /// Maps the `RpcVersion` into its corresponding [semver].
+    ///
+    /// [semver]: <https://semver.org/>
+    fn semver(&self) -> Result<Version> {
+        let semver = match self.0 {
+            1 => "1.0.0",
+            2 => "1.1.0",
+            3 => "1.2.0",
+            4 => "1.3.0",
+            5 => "2.0.0",
+            6 => "2.1.0",
+            7 => "3.0.0",
+            8 => "3.1.0", // NOTE: version 8 maps onto both "3.1.0" and "3.2.0"
+            9 => "3.3.0",
+            10 => "3.4.0",
+            11 => "3.5.0",
+            12 => "3.6.0",
+            13 => "4.0.0",
+            14 => "5.0.0",
+            15 => "5.1.0",
+            16 => "5.2.0",
+            17 => "5.3.0",
+            18 => "6.0.0",
+            19 => "6.0.1",
+            //20 => "6.1.0",
+
+            v => return Err(Box::new(TransError::UnknownRpcSemver(v))),
+        };
+        Version::parse(semver)
+            // This most likely means that the programmer typed the semver string incorrectly.
+            .map_err(|err| Box::new(err) as Box<_>)
+    }
+}
+
 /// Represents a [`Torrent`]'s bandwidth and file download priority.
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(i8)]
@@ -115,6 +157,7 @@ pub enum Encryption {
     ///
     /// > Renamed from `tolerated` to `allowed` in Transmission 4.1.0.
     #[serde(alias = "allowed")]
+    //#[changed(semver = "6.0.0", name = Allowed)]
     Tolerated,
 }
 

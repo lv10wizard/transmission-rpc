@@ -1,7 +1,7 @@
-use compat_macros::GenerateCompat;
+use compat_macros::SemverCompat;
 use serde::Serialize;
 
-use super::{Args, RpcRequest, map_vec};
+use super::{Args, RpcRequest};
 
 /// Represents internal request arguments for the [`session_get`] method for json serialization
 /// purposes.
@@ -28,11 +28,10 @@ use super::{Args, RpcRequest, map_vec};
 /// [`session_get`]: RpcRequest::session_get
 /// [`SessionGet`]: crate::types::SessionGet
 /// [`HashSet`]: std::collections::HashSet
-#[derive(GenerateCompat, Serialize, Debug, Clone, PartialEq)]
+#[derive(SemverCompat, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
-#[compat(placeholder = P)]
 pub(crate) struct SessionGetArgs {
-    #[compat(type = Vec<P>, map = map_vec)]
+    #[compat(type = Vec<_>)]
     #[serde(skip_serializing_if = "Vec::is_empty")] // Treat empty the same as `None`.
     pub(crate) fields: Vec<SessionGetField>,
 }
@@ -73,7 +72,7 @@ where
 ///
 /// [`session_get`]: crate::TransClient::session_get
 /// [Transmission]: <https://transmissionbt.com/>
-#[derive(GenerateCompat, Serialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(SemverCompat, Serialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum SessionGetField {
     AltSpeedDown,
@@ -94,6 +93,11 @@ pub enum SessionGetField {
     /// 5.0.0 to avoid client breakage, but it will be otherwise unused in libtransmission. Clients
     ///   should stop using this key.
     #[compat(name = CacheSizeMib)]
+    /*
+    #[added(semver = "3.4.0")]
+    #[changed(semver = "6.0.0", name = CacheSizeMib)]
+    #[deprecated(semver = "6.1.0", reason = "The memory cache is being removed, making this setting moot. The setting will still be gettable and settable via RPC session_get and session_set until Transmission 5.0.0 to avoid client breakage, but it will be otherwise unused in libtransmission. Clients should stop using this key.")]
+    */
     CacheSizeMb,
     ConfigDir,
     DefaultTrackers,

@@ -1,129 +1,78 @@
 extern crate proc_macro;
 
-use proc_macro2::Span;
+use std::collections::HashMap;
+
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
-    Attribute, DataEnum, DataStruct, DeriveInput, Error, Expr, Fields, Ident, Lit, Meta, Path,
-    Result, Token, Type,
-    punctuated::Punctuated,
-    spanned::Spanned as _
+    Data, DeriveInput, Error, Ident, Result,
+    spanned::Spanned as _,
 };
 
 use crate::{
-    placeholder::replace_compat_placeholder,
-    symbols::{COMPAT_ATTR, COMPAT_PREFIX, PLACEHOLDER, MAP, NAME, TYPE},
+    SUPPORTED_VERSIONS,
+    compat::{FieldOrVar, Kind, parse_attr},
+    serde::{parse_serde_container_attr, parse_serde_field_attr},
+    symbols::{compat_id, version_id},
+    r#type::{determine_which_into_func, replace_with_compat_type},
 };
 
-const NAMED_FIELDS_ONLY: &'static str = "GenerateCompat only supports structs with named fields.";
+pub(crate) struct StructOrEnum<'a> {
+    inner: &'a Data,
+}
 
-/// Generates a semver-6.0.0 compatible struct for serialization purposes.
-pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
-    -> proc_macro2::TokenStream
-{
-    let parsed_outer = match parse_outer_compat_attr(&ast.attrs) {
-        Ok(parsed) => parsed,
-        Err(err) => return err.into_compile_error(),
-    };
-
-    // Stores the compat struct's field names where the index into the Vec corresponds to the
-    // original (legacy) struct's field's name.
-    //
-    // These will only differ when a field is flagged with #[compat(...)].
-    let mut compat_ident = Vec::with_capacity(data.fields.len());
-    // Stores the target type for each of the legacy struct's fields.
-    let mut type_defn: Vec<Type> = Vec::with_capacity(data.fields.len());
-    // Stores the conversion function, if any, for each of the legacy struct's fields.
-    let mut conv: Vec<Option<Path>> = Vec::with_capacity(data.fields.len());
-
-    for field in data.fields.iter() {
-        let ty = Some(&field.ty);
-        let parsed_attr = match parse_field_compat_attr(&field.attrs, ty, &parsed_outer) {
-            Err(err) => return format_compat_attr_err(err).into_compile_error(),
-            Ok(parsed) => parsed,
-        };
-
-        compat_ident.push(parsed_attr.name
-            .or_else(|| field.ident.clone())
-            .expect(NAMED_FIELDS_ONLY)); // Only handle structs with named fields.
-        type_defn.push(parsed_attr.ty
-            .unwrap_or_else(|| field.ty.clone()));
-        conv.push(parsed_attr.map_fn);
+impl<'a> StructOrEnum<'a> {
+    #[allow(unused)]
+    pub(crate) fn new(data: &'a Data) -> Self {
+        data.into()
     }
 
-    // Generate the compat-struct `into_compat` field conversions.
-    let field_conv = {
-        let converted_field: Vec<_> = data.fields
-            .iter()
-            .enumerate()
-            .map(|(i, field)| {
-                let ident = field.ident.as_ref().expect(NAMED_FIELDS_ONLY);
-                const MSG: &'static str = "every field should have a `conv` item";
-                let converted = match conv.get(i).expect(MSG) {
-                    // eg. `Option::map(self.x, Into::into)`
-                    // NOTE: Probably won't work for non- `Option::map` methods.
-                    Some(conv) => quote_spanned! {field.span()=>
-                        #conv(self.#ident, Into::into)
-                    },
-                    // eg. `self.x.into()`
-                    None => quote_spanned! {field.span()=>
-                        self.#ident.into()
-                    },
-                };
-
-                // Move each field in `self` to its serialization helper type's corresponding
-                // field, converting it if required.
-                //
-                // eg.
-                // Orig   { x: i32, y: i32 }
-                // Compat { a: i32, b: i32 }
-                //
-                // // return Compat { a: self.x, b: self.y }
-                let compat = compat_ident.get(i);
-                quote_spanned! {field.span()=>
-                    #compat: #converted
-                }
-            })
-            .collect();
-
-        match &data.fields {
-            Fields::Named(f) => quote_spanned! {f.span()=>
-                { #( #converted_field, )* }
+    fn keyword(&self) -> Result<proc_macro2::TokenStream> {
+        match &self.inner {
+            Data::Enum(e) => {
+                let token = e.enum_token;
+                Ok(quote! { #token })
             },
-            Fields::Unnamed(f) => quote_spanned! {f.span()=>
-                ( #( #converted_field, )* )
+            Data::Struct(s) => {
+                let token = s.struct_token;
+                Ok(quote! { #token })
             },
-            Fields::Unit => proc_macro2::TokenStream::new(),
+            Data::Union(u) => Err(Error::new(u.union_token.span(), "unsupported type")),
         }
-    };
+    }
 
-    let orig_struct_id = &ast.ident;
-    let compat_struct_id = format_ident!("{COMPAT_PREFIX}{}", orig_struct_id);
-    let generics = &ast.generics;
-    let semi_token = data.semi_token;
+    fn fields(&self) -> Result<Vec<FieldOrVar<'_>>> {
+        match &self.inner {
+            Data::Enum(e) => Ok(e.variants.iter().map(Into::into).collect()),
+            Data::Struct(s) => Ok(s.fields.iter().map(Into::into).collect()),
+            Data::Union(u) => Err(Error::new(u.union_token.span(), "unsupported type")),
+        }
+    }
+}
+
+impl<'a> From<&'a Data> for StructOrEnum<'a> {
+    fn from(value: &'a Data) -> Self {
+        let inner = match value {
+            Data::Enum(_) => value,
+            Data::Struct(_) => value,
+            Data::Union(_) => panic!("unsupported type: union"),
+        };
+        Self { inner }
+    }
+}
+
+/// Generates tokens to serialize missing enum variants for the compat enum, `container_id`.
+fn gen_serialize_missing(container_id: &Ident) -> proc_macro2::TokenStream {
     quote! {
-        /// Semver-6.0.0 compatible serialization helper.
         #[automatically_derived]
-        #[allow(non_camel_case_types)]
-        #[serde_with::skip_serializing_none] // I think this has appear before derive(Serialize).
-        #[derive(serde::Serialize, Debug, Clone)]
-        #[serde(rename_all = "snake_case")]
-        pub(crate) struct #compat_struct_id #generics {
-            #(#compat_ident: #type_defn),*
-        } #semi_token
-
-        #[automatically_derived]
-        impl #orig_struct_id {
-            /// Converts the legacy struct into its semver-6.0.0 compatible serialization helper
-            /// type.
-            pub fn into_compat(self) -> #compat_struct_id {
-                #compat_struct_id #field_conv
-            }
-        }
-
-        // Helper `From` implementation for the legacy struct -> semver-6.0.0 compatible struct.
-        impl From<#orig_struct_id> for #compat_struct_id {
-            fn from(value: #orig_struct_id) -> Self {
-                value.into_compat()
+        #[allow(dead_code, non_camel_case_types)]
+        impl #container_id {
+            /// Serializes missing variants (`version < added` or `version >= removed`) to the
+            /// empty string.
+            fn serialize_missing<S>(serializer: S) -> std::result::Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                serializer.serialize_str("")
             }
         }
     }
@@ -131,342 +80,275 @@ pub(crate) fn generate_compat_struct(ast: &DeriveInput, data: &DataStruct)
 
 // ------------------------------------------------------------------------------------------------
 
-/// Generates a semver-6.0.0 compatible enum for serialization purposes.
-pub(crate) fn generate_compat_enum(ast: &DeriveInput, data: &DataEnum)
-    -> proc_macro2::TokenStream
+/// Generates compatible structs or enums for each supported (hardcoded) transmission rpc semver.
+pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
+    -> Result<proc_macro2::TokenStream>
 {
-    let orig_enum_id = &ast.ident;
+    let container_fields = data.fields()?;
+    let orig_container_id = &ast.ident;
+    let keyword = &data.keyword()?;
     let generics = &ast.generics;
-    let compat_enum_id = format_ident!("{COMPAT_PREFIX}{}", orig_enum_id);
+    let mut generated_compat_types = HashMap::new();
+    for version in SUPPORTED_VERSIONS.iter() {
+        let container_id = compat_id(version, orig_container_id);
+        let from_arg_ident = format_ident!("orig");
+        let none_variant = format_ident!("__None_{container_id}");
 
-    let parsed_outer = match parse_outer_compat_attr(&ast.attrs) {
-        Ok(parsed) => parsed,
-        Err(err) => return err.into_compile_error(),
-    };
-
-    // Check if the enum is #[serde(untagged)].
-    let untagged = match parse_serde_untagged(&ast.attrs) {
-        Ok(untagged) => untagged,
-        Err(err) => return err.into_compile_error(),
-    };
-
-    // (either `Serialize` if no explicit discriminant is encountered or `Serialize_repr` if an
-    // explicit discriminant assignment _is_ encountered).
-    let (mut ser_crate, mut ser_derive)  = (format_ident!("serde"), format_ident!("Serialize"));
-
-    // Stores the generated compat enum's variant definitions.
-    let mut compat_defn = Vec::with_capacity(data.variants.len());
-    // Stores the original -> compat variant `into` conversions.
-    let mut convert_defn = Vec::with_capacity(data.variants.len());
-
-    for var in data.variants.iter() {
-        if var.discriminant.is_some() {
-            // Serialize the enum into its discriminant number representation if any variant has an
-            // explicitly assigned discriminant.
-            //
-            // eg. `enum Repr { A, B, C = 123 }`
-            (ser_crate, ser_derive) = (
-                format_ident!("serde_repr"),
-                format_ident!("Serialize_repr"),
-            );
-        }
-
-        let orig_type: Option<&Type> = match &var.fields {
-            Fields::Unit => None,
-            Fields::Unnamed(fields) => {
-                match fields.unnamed.len() {
-                    1 => fields.unnamed.get(0)
-                        .map(|f| &f.ty),
-                    _ => {
-                        let msg = "GenerateCompat does not support enum variants with multiple \
-                                  fields";
-                        return Error::new(var.span(), msg)
-                            .into_compile_error();
-                    },
+        let mut fields = Vec::with_capacity(container_fields.len());
+        let mut field_into = Vec::with_capacity(container_fields.len());
+        'fields: for field in container_fields.iter() {
+            let mut semver_compat = HashMap::new();
+            let parsed = parse_attr(*field)?;
+            if !parsed.changes.is_empty() {
+                for (version, kind) in parsed.changes.into_iter() {
+                    semver_compat.entry(field)
+                        .or_insert(HashMap::<_, _>::default())
+                        .insert(version.clone(), kind);
                 }
             }
-            Fields::Named(_) => {
-                let msg = "GenerateCompat does not support enums with struct-like variants.";
-                return Error::new(var.span(), msg)
-                    .into_compile_error();
-            },
-        };
-        let parsed_attr = match parse_field_compat_attr(&var.attrs, orig_type, &parsed_outer) {
-            Err(err) => return format_compat_attr_err(err).into_compile_error(),
-            Ok(parsed) => parsed,
-        };
 
-        let var_id = &var.ident;
-        let compat_ident = parsed_attr.name.unwrap_or_else(|| var_id.clone());
-        // Construct the compat-enum variant definition and `into_compat` conversion.
-        match (&parsed_attr.ty, &parsed_attr.map_fn) {
-            (Some(ty), map_fn) => {
-                compat_defn.push(quote_spanned! {ty.span()=>
-                    #compat_ident(#ty)
-                });
-
-                let into = match map_fn {
-                    // Map the original -> compat type.
-                    Some(map_fn) => quote! {
-                        #map_fn(x, Into::into)
-                    },
-                    // Call the `Into` implementation if no `map` was specified. Usually this will
-                    // be a no-op (eg. `let x: i32 = 2.into();`).
-                    None => quote! {
-                        x.into()
-                    },
-                };
-                let map_span = parsed_attr.span
-                    .unwrap_or_else(|| ty.span());
-                convert_defn.push(quote_spanned! {map_span=>
-                    Self::#var_id(x) => #compat_enum_id::#compat_ident(#into)
-                });
-            },
-
-            (None, Some(map)) => {
-                // #[compat(map = ...)] defined but no type change specified.
-                // This isn't really an error but may be indicative of one; may as well force the
-                // caller to confront it.
-                let msg = format!("\"{MAP}\"");
-                return Error::new(map.span(), msg)
-                    .into_compile_error();
-            },
-
-            (None, None) => {
-                compat_defn.push(quote_spanned! {var_id.span()=>
-                    #compat_ident
-                });
-                convert_defn.push(quote_spanned! {var.span()=>
-                    Self::#var_id => #compat_enum_id::#compat_ident
-                });
-            },
-        };
-    }
-
-    quote! {
-        /// Semver-6.0.0 compatible serialization helper.
-        #[automatically_derived]
-        #[allow(non_camel_case_types)]
-        #[derive(#ser_crate::#ser_derive, Debug, Clone)]
-        #[serde(rename_all = "snake_case")]
-        #untagged
-        pub(crate) enum #compat_enum_id #generics {
-            #(#compat_defn),*
-        }
-
-        #[automatically_derived]
-        impl #orig_enum_id {
-            /// Converts the legacy enum into its semver-6.0.0 compatible serialization helper
-            /// type.
-            pub fn into_compat(self) -> #compat_enum_id {
-                match self {
-                    #(#convert_defn),*
+            let mut include = true;
+            let mut ident = field.require_ident()?; // The compat type's field/variant ident.
+            // Process transmission semver changes.
+            if let Some(changes) = semver_compat.get(field) {
+                for (change_version, kind) in changes.iter() {
+                    match kind {
+                        Kind::Added => if version < change_version {
+                            match &data.inner {
+                                // We can just skip generating the field if it doesn't exist in
+                                // this version.
+                                Data::Struct(_) => continue 'fields,
+                                // We need to still process the variant to convert the
+                                // source-defined variant into a non-serialized `None` variant.
+                                Data::Enum(_) => include = false,
+                                _ => return Err(
+                                    Error::new(keyword.span(), "unexpected container type")
+                                ),
+                            }
+                        },
+                        Kind::Removed => if version >= change_version {
+                            match &data.inner {
+                                Data::Struct(_) => continue 'fields,
+                                Data::Enum(_) => include = false,
+                                _ => return Err(
+                                    Error::new(keyword.span(), "unexpected container type")
+                                ),
+                            }
+                        },
+                        Kind::Renamed(id) => if version >= change_version {
+                            ident = id;
+                        },
+                    }
                 }
             }
-        }
 
-        // This Display impl for enums is specifically to facilitate testing Method serialization.
-        #[automatically_derived]
-        #[cfg(test)]
-        impl std::fmt::Display for #compat_enum_id {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                let as_str = serde_json::to_string(self)
-                    .map_err(|_| std::fmt::Error)?;
-                write!(f, "{as_str}")
+            // Replace the source-defined type with its corresponding semver type, if needed.
+            let mut ty = field.ty()?.map(Clone::clone);
+            if parsed.replace_type {
+                replace_with_compat_type(version, ty.as_mut())?;
             }
-        }
 
-        // Helper `From` implementation for the legacy enum -> semver-6.0.0 compatible enum.
-        impl From<#orig_enum_id> for #compat_enum_id {
-            fn from(value: #orig_enum_id) -> Self {
-                value.into_compat()
-            }
-        }
-    }
-}
+            // Determine the conversion function to use to map the source-defined original type
+            // into its corresponding compat type.
+            let (map_func_ident, map_func_defn) = determine_which_into_func(ty.as_ref())?;
 
-// ------------------------------------------------------------------------------------------------
+            // The field/variant may have been renamed so we need to explicitly use the
+            // source-defined original ident.
+            let orig_ident = field.require_ident()?;
+            let attrs = parse_serde_field_attr(version, *field)?;
+            let ty = ty.as_ref().or(field.ty()?);
+            match &data.inner {
+                Data::Struct(_) => {
+                    let Some(ty) = ty else {
+                        return Err(Error::new(field.span(), "struct field must have a type"));
+                    };
+                    fields.push(quote_spanned! {field.span()=>
+                        #( #attrs )*
+                        #ident: #ty
+                    });
+                    field_into.push(quote_spanned! {field.span()=>
+                        #ident: {
+                            #map_func_defn
 
-struct ParsedFieldAttr {
-    span: Option<Span>,
-    name: Option<Ident>,
-    ty: Option<Type>,
-    map_fn: Option<Path>,
-}
-
-fn format_compat_attr_err(err: Error) -> Error {
-    let msg = format!("Failed to parse #[{COMPAT_ATTR}] args: {err}");
-    Error::new(err.span(), msg)
-}
-
-/// Parses the #[compat(...)] helper attribute on struct fields or enum variants.
-///
-/// eg.
-/// ```
-/// #[derive(GenerateCompat)]
-/// struct Foo {
-///     #[compat(name = xyzzy)] // <<< Parses this
-///     bar: i32,
-/// }
-/// ```
-fn parse_field_compat_attr<'a, I>(attributes: I, orig_type: Option<&Type>, outer: &ParsedOuterAttr)
-    -> Result<ParsedFieldAttr>
-where
-    I: IntoIterator<Item = &'a Attribute>,
-{
-    let mut span = None;
-    let mut attr_name = None;
-    let mut attr_type = None;
-    let mut mapping = None;
-
-    for attr in attributes.into_iter() {
-        if attr.path() != COMPAT_ATTR {
-            continue;
-        }
-
-        attr.parse_nested_meta(|meta| {
-            // #[compat(name = foo)]
-            if meta.path == NAME {
-                let value = meta.value()?;
-                span = Some(value.span());
-                attr_name = Some(value.parse()?);
-
-            // #[compat(type = Option<i32>)]
-            } else if meta.path == TYPE {
-                match orig_type {
-                    None => {
-                        let msg = format!("\"{TYPE}\" missing original field or enum variant \
-                            type");
-                        return Err(meta.error(msg));
-                    },
-
-                    Some(orig_type) => {
-                        let value = meta.value()?;
-                        span = Some(value.span());
-                        let mut meta_type: Type = value.parse()?;
-                        if let Some(placeholder) = outer.placeholder.as_ref() {
-                            replace_compat_placeholder(
-                                orig_type,
-                                &mut meta_type,
-                                placeholder)?;
+                            #map_func_ident(#from_arg_ident.#orig_ident)
                         }
-                        attr_type = Some(meta_type);
-                    },
-                }
+                    });
+                },
 
-            // #[compat(map = Option::map)]
-            } else if meta.path == MAP {
-                let value = meta.value()?;
-                span = Some(value.span());
-                mapping = Some(value.parse()?);
+                Data::Enum(_) => {
+                    let ident = match include {
+                        true => ident.clone(),
+
+                        // The variant does not exist in this version (it was either removed or has
+                        // yet to be added).
+                        false => none_variant.clone(),
+                    };
+                    if include {
+                        let mut field_tokens = quote_spanned! {field.span()=>
+                            #( #attrs )*
+                            #ident
+                        };
+                        if let Some(ty) = ty {
+                            field_tokens = quote_spanned! {field.span()=>
+                                #field_tokens(#ty)
+                            };
+                        }
+                        fields.push(field_tokens);
+                    }
+
+                    let mut src_variant = quote_spanned! {field.span()=>
+                        #orig_container_id::#orig_ident
+                    };
+                    let mut dst_variant = quote_spanned! {field.span()=>
+                        Self::#ident
+                    };
+
+                    if ty.is_some() {
+                        src_variant = quote_spanned! {field.span()=>
+                            #src_variant(x)
+                        };
+                        dst_variant = quote_spanned! {field.span()=>
+                            {
+                                #map_func_defn
+
+                                #dst_variant(#map_func_ident(x))
+                            }
+                        };
+                    }
+                    field_into.push(quote_spanned! {field.span()=>
+                        #src_variant => #dst_variant
+                    });
+                },
+
+                // This shouldn't happen here (should be caught earlier).
+                Data::Union(u) => {
+                    return Err(Error::new(u.union_token.span(), "unexpected container type"));
+                },
             }
-            Ok(())
-        })?;
+        }
+
+        // Include the `None` variant in case any source-defined variants do not exist in this
+        // version.
+        //
+        // This must be defined after other variants due to #[serde(untagged)]; `untagged` is
+        // needed to prevent serializing the variant into something like `{"__None": ""}`.
+        if let Data::Enum(_) = &data.inner {
+            let empty_str = format!("{container_id}::serialize_missing");
+            let tokens = quote_spanned! {keyword.span()=>
+                #[allow(dead_code)]
+                #[serde(untagged, serialize_with = #empty_str)]
+                #none_variant
+            };
+            fields.push(tokens);
+        }
+
+        let container_serde = parse_serde_container_attr(version, ast)?;
+        let container_doc = format!("Transmission semver-{version} compatible \
+            request serialization helper type");
+        let compat_type = quote! {
+            #[doc = #container_doc]
+            #[automatically_derived]
+            #[allow(non_camel_case_types)]
+            #[derive(serde::Serialize, Debug, Clone)]
+            #(#container_serde)*
+            pub(crate) #keyword #container_id #generics {
+                #( #fields ),*
+            }
+        };
+
+        // Format the `From` implementation based on whether we're processing a struct or enum.
+        let from_impl = match &data.inner {
+            Data::Enum(_) => quote! {
+                match #from_arg_ident {
+                    #( #field_into ),*
+                }
+            },
+            Data::Struct(_) => quote! {
+                Self {
+                    #( #field_into ),*
+                }
+            },
+
+            // This shouldn't happen.
+            _ => return Err(Error::new(keyword.span(), "unexpected container type")),
+        };
+
+        let serialize_missing = match &data.inner {
+            Data::Enum(_) => {
+                let tokens = gen_serialize_missing(&container_id);
+                Some(quote_spanned! {keyword.span()=> #tokens })
+            },
+
+            _ => None,
+        };
+
+        generated_compat_types.insert(version, quote! {
+            #compat_type
+            #serialize_missing
+            impl From<#orig_container_id> for #container_id {
+                fn from(#from_arg_ident: #orig_container_id) -> Self {
+                    #from_impl
+                }
+            }
+        });
     }
 
-    Ok(ParsedFieldAttr {
-        span,
-        name: attr_name,
-        ty: attr_type,
-        map_fn: mapping,
+    let compat_container_doc = format!("Holds every semver-compat type generated for \
+        {orig_container_id}");
+    let compat_container_ident = format_ident!("__{orig_container_id}_compat__");
+    let compat_type_defn = generated_compat_types.values();
+
+    let compat_container_variant_ident: Vec<_> = SUPPORTED_VERSIONS.iter()
+        .map(version_id)
+        .collect();
+    let container_ident: Vec<_> = SUPPORTED_VERSIONS.iter()
+        .map(|v| compat_id(v, orig_container_id))
+        .collect();
+
+    let into_compat_doc = format!("Converts the source-defined `{orig_container_id}` into its \
+        generated `target` semver compatible type.\n\
+        \n\
+        Returns `None` if the `target` semver is unsupported.");
+    let mut into_compat_arm: Vec<_> = SUPPORTED_VERSIONS.iter()
+        .enumerate()
+        .map(|(i, version)| {
+            let variant = compat_container_variant_ident.get(i)
+                .expect("variant ident should exist");
+            let (major, minor, patch) = (version.major, version.minor, version.patch);
+            quote! {
+                (#major, #minor, #patch) => Some(#compat_container_ident::#variant(self.into()))
+            }
+        })
+        .collect();
+    into_compat_arm.push(quote! {
+        (..) => None
+    });
+
+    Ok(quote! {
+        // Emit all of the generated type definitions.
+        #( #compat_type_defn )*
+
+        // Define an enum to consolidate all of the generated structs or enums into a single type
+        // so that we can convert the source-defined original struct/enum into its corresponding
+        // compat struct/enum.
+        #[doc = #compat_container_doc]
+        #[automatically_derived]
+        #[allow(non_camel_case_types)]
+        #[derive(serde::Serialize, Debug, Clone)]
+        #[serde(untagged)]
+        pub(crate) enum #compat_container_ident {
+            #( #compat_container_variant_ident(#container_ident) ),*
+        }
+
+        impl #orig_container_id {
+            #[doc = #into_compat_doc]
+            pub(crate) fn into_compat(self, target: &semver::Version)
+                -> Option<#compat_container_ident>
+            {
+                match (target.major, target.minor, target.patch) {
+                    #( #into_compat_arm ),*
+                }
+            }
+        }
     })
-}
-
-struct ParsedOuterAttr {
-    placeholder: Option<Ident>,
-}
-
-/// Parses the #[compat(...)] helper attribute on the outer struct or enum definition.
-///
-/// eg.
-/// ```
-/// #[derive(GenerateCompat)]
-/// #[compat(placeholder = P)] // <<< Parses this
-/// struct Foo {
-///     bar: i32,
-/// }
-/// ```
-fn parse_outer_compat_attr<'a, I>(attributes: I) -> Result<ParsedOuterAttr>
-where
-    I: IntoIterator<Item = &'a Attribute>,
-{
-    let mut placeholder = None;
-
-    for ast_attr in attributes.into_iter() {
-        if ast_attr.path() != COMPAT_ATTR {
-            continue;
-        }
-
-        let parser = Punctuated::<Meta, Token![,]>::parse_terminated;
-        let nested = ast_attr.parse_args_with(parser)?;
-        for meta in nested.iter() {
-            if meta.path() == PLACEHOLDER {
-                match &meta.require_name_value()?.value {
-                    Expr::Path(expr) => {
-                        placeholder = expr.path.require_ident()?
-                            .clone()
-                            .into();
-                    },
-
-                    Expr::Lit(expr) => match &expr.lit {
-                        Lit::Str(s) => {
-                            placeholder = Some(s.parse()?);
-                        },
-
-                        lit => {
-                            let msg = format!("unexpected \"{PLACEHOLDER}\": {lit:?}");
-                            return Err({
-                                let err = Error::new(meta.span(), msg);
-                                format_compat_attr_err(err)
-                            });
-                        },
-                    },
-
-                    expr => {
-                        let msg = format!("unexpected \"{PLACEHOLDER}\": {expr:?}");
-                        return Err({
-                            let err = Error::new(meta.span(), msg);
-                            format_compat_attr_err(err)
-                        });
-                    },
-                }
-            }
-        }
-    }
-
-    Ok(ParsedOuterAttr { placeholder })
-}
-
-/// Parses the original enum-level attributes for the `#[serde(untagged)]` attribute.
-///
-/// Returns a [`Result`] containing `Some("#[serde(untagged)]")` if found; `None` if no attribute
-/// matches.
-fn parse_serde_untagged<'a, I>(attributes: I) -> Result<Option<proc_macro2::TokenStream>>
-where
-    I: IntoIterator<Item = &'a Attribute>,
-{
-    let mut untagged = None;
-    for ast_attr in attributes.into_iter() {
-        if !ast_attr.path().is_ident("serde") {
-            continue;
-        }
-
-        // `attr.parse_nested_meta` seems to fail if there is only a single expression (eg.
-        // `#[serde(rename = "foo")]`). So we need to "manually" parse with `parse_args_with`.
-        let parser = Punctuated::<Meta, Token![,]>::parse_terminated;
-        let nested = ast_attr.parse_args_with(parser)?;
-        for meta in nested.iter() {
-            if meta.path().is_ident("untagged") {
-                untagged = Some(quote_spanned! {ast_attr.span()=>
-                    #[serde(untagged)]
-                });
-                break;
-            }
-        }
-
-        if untagged.is_some() {
-            break;
-        }
-    }
-    Ok(untagged)
 }

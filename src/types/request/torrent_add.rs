@@ -1,4 +1,4 @@
-use compat_macros::GenerateCompat;
+use compat_macros::SemverCompat;
 use serde::Serialize;
 
 use crate::types::Priority;
@@ -73,7 +73,7 @@ use crate::types::Priority;
 /// [`torrent_add`]: crate::TransClient::torrent_add
 /// [`default`]: Self::default
 /// [`new`]: Self::new
-#[derive(GenerateCompat, Serialize, Debug, Clone, Default, PartialEq, Eq, Hash)]
+#[derive(SemverCompat, Serialize, Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub struct TorrentAddArgs {
     /// The torrent's bandwidth priority.
