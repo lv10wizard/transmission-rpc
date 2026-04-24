@@ -61,18 +61,22 @@ impl<'a> From<&'a Data> for StructOrEnum<'a> {
 }
 
 /// Generates tokens to serialize missing enum variants for the compat enum, `container_id`.
-fn gen_serialize_missing(container_id: &Ident) -> proc_macro2::TokenStream {
+fn gen_serialize_missing(container_id: &Ident, none_variant: &Ident) -> proc_macro2::TokenStream {
     quote! {
+        // Override the blanket [`internal_trait::VariantMissing`] implementation.
+        // REF: https://stackoverflow.com/a/71721454
         #[automatically_derived]
         #[allow(dead_code, non_camel_case_types)]
         impl #container_id {
-            /// Serializes missing variants (`version < added` or `version >= removed`) to the
-            /// empty string.
-            fn serialize_missing<S>(serializer: S) -> std::result::Result<S::Ok, S::Error>
-            where
-                S: serde::Serializer,
-            {
-                serializer.serialize_str("")
+            fn __variant_missing(&self) -> bool {
+                match self {
+                    Self::#none_variant => true,
+                    _ => false,
+                }
+            }
+
+            fn __variant_exists(&self) -> bool {
+                !self.__variant_missing()
             }
         }
     }
@@ -150,7 +154,10 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
 
             // Determine the conversion function to use to map the source-defined original type
             // into its corresponding compat type.
-            let (map_func_ident, map_func_defn) = determine_which_into_func(ty.as_ref())?;
+            let (map_func_ident, map_func_defn) = determine_which_into_func(
+                field.ty()?,
+                ty.as_ref(),
+            )?;
 
             // The field/variant may have been renamed so we need to explicitly use the
             // source-defined original ident.
@@ -230,13 +237,13 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
         // Include the `None` variant in case any source-defined variants do not exist in this
         // version.
         //
-        // This must be defined after other variants due to #[serde(untagged)]; `untagged` is
-        // needed to prevent serializing the variant into something like `{"__None": ""}`.
+        // We assume all enums are wrapped in either an `Option` or a `Vec`, meaning that this
+        // `None` variant should not ever be directly serialized. So we can tag it with
+        // #[serde(skip_serializing)] to prevent ever sending it to a transmission rpc server.
         if let Data::Enum(_) = &data.inner {
-            let empty_str = format!("{container_id}::serialize_missing");
             let tokens = quote_spanned! {keyword.span()=>
                 #[allow(dead_code)]
-                #[serde(untagged, serialize_with = #empty_str)]
+                #[serde(skip_serializing)]
                 #none_variant
             };
             fields.push(tokens);
@@ -275,7 +282,7 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
 
         let serialize_missing = match &data.inner {
             Data::Enum(_) => {
-                let tokens = gen_serialize_missing(&container_id);
+                let tokens = gen_serialize_missing(&container_id, &none_variant);
                 Some(quote_spanned! {keyword.span()=> #tokens })
             },
 
@@ -325,6 +332,11 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
     });
 
     Ok(quote! {
+        // Bring the blanket implementation into scope so that the corresponding filtering methods
+        // are implemented.
+        #[allow(unused_imports)]
+        use internal_trait::VariantMissing as _;
+
         // Emit all of the generated type definitions.
         #( #compat_type_defn )*
 

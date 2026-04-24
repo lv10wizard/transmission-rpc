@@ -7,6 +7,7 @@ edition = "2024"
 proc-macro = true
 
 [dependencies]
+internal_trait = { path = "../internal_trait" }
 proc-macro2 = "1.0.106"
 quote = "1.0.45"
 semver = "1.0.28"

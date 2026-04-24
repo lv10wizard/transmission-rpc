@@ -17,6 +17,7 @@ sync = []
 
 [dependencies]
 compat_macros = { path = "../compat_macros" }
+internal_trait = { path = "../internal_trait" }
 reqwest = { version = "0.12.5", features = [
     "json",
     "rustls-tls",
