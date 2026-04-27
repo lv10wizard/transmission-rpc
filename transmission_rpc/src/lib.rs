@@ -29,33 +29,40 @@ const MAX_RETRIES: usize = 5;
 #[derive(Clone, Debug)]
 pub(crate) enum TransError {
     MaxRetriesReached,
+    MethodNotImplemented(String, RpcVersion),
     NoSessionIdReceived,
     ResponseFailure(String),
     TorrentAddInvalid,
-    VersionTooLow(/*required_version: */RpcVersion),
     UnhandledJsonRpcVersion(String),
     UnknownRpcVersion(RpcVersion),
+    VersionTooLow(/*required_version: */RpcVersion),
 }
 
 impl std::fmt::Display for TransError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TransError::MaxRetriesReached => write!(f, "Max retries reached!"),
+            TransError::MethodNotImplemented(method, ver) => {
+                let ver = ver.release_version()
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|_| format!("{ver}"));
+                write!(f, "{method} not implemented in Transmission {ver}")
+            },
             TransError::NoSessionIdReceived => write!(f, "No session id received!"),
             TransError::ResponseFailure(result) => write!(f, "{result}"),
             TransError::TorrentAddInvalid => {
                 write!(f, "torrent-add MUST include either `filename` or `metainfo`")
             },
-            TransError::VersionTooLow(v) => {
-                let ver = v.release_version()
-                    .map(ToString::to_string)
-                    .unwrap_or_else(|_| format!("{v}"));
-                write!(f, "Transmission version too low: Transmission {ver} required")
-            },
             TransError::UnhandledJsonRpcVersion(v) => write!(f, "Unhandled JSON-RPC version: {v}"),
             TransError::UnknownRpcVersion(v) => {
                 // Indicates the semver for rpc-version `v` is unaccounted for in rust code.
                 write!(f, "[!!] Unknown Transmission RPC semver: {v}")
+            },
+            TransError::VersionTooLow(ver) => {
+                let ver = ver.release_version()
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|_| format!("{ver}"));
+                write!(f, "Transmission {ver} required")
             },
         }
     }
@@ -368,13 +375,11 @@ impl TransClient {
     /// }
     /// ```
     pub async fn session_close(&mut self) -> Result<RpcResponse<Nothing>> {
-        // TODO: self.semver < 3.6.0 => Err("version too low")
         self.call(RpcRequest::session_close(None)).await
     }
 
     /// Performs a session-close request that can be tracked by `tag`.
     pub async fn session_close_tagged(&mut self, tag: Tag) -> Result<RpcResponse<Nothing>> {
-        // TODO: self.semver < 3.6.0 => Err("version too low")
         self.call(RpcRequest::session_close(Some(tag))).await
     }
 
@@ -421,7 +426,6 @@ impl TransClient {
     /// }
     /// ```
     pub async fn blocklist_update(&mut self) -> Result<RpcResponse<BlocklistUpdate>> {
-        // TODO: self.semver < 2.0.0 => Err("version too low")
         self.call(RpcRequest::blocklist_update(None)).await
     }
 
@@ -430,7 +434,6 @@ impl TransClient {
         &mut self,
         tag: Tag,
     ) -> Result<RpcResponse<BlocklistUpdate>> {
-        // TODO: self.semver < 2.0.0 => Err("version too low")
         self.call(RpcRequest::blocklist_update(Some(tag))).await
     }
 
@@ -531,7 +534,6 @@ impl TransClient {
     /// }
     /// ```
     pub async fn port_test(&mut self, args: PortTestArgs) -> Result<RpcResponse<PortTest>> {
-        // TODO: self.semver < 2.0.0 => Err("version too low")
         self.call(RpcRequest::port_test(args, None)).await
     }
 
@@ -539,7 +541,6 @@ impl TransClient {
     pub async fn port_test_tagged(&mut self, args: PortTestArgs, tag: Tag)
         -> Result<RpcResponse<PortTest>>
     {
-        // TODO: self.semver < 2.0.0 => Err("version too low")
         self.call(RpcRequest::port_test(args, Some(tag))).await
     }
 
@@ -580,7 +581,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_top(ids, None)).await
     }
 
@@ -590,7 +590,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_top(ids, Some(tag))).await
     }
 
@@ -631,7 +630,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_up(ids, None)).await
     }
 
@@ -641,7 +639,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_up(ids, Some(tag))).await
     }
 
@@ -682,7 +679,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_down(ids, None)).await
     }
 
@@ -692,7 +688,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_down(ids, Some(tag))).await
     }
 
@@ -733,7 +728,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_bottom(ids, None)).await
     }
 
@@ -743,7 +737,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: self.semver < 5.0.0 => Err("version too low")
         self.call(RpcRequest::queue_move_bottom(ids, Some(tag))).await
     }
 
@@ -999,7 +992,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: (action == Reannounce && self.semver < 2.0.0) => Err("version too low")
         self.call(RpcRequest::torrent_action(action, ids, None))
             .await
     }
@@ -1014,7 +1006,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: (action == Reannounce && self.semver < 2.0.0) => Err("version too low")
         self.call(RpcRequest::torrent_action(action, ids, Some(tag)))
             .await
     }
@@ -1064,7 +1055,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: self.semver < 1.2.0 => Err("version too low")
         self.call(RpcRequest::torrent_remove(ids, delete_local_data, None))
             .await
     }
@@ -1079,7 +1069,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: self.semver < 1.2.0 => Err("version too low")
         self.call(RpcRequest::torrent_remove(
             ids,
             delete_local_data,
@@ -1139,7 +1128,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: self.semver < 2.1.0 => Err("version too low")
         self.call(RpcRequest::torrent_set_location(
             ids, location, move_from, None,
         ))
@@ -1157,7 +1145,6 @@ impl TransClient {
     where
         I: IntoIterator<Item = Id>,
     {
-        // TODO: self.semver < 2.1.0 => Err("version too low")
         self.call(RpcRequest::torrent_set_location(
             ids,
             location,
@@ -1356,7 +1343,6 @@ impl TransClient {
     pub async fn group_get(&mut self, groups: Option<Vec<String>>)
         -> Result<RpcResponse<Vec<GroupGet>>>
     {
-        // TODO: self.semver < 5.3.0 => Err("version too low")
         self.call(RpcRequest::group_get(groups, None)).await
     }
 
@@ -1364,7 +1350,6 @@ impl TransClient {
     pub async fn group_get_tagged(&mut self, groups: Option<Vec<String>>, tag: Tag)
         -> Result<RpcResponse<Vec<GroupGet>>>
     {
-        // TODO: self.semver < 5.3.0 => Err("version too low")
         self.call(RpcRequest::group_get(groups, Some(tag))).await
     }
 
@@ -1422,7 +1407,6 @@ impl TransClient {
     /// ```
     pub async fn group_set(&mut self, args: GroupSetArgs) -> Result<RpcResponse<Nothing>>
     {
-        // TODO: self.semver < 5.3.0 => Err("version too low")
         self.call(RpcRequest::group_set(args, None)).await
     }
 
@@ -1430,7 +1414,6 @@ impl TransClient {
     pub async fn group_set_tagged(&mut self, args: GroupSetArgs, tag: Tag)
         -> Result<RpcResponse<Nothing>>
     {
-        // TODO: self.semver < 5.3.0 => Err("version too low")
         self.call(RpcRequest::group_set(args, Some(tag))).await
     }
 
@@ -1439,7 +1422,7 @@ impl TransClient {
     /// # Errors
     ///
     /// Any IO Error or Deserialization error
-    async fn call<RS>(&mut self, mut request: RpcRequest) -> Result<RpcResponse<RS>>
+    async fn call<RS>(&mut self, request: RpcRequest) -> Result<RpcResponse<RS>>
     where
         RS: RpcResponseArgument + DeserializeOwned + std::fmt::Debug,
     {
@@ -1449,14 +1432,12 @@ impl TransClient {
                 .checked_sub(1)
                 .ok_or(TransError::MaxRetriesReached)?;
 
-            if let Some(semver) = &self.semver {
-                // Flag that the request should be transformed into JSON-RPC.
-                request.jsonrpc = (semver >= &"6.0.0".parse::<Version>()?)
-                    .then_some(JSON_RPC_VERSION_2_0.to_string());
-            }
-
             debug!("Loaded auth: {:?}", &self.auth);
-            let rq = self.rpc_request().json(&request);
+            let mut rq = self.rpc_request();
+            if let Some(semver) = self.semver.as_ref() {
+                let request = request.clone().into_compat(semver)?;
+                rq = rq.json(&request);
+            }
 
             debug!(
                 "Request body: {:?}",
@@ -1479,8 +1460,8 @@ impl TransClient {
                 self.set_server_rpc_semver(&rsp).await?;
                 debug!("Retrying request...");
             } else {
-                let rpc_response: RpcResponse<RS> = match request.jsonrpc.is_some() {
-                    true => {
+                let rpc_response: RpcResponse<RS> = match self.semver.as_ref() {
+                    Some(semver) if semver >= &Version::new(6, 0, 0) => {
                         let resp = rsp.json::<JsonRpcResponse<RS>>().await?;
                         debug!("JSON-RPC response body: {:#?}", resp);
                         if resp.jsonrpc != JSON_RPC_VERSION_2_0 {
@@ -1491,7 +1472,7 @@ impl TransClient {
                         }
                         resp.into()
                     },
-                    false => {
+                    _ => {
                         let resp = rsp.json().await?;
                         debug!("Response body: {:#?}", resp);
                         resp
@@ -1533,7 +1514,11 @@ impl TransClient {
                 };
                 // Try to get the rpc-version with a session-get request which requires a minimum
                 // rpc-semver of 1.3.0.
-                let req = self.rpc_request().json(&RpcRequest::session_get(None, None));
+                let req = self.rpc_request()
+                    .json(&{
+                        let session_get = RpcRequest::session_get(None, None);
+                        session_get.into_compat(&Version::new(1, 3, 0))?
+                    });
                 debug!("Requesting session-get to store the server's rpc-version-semver");
                 let resp: RpcResponse<SessionGet> = req.send()
                     .await?

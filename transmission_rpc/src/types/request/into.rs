@@ -30,7 +30,6 @@ impl From<FreeSpaceArgs> for RpcRequest {
             method: Method::FreeSpace,
             arguments: Some(value.into()),
             tag: None,
-            jsonrpc: None,
         }
     }
 }
@@ -47,7 +46,6 @@ impl From<GroupGetArgs> for RpcRequest {
             method: Method::GroupGet,
             arguments: Some(value.into()),
             tag: None,
-            jsonrpc: None,
         }
     }
 }
@@ -64,7 +62,6 @@ impl From<GroupSetArgs> for RpcRequest {
             method: Method::GroupSet,
             arguments: Some(value.into()),
             tag: None,
-            jsonrpc: None,
         }
     }
 }
@@ -99,7 +96,6 @@ impl From<SessionGetArgs> for RpcRequest {
             method: Method::SessionGet,
             arguments: Some(value.into()),
             tag: None,
-            jsonrpc: None,
         }
     }
 }
@@ -116,7 +112,6 @@ impl From<SessionSetArgs> for RpcRequest {
             method: Method::SessionSet,
             arguments: Some(value.into()),
             tag: None,
-            jsonrpc: None,
         }
     }
 }
@@ -139,7 +134,6 @@ impl From<TorrentAddArgs> for RpcRequest {
             method: Method::TorrentAdd,
             arguments: Some(value.into()),
             tag: None,
-            jsonrpc: None,
         }
     }
 }
@@ -156,7 +150,6 @@ impl From<TorrentGetArgs> for RpcRequest {
             method: Method::TorrentGet,
             arguments: Some(value.into()),
             tag: None,
-            jsonrpc: None,
         }
     }
 }
@@ -173,7 +166,6 @@ impl From<TorrentRemoveArgs> for RpcRequest {
             method: Method::TorrentRemove,
             arguments: Some(value.into()),
             tag: None,
-            jsonrpc: None,
         }
     }
 }
@@ -190,7 +182,6 @@ impl From<TorrentRenamePathArgs> for RpcRequest {
             method: Method::TorrentRenamePath,
             arguments: Some(value.into()),
             tag: None,
-            jsonrpc: None,
         }
     }
 }
@@ -207,7 +198,6 @@ impl From<TorrentSetArgs> for RpcRequest {
             method: Method::TorrentSet,
             arguments: Some(value.into()),
             tag: None,
-            jsonrpc: None,
         }
     }
 }
@@ -224,7 +214,6 @@ impl From<TorrentSetLocationArgs> for RpcRequest {
             method: Method::TorrentSetLocation,
             arguments: Some(value.into()),
             tag: None,
-            jsonrpc: None,
         }
     }
 }

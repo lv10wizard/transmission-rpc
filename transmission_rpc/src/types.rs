@@ -79,8 +79,41 @@ impl Display for RpcVersion {
     }
 }
 
-// TODO: this may need to go in a separate crate so that `compat_macros` can use it
 impl RpcVersion {
+    /// Maps a `rpc-version-semver` into a `RpcVersion`.
+    ///
+    /// Returns `None` if `version` is not defined in [rpc-spec.md]
+    ///
+    /// [rpc-spec.md]: <https://github.com/transmission/transmission/blob/main/docs/rpc-spec.md>
+    pub fn from_semver(version: &Version) -> Option<Self> {
+        let rpc_ver = match (version.major, version.minor, version.patch) {
+            (1, 0, 0) => 1,
+            (1, 1, 0) => 2,
+            (1, 2, 0) => 3,
+            (1, 3, 0) => 4,
+            (2, 0, 0) => 5,
+            (2, 1, 0) => 6,
+            (3, 0, 0) => 7,
+            (3, 1, 0) => 8,
+            (3, 2, 0) => 8,
+            (3, 3, 0) => 9,
+            (3, 4, 0) => 10,
+            (3, 5, 0) => 11,
+            (3, 6, 0) => 12,
+            (4, 0, 0) => 13,
+            (5, 0, 0) => 14,
+            (5, 1, 0) => 15,
+            (5, 2, 0) => 16,
+            (5, 3, 0) => 17,
+            (6, 0, 0) => 18,
+            (6, 0, 1) => 19,
+            //(6, 1, 0) => 20,
+
+            _ => return None,
+        };
+        Some(Self(rpc_ver))
+    }
+
     /// Maps the `RpcVersion` into its corresponding Transmission rpc [semver].
     ///
     /// [semver]: <https://semver.org/>

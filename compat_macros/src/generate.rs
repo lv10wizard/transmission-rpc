@@ -93,6 +93,12 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
     let keyword = &data.keyword()?;
     let generics = &ast.generics;
     let mut generated_compat_types = HashMap::new();
+
+    let mut parsed = Vec::with_capacity(container_fields.len());
+    for field in container_fields.iter() {
+        parsed.push(parse_attr(*field)?);
+    }
+
     for version in SUPPORTED_VERSIONS.iter() {
         let container_id = compat_id(version, orig_container_id);
         let from_arg_ident = format_ident!("orig");
@@ -100,11 +106,11 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
 
         let mut fields = Vec::with_capacity(container_fields.len());
         let mut field_into = Vec::with_capacity(container_fields.len());
-        'fields: for field in container_fields.iter() {
+        'fields: for (i, field) in container_fields.iter().enumerate() {
             let mut include = true;
             let mut ident = field.require_ident()?; // The compat type's field/variant ident.
             // Process transmission semver changes.
-            let parsed = parse_attr(*field)?;
+            let parsed = &parsed[i];
             for (change_version, kind) in parsed.changes.iter() {
                 match kind {
                     Kind::Added => if version < change_version {
@@ -244,7 +250,7 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
         let compat_type = quote! {
             #[doc = #container_doc]
             #[automatically_derived]
-            #[allow(non_camel_case_types)]
+            #[allow(non_camel_case_types, unused)]
             #[derive(serde::Serialize, Debug, Clone)]
             #(#container_serde)*
             pub(crate) #keyword #container_id #generics {

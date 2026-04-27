@@ -1365,7 +1365,7 @@ impl SharableTransClient {
     /// # Errors
     ///
     /// Any IO Error or Deserialization error
-    async fn call<RS>(&self, mut request: RpcRequest) -> Result<RpcResponse<RS>>
+    async fn call<RS>(&self, request: RpcRequest) -> Result<RpcResponse<RS>>
     where
         RS: RpcResponseArgument + DeserializeOwned + std::fmt::Debug,
     {
@@ -1375,14 +1375,12 @@ impl SharableTransClient {
                 .checked_sub(1)
                 .ok_or(TransError::MaxRetriesReached)?;
 
-            if let Some(semver) = self.semver.read().expect("unpoisoned semver lock").as_ref() {
-                // Flag that the request should be transformed into JSON-RPC.
-                request.jsonrpc = (semver >= &"6.0.0".parse::<Version>()?)
-                    .then_some(JSON_RPC_VERSION_2_0.to_string());
-            }
-
             debug!("Loaded auth: {:?}", &self.auth);
-            let rq = self.rpc_request().json(&request);
+            let mut rq = self.rpc_request();
+            if let Some(semver) = self.semver.read().expect("unpoisoned semver lock").as_ref() {
+                let request = request.clone().into_compat(semver)?;
+                rq = rq.json(&request);
+            }
 
             debug!(
                 "Request body: {:?}",
@@ -1408,24 +1406,25 @@ impl SharableTransClient {
                 self.set_server_rpc_semver(&rsp).await?;
                 debug!("Retrying request...");
             } else {
-                let rpc_response: RpcResponse<RS> = match request.jsonrpc.is_some() {
-                    true => {
-                        let resp = rsp.json::<JsonRpcResponse<RS>>().await?;
-                        debug!("JSON-RPC response body: {:#?}", resp);
-                        if resp.jsonrpc != JSON_RPC_VERSION_2_0 {
-                            // This probably means that the request was handled by a new
-                            // Transmission version with an upgrade JSON-RPC protocol.
-                            return TransError::UnhandledJsonRpcVersion(resp.jsonrpc.clone())
-                                .into();
-                        }
-                        resp.into()
-                    },
-                    false => {
-                        let resp = rsp.json().await?;
-                        debug!("Response body: {:#?}", resp);
-                        resp
-                    },
-                };
+                let rpc_response: RpcResponse<RS> =
+                    match self.semver.read().expect("unpoisoned semver lock").as_ref() {
+                        Some(semver) if semver >= &Version::new(6, 0, 0) => {
+                            let resp = rsp.json::<JsonRpcResponse<RS>>().await?;
+                            debug!("JSON-RPC response body: {:#?}", resp);
+                            if resp.jsonrpc != JSON_RPC_VERSION_2_0 {
+                                // This probably means that the request was handled by a new
+                                // Transmission version with an upgrade JSON-RPC protocol.
+                                return TransError::UnhandledJsonRpcVersion(resp.jsonrpc.clone())
+                                    .into();
+                            }
+                            resp.into()
+                        },
+                        _ => {
+                            let resp = rsp.json().await?;
+                            debug!("Response body: {:#?}", resp);
+                            resp
+                        },
+                    };
 
                 return Ok(rpc_response);
             }
@@ -1468,7 +1467,11 @@ impl SharableTransClient {
                 };
                 // Try to get the rpc-version with a session-get request which requires a minimum
                 // rpc-semver of 1.3.0.
-                let req = self.rpc_request().json(&RpcRequest::session_get(None, None));
+                let req = self.rpc_request()
+                    .json(&{
+                        let session_get = RpcRequest::session_get(None, None);
+                        session_get.into_compat(&Version::new(1, 3, 0))?
+                    });
                 debug!("Requesting session-get to store the server's rpc-version-semver");
                 let resp: RpcResponse<SessionGet> = req.send()
                     .await?
