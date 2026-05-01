@@ -1,9 +1,3 @@
 [workspace]
 resolver = "3"
 members = ["compat_macros", "internal_trait", "transmission_rpc"]
-
-# Set the settings for build scripts and proc-macros.
-# REF: https://users.rust-lang.org/t/we-had-fast-proc-macros-all-the-time-or-had-we/114673
-# REF: https://doc.rust-lang.org/cargo/reference/profiles.html#overrides
-[profile.dev.build-override]
-opt-level = 3

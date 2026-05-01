@@ -11,7 +11,7 @@ use syn::{
 use crate::{
     SUPPORTED_VERSIONS,
     compat::{FieldOrVar, Kind, parse_attr},
-    serde::{parse_serde_container_attr, parse_serde_field_attr},
+    serde::{parse_serde_attr, parse_serde_container_attr, parse_serde_field_attr},
     symbols::{compat_id, version_id},
     r#type::{determine_which_into_func, replace_with_compat_type},
 };
@@ -86,6 +86,65 @@ fn gen_serialize_missing(container_id: &Ident, none_variant: &Ident) -> proc_mac
 
 /// Generates compatible structs or enums for each supported (hardcoded) transmission rpc semver.
 pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
+    -> Result<proc_macro2::TokenStream>
+{
+    let container_fields = data.fields()?;
+    let orig_container_id = &ast.ident;
+    let keyword = &data.keyword()?;
+    let generics = &ast.generics;
+
+    let mut has_replaced_type = false;
+    let mut compat_data = HashMap::with_capacity(container_fields.len()); 
+    for fv in container_fields.iter() {
+        let serde = parse_serde_attr(fv.attributes());
+        let compat = parse_attr(*fv)?;
+        has_replaced_type = has_replaced_type || compat.replace_type;
+
+        compat_data.insert(fv, (compat, serde));
+    }
+
+    let compat_id = format_ident!("__{orig_container_id}_Compat");
+    let orig_id = orig_container_id; // TODO: use generated type if `has_replaced_type`
+
+    Ok(quote! {
+        #[automatically_derived]
+        #[allow(non_camel_case_types)]
+        pub(crate) struct #compat_id {
+            version: semver::Version,
+            base: #orig_id,
+        }
+
+        // TODO: orig_container_id -> compat_id conversion
+        // TODO: [if needed] orig_container_id -> helper `has_replaced_type` container conversion
+
+        impl serde::Serialize for #compat_id {
+            fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer
+            {
+                // TODO
+            }
+        }
+    })
+}
+
+
+
+
+
+
+
+
+
+
+
+
+// TODO: OLD
+
+// ------------------------------------------------------------------------------------------------
+
+/// Generates compatible structs or enums for each supported (hardcoded) transmission rpc semver.
+pub(crate) fn generate_compat_types__OLD(ast: &DeriveInput, data: StructOrEnum)
     -> Result<proc_macro2::TokenStream>
 {
     let container_fields = data.fields()?;

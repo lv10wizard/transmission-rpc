@@ -10,7 +10,7 @@ use crate::compat::{CompatData, FieldOrVar, Kind};
 
 /// Linearly searches `attributes` for #\[serde(...)\] attributes, returning a [`Vec`] of matching
 /// [`Attribute`]s.
-fn parse_serde_attr<'a, I>(attributes: I) -> Vec<Attribute>
+pub(crate) fn parse_serde_attr<'a, I>(attributes: I) -> Vec<Attribute>
 where
     I: IntoIterator<Item = &'a Attribute>,
 {
