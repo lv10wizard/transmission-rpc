@@ -12,18 +12,24 @@ use crate::{
     SUPPORTED_VERSIONS,
     compat::{FieldOrVar, Kind, parse_attr},
     serde::{parse_serde_attr, parse_serde_container_attr, parse_serde_field_attr},
+    serialize::SerializeImpl as _,
     symbols::{compat_id, version_id},
     r#type::{determine_which_into_func, replace_with_compat_type},
 };
 
 pub(crate) struct StructOrEnum<'a> {
+    ident: &'a Ident,
     inner: &'a Data,
 }
 
 impl<'a> StructOrEnum<'a> {
-    #[allow(unused)]
-    pub(crate) fn new(data: &'a Data) -> Self {
-        data.into()
+    pub(crate) fn new(ident: &'a Ident, data: &'a Data) -> Self {
+        let inner = match data {
+            Data::Enum(_) => data,
+            Data::Struct(_) => data,
+            Data::Union(_) => panic!("unsupported type: union"),
+        };
+        Self { ident, inner }
     }
 
     fn keyword(&self) -> Result<proc_macro2::TokenStream> {
@@ -47,16 +53,13 @@ impl<'a> StructOrEnum<'a> {
             Data::Union(u) => Err(Error::new(u.union_token.span(), "unsupported type")),
         }
     }
-}
 
-impl<'a> From<&'a Data> for StructOrEnum<'a> {
-    fn from(value: &'a Data) -> Self {
-        let inner = match value {
-            Data::Enum(_) => value,
-            Data::Struct(_) => value,
-            Data::Union(_) => panic!("unsupported type: union"),
-        };
-        Self { inner }
+    fn serialize_impl(&self) -> Result<proc_macro2::TokenStream> {
+        match &self.inner {
+            Data::Enum(e) => e.to_serialize_impl(&self.ident),
+            Data::Struct(s) => s.to_serialize_impl(&self.ident),
+            Data::Union(u) => Err(Error::new(u.union_token.span(), "unsupported type")),
+        }
     }
 }
 
@@ -115,6 +118,7 @@ pub(crate) fn generate_compat_types(ast: &DeriveInput, data: StructOrEnum)
         }
 
         // TODO: orig_container_id -> compat_id conversion
+        // TODO: [if needed] define helper container if `has_replaced_type`
         // TODO: [if needed] orig_container_id -> helper `has_replaced_type` container conversion
 
         impl serde::Serialize for #compat_id {

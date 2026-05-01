@@ -7,11 +7,12 @@ use proc_macro::TokenStream;
 use semver::Version;
 use syn::{DeriveInput, parse_macro_input};
 
-use generate::generate_compat_types;
+use generate::{StructOrEnum, generate_compat_types};
 
 mod compat;
 mod generate;
 mod serde;
+mod serialize;
 mod symbols;
 mod r#type;
 
@@ -317,8 +318,9 @@ pub fn generate_semver_compat(input: TokenStream) -> TokenStream {
     // REF: https://stackoverflow.com/a/42526546
 
     let input = parse_macro_input!(input as DeriveInput);
+    let ident = &input.ident;
     let data = &input.data;
-    match generate_compat_types(&input, data.into()) {
+    match generate_compat_types(&input, StructOrEnum::new(ident, data)) {
         Ok(generated) => generated,
         Err(err) => err.into_compile_error(),
     }
